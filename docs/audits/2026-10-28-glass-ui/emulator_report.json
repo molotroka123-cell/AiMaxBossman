@@ -1,0 +1,24 @@
+{
+ "errors": {
+  "dark": [],
+  "light": []
+ },
+ "fonts": {
+  "dark": true,
+  "light": true
+ },
+ "tabbar": {
+  "dark": {
+   "w": 373,
+   "h": 64,
+   "i": "7",
+   "active": "status"
+  },
+  "light": {
+   "w": 373,
+   "h": 64,
+   "i": "7",
+   "active": "status"
+  }
+ }
+}

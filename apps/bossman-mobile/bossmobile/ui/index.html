@@ -19,6 +19,7 @@
 <script src="vendor/tabbable.umd.min.js" defer></script>
 <script src="vendor/focus-trap.umd.min.js" defer></script>
 <script src="app.js" defer></script>
+  <link rel="preload" href="fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
 <svg width="0" height="0" class="sprite" aria-hidden="true">
@@ -509,6 +510,7 @@
   </section>
 
   <nav class="tabbar" id="tabbar" aria-label="Разделы">
+    <i class="tab-glow" aria-hidden="true"></i>
     <button type="button" class="tab active" data-tab="chat" aria-current="page"><svg aria-hidden="true"><use href="#i-chat"/></svg><span>Чат</span></button>
     <button type="button" class="tab" data-tab="photo"><svg aria-hidden="true"><use href="#i-photo"/></svg><span>Фото</span></button>
     <button type="button" class="tab" data-tab="video"><svg aria-hidden="true"><use href="#i-video"/></svg><span>Видео</span></button>

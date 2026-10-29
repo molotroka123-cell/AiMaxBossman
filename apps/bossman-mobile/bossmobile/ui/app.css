@@ -1,27 +1,30 @@
-/* Bossman Mobile — warm neutral palette, quiet chrome, content first. No external fonts. */
+/* Bossman Mobile - glass UI (28.10): Inter variable bundled locally (OFL, fonts/), Apple-style glass bars and cards, content first. */
+@font-face { font-family: 'InterVar'; src: url('fonts/InterVariable.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
 :root {
-  --bg: #f5f3ee; --bg2: #efece4; --surface: #ffffff; --surface2: #f8f6f1; --line: #e3dfd4; --line2: #d6d0c2;
-  --text: #1f1e1d; --muted: #6f6b62; --faint: #736e64; /* faint >= 4.5:1 on --bg/--surface (was #9a958a, 2.7:1) */
-  --accent: #c96442; --accent-ink: #ffffff; --accent-soft: #f4e2d8;
-  --accent-strong: #b85a3b; /* primary-button fill: white text 4.6:1 (on --accent #c96442 it was 3.9:1, measured 19.10) */
-  --user: #e9e5da; --ok: #2f7d4f; --ok-ink: #ffffff; --warn: #b7791f; --err: #b3261e; --local: #2a7047; /* was #2f7d4f: 4.27:1 on --local-bg */ --local-bg: #e1f0e5;
+  --bg: #eef1f6; --bg2: #e4e8f0; --surface: #ffffff; --surface2: #f5f7fb; --line: #dde3ec; --line2: #c9d2df;
+  --text: #0f172a; --muted: #4b5568; --faint: #5b6474; /* faint >= 4.5:1 on --bg/--surface (was #9a958a, 2.7:1) */
+  --accent: #0a64c8; --accent-ink: #ffffff; --accent-soft: #dbe9fb;
+  --accent-strong: #0a5cc2; /* primary-button fill: white text 4.6:1 (on --accent #c96442 it was 3.9:1, measured 19.10) */
+  --user: #e3e9f3; --ok: #1f7a4a; --ok-ink: #ffffff; --warn: #a16207; --err: #b42318; --local: #1d6b42; /* was #2f7d4f: 4.27:1 on --local-bg */ --local-bg: #dff2e7;
   --shadow: 0 1px 2px rgba(31, 30, 29, .06), 0 8px 24px rgba(31, 30, 29, .06);
   --r: 18px; --r-sm: 12px;
-  --serif: ui-serif, "New York", "Iowan Old Style", Georgia, "Times New Roman", serif;
-  --sans: 'Inter', 'SF Pro Display', 'Segoe UI Variable Display', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
+  --serif: var(--display);
+  --sans: 'InterVar', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
+  --display: 'InterVar', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --glass-line: rgba(15, 23, 42, .08); --glass-hi: rgba(255, 255, 255, .75); --glass-a: 70%;
   --mono: 'JetBrains Mono', 'Cascadia Code', ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --tabbar-h: 56px;
+  --tabbar-h: 72px;
   --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0a0c10; --bg2: #11141a; --surface: #171a21; --surface2: #1d2129; --line: #262b35; --line2: #333a46;
-    --text: #ece9e2; --muted: #a39f96; --faint: #938e84; /* was #767268, 3.6:1 on --surface */
-    --accent: #d97757; --accent-ink: #1a0f0a; --accent-soft: #3a2219; --accent-strong: #d97757;
-    --user: #232833; --ok: #5fbf86; --ok-ink: #08140d; --warn: #e0b04f; --err: #ff6b62; --local: #6fd39a; --local-bg: #173325;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .35);
+    --bg: #070b14; --bg2: #0d1320; --surface: #111827; --surface2: #162033; --line: #1f2a3d; --line2: #2b3850;
+    --text: #e8edf6; --muted: #a3adbf; --faint: #8f9ab0; /* was #767268, 3.6:1 on --surface */
+    --accent: #4cc2ff; --accent-ink: #03131f; --accent-soft: #0f2a3e; --accent-strong: #4cc2ff;
+    --user: #1a2335; --ok: #4ade80; --ok-ink: #052e16; --warn: #fbbf24; --err: #ff6b6b; --local: #6ee7a8; --local-bg: #0f2e22;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .35); --glass-line: rgba(255, 255, 255, .09); --glass-hi: rgba(255, 255, 255, .07); --glass-a: 62%;
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -629,3 +632,32 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
   color: var(--muted); background: color-mix(in srgb, var(--bg2) 85%, transparent); border-left: 3px solid var(--warn); overflow-wrap: anywhere; }
 .approval-row { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); }
 .oc-cost.is-na, .na-badge { background: var(--bg2); color: var(--muted); border: 1px dashed var(--line2); font-variant-numeric: tabular-nums; }
+
+/* ---------- Glass 28.10 (owner: nicer fonts, Apple-style glass menu; references: glassy login/dashboard, Apple navbar) ---------- */
+html, body { font-feature-settings: "cv11", "ss01", "ss03"; font-optical-sizing: auto; }
+body { background:
+    radial-gradient(900px 520px at 8% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+    radial-gradient(760px 480px at 108% 4%, rgba(124, 92, 255, .12), transparent 70%),
+    var(--bg) fixed; }
+.serif, .topbar .title, .section, .stat .big { font-family: var(--display); font-weight: 700; letter-spacing: -.022em; }
+.topbar { background: color-mix(in srgb, var(--surface) 50%, transparent); border-bottom: 1px solid var(--glass-line);
+  -webkit-backdrop-filter: saturate(1.6) blur(22px); backdrop-filter: saturate(1.6) blur(22px); }
+.card, .model-chip, .composer { background: color-mix(in srgb, var(--surface) var(--glass-a), transparent); border-color: var(--glass-line);
+  -webkit-backdrop-filter: saturate(1.5) blur(20px); backdrop-filter: saturate(1.5) blur(20px); box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow); }
+.btn { border-color: var(--glass-line); }
+.btn.primary { background-image: linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 60%); }
+/* floating glass capsule with a sliding active pill */
+.tabbar { position: relative; margin: 0 10px calc(8px + var(--sab)); padding: 6px; border: 1px solid var(--glass-line); border-radius: 26px;
+  background: color-mix(in srgb, var(--surface) 58%, transparent); box-shadow: inset 0 1px 0 var(--glass-hi), 0 14px 34px -10px rgba(0, 0, 0, .38);
+  -webkit-backdrop-filter: saturate(1.8) blur(24px); backdrop-filter: saturate(1.8) blur(24px); }
+.tab-glow { position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / 8); border-radius: 20px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  transform: translateX(calc(var(--tab-i, 0) * 100%)); transition: transform 320ms cubic-bezier(.22, 1, .36, 1); pointer-events: none; }
+.tab { z-index: 1; min-height: 50px; padding-top: 5px; border-radius: 20px; font-size: 10.5px; letter-spacing: 0; }
+.tab svg { width: 23px; height: 23px; }
+.tab.active svg { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 45%, transparent)); }
+.sheet { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+@media (prefers-reduced-transparency: reduce) {
+  .topbar, .tabbar, .card, .model-chip, .composer { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) { .tab-glow { transition: none; } }

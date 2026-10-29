@@ -177,6 +177,8 @@
       const on = t.dataset.tab === name; t.classList.toggle('active', on);
       if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
     });
+    const tabs = [...document.querySelectorAll('.tab')], tb = document.getElementById('tabbar');   // glass menu: slide the active pill
+    const ti = tabs.findIndex((t) => t.dataset.tab === name); if (tb && ti >= 0) tb.style.setProperty('--tab-i', ti);
     if (name === 'photo') openPhoto();
     if (name === 'video') openVideo();
     if (name === 'panel') openPanel();

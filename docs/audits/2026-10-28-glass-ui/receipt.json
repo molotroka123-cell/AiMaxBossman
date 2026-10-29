@@ -1,0 +1,15 @@
+{
+ "schema": "bossman.receipt.v1",
+ "topic": "mobile pult glass UI (owner 28.10: nicer fonts, Apple-style glass menu)",
+ "verdict": "BETA",
+ "what_was_checked": [
+  "339 mobile tests pass (incl. contrast >=4.5:1 both themes, new test_glass_ui.py)",
+  "iPhone 15 Pro emulation (Playwright Chromium), light and dark: 8 tabs opened through the app's own tab buttons, 0 page errors, bundled Inter font loaded, sliding pill index follows the active tab"
+ ],
+ "not_checked": [
+  "real iPhone Safari (backdrop-filter rendering, safe-area)",
+  "shell served by the live pult with a real backend: screens were rendered as a static shell, so data panels show HTTP 404 by design"
+ ],
+ "tool": "tools/mobile_ui_emulator_check.py <ui dir> <out dir>",
+ "font": "Inter variable 4.1, SIL OFL 1.1, bundled in bossmobile/ui/fonts"
+}

@@ -104,4 +104,6 @@ def test_ui_has_the_hold_to_talk_button_wired_to_the_endpoint():
     assert "/m/api/speech/transcribe" in js and "MediaRecorder" in js and "'X-BM-CSRF': S.csrf" in js
     assert "pointerdown" in js and "pointerup" in js and "isSecureContext" in js          # hold to talk, honest https hint
     assert ".compose-tool.rec" in css
-    assert "bossman-shell-v26" in (ui / "sw.js").read_text(encoding="utf-8")                 # phones fetch the new shell
+    import re
+    ver = int(re.search(r"bossman-shell-v(\d+)", (ui / "sw.js").read_text(encoding="utf-8")).group(1))
+    assert ver >= 26                                                                     # phones fetch a shell that has the mic (v26 or later)
