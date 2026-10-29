@@ -1,0 +1,58 @@
+{
+ "receipt": "T5 ContextSanitizer + reasoning dataset + provider limits",
+ "date": "2026-10-29",
+ "base_sha": "7ab1575c",
+ "done": {
+  "context_sanitizer": "tools/coding_swarm.py ContextSanitizer: allowlist = git ls-files, deny keys/vault/.env/tailnet/db/pem, secret scan (two pattern sets), personal-location refusal, home/e-mail/LAN-tailnet-IP redaction, EVAL500 holdout guard; runs in run() before every cloud call and on every --file/--doc",
+  "dataset_m4": "rows id, ts, provider, model_id, task_id, source_sha, prompt_sha256, prompt (sanitized), reasoning, answer, verifier_outcome, cost_usd, training_use=PENDING_TERMS_CHECK, terms_ref -> D:/Bossman/datasets/cloud-reasoning/<YYYY-MM-DD>.jsonl; validate_row refuses missing training_use / personal data / secrets",
+  "export_guard": "export_training_rows raises PermissionError while any row is not ALLOWED_BY_TERMS with terms_ref",
+  "limits": "ledger D:/Bossman/work/coding-swarm/limits.json; free daily calls nemotron 50 / nemotron-nim 40 / gemini 250 -> fallback to local qwen3-coder:30b (Ollama); paid qwen $2/day and 7API $5 total -> model skipped, never a silent paid route; `coding_swarm.py limits` report"
+ },
+ "tests": "57 passed (tests/test_coding_swarm.py + tests/test_eval500_harness.py)",
+ "swarm_flow_proof": {
+  "task": "add `limits` CLI mode",
+  "author": {
+   "model": "kimi-k3.1-pro",
+   "seconds": 196.6,
+   "cost_usd": 0.001195,
+   "dataset_row_written": 1
+  },
+  "reviewers": [
+   {
+    "model": "qwen3.8-flash",
+    "verdict": "REQUEST_CHANGES",
+    "cost_usd": 0.002033
+   },
+   {
+    "model": "nemotron-3-ultra:free",
+    "verdict": "REQUEST_CHANGES",
+    "cost_usd": 0.0
+   }
+  ],
+  "integrator": {
+   "who": "Claude",
+   "accepted": [
+    "importlib test style",
+    "null-safe ledger reads",
+    "corrupt-ledger tolerance",
+    "assertions tied to constants",
+    "test that review/task still need --ask/--out"
+   ],
+   "rejected": [
+    "ledger filename (it is limits.json, reviewer guessed ledger.json)",
+    "--out type=Path (never existed)",
+    "warning on ignored flags (noise)"
+   ]
+  },
+  "artifacts": "D:/Bossman/work/coding-swarm/t5-flow/ (outside git)"
+ },
+ "live_ledger_after": {
+  "7api_total_usd": 0.001195,
+  "qwen_today_usd": 0.002033
+ },
+ "not_done": [
+  "tools/eval500/generate.py calls swarm()._call directly (bypasses sanitizer+limits; prompt is synthetic) - Argon's lane, request filed in LANES_20261029.md",
+  "M4 transfer report (baseline vs lessons on >=30 hidden tasks) - needs T4 baseline first",
+  "training_use change - owner decision after Moonshot/7API terms check"
+ ]
+}
