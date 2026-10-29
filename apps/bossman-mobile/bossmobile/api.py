@@ -329,7 +329,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     workers = WorkerDeviceRegistry()
     bm = BossmanClient(st.bossman_url, st.token_file, transport=bossman_transport)
     ollama = httpx.AsyncClient(base_url=st.ollama_url, transport=ollama_transport, timeout=8, trust_env=False)
-    war = httpx.AsyncClient(base_url=st.war_url, transport=war_transport, timeout=4, trust_env=False)
+    war = httpx.AsyncClient(base_url=st.war_url, transport=war_transport, timeout=httpx.Timeout(2.0, connect=0.25), trust_env=False)
     cache: dict[str, tuple[float, Any]] = {}
 
     @contextlib.asynccontextmanager
@@ -575,11 +575,12 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             except HTTPException as exc:
                 return {**fallback, "error": exc.detail}
 
-        live, oll, wt, dg, ap, ags, pca, hib = await asyncio.gather(
+        live, oll, wt, dg, ap, ags, pca, hib, aigw = await asyncio.gather(
             bossman_live(), ollama_info(), war_info(), guarded(call("GET", "/api/direct-gen/status"), {}),
             guarded(call("GET", "/api/approvals", params={"status": "pending"}), {}), guarded(agents_view(), {}),
             guarded(call("GET", "/api/pc-agent/status"), {}),
-            guarded(call("GET", "/api/agent/hibernation/status"), {}))
+            guarded(call("GET", "/api/agent/hibernation/status"), {}),
+            guarded(call("GET", "/api/ai-gateway/status"), {}))
         strata_agents = [
             a for a in (ags if isinstance(ags, list) else [])
             if any(k in f"{a.get('name') or ''} {(a.get('model') or {}).get('alias') or ''} {(a.get('model') or {}).get('name') or ''}".lower()
@@ -587,6 +588,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         ]
         strata_up = any((a.get("model") or {}).get("health") in ("online", "healthy", "ready") or a.get("allowed") for a in strata_agents)
         return safe({"bossman": live, "ollama": oll, "war_terminal": wt, "direct_gen": dg,
+                     "ai_gateway": aigw if isinstance(aigw, dict) else {},
                      "strata": {"up": strata_up, "model": "qwen3.8-flash-next-iq3_s", "endpoint": "http://127.0.0.1:8090/v1",
                                 "agents": [a.get("name") for a in strata_agents if a.get("allowed")]},
                      "pc_agent": pca if isinstance(pca, dict) else {},

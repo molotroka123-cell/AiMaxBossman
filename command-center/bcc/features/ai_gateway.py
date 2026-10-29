@@ -63,6 +63,7 @@ async def gateway_status() -> dict[str, Any]:
         },
         "policy": gw.policy.to_dict(),
         "recent_audit_count": len(recent),
+        "stats": gw.audit.stats(),
     }
 
 

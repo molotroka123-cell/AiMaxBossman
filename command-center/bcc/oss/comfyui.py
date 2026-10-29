@@ -105,7 +105,7 @@ class ComfyUIClient:
         return value
 
     async def health(self) -> dict:
-        stats = await self._json("GET", "/system_stats")
+        stats = await self._json("GET", "/system_stats", timeout=httpx.Timeout(2.0, connect=0.25))
         if not isinstance(stats.get("system"), dict) or not isinstance(stats.get("devices"), list):
             raise ValueError("endpoint does not report ComfyUI system stats")
         return {"available": True, "provider": "comfyui", "devices": stats["devices"],

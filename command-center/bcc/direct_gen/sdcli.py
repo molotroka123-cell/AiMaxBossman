@@ -226,17 +226,23 @@ def resolve_files(spec: SdSpec, root: Path) -> dict[str, Path]:
     return {role: Path(root).joinpath(*rel.split("/")) for role, rel in spec.files.items()}
 
 
-def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = None) -> dict:
-    entry = _manifest(root).get(spec.manifest_key, {}) if spec.manifest_key else {}
+def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = None, manifest: dict | None = None) -> dict:
+    manifest_map = manifest if manifest is not None else _manifest(root)
+    entry = manifest_map.get(spec.manifest_key, {}) if spec.manifest_key else {}
     entry = entry if isinstance(entry, dict) else {}
     over = override_for(overrides, spec.id)
     weights, missing = [], []
     for role, path in resolve_files(spec, root).items():
-        ok = path.is_file() and path.stat().st_size > 0
+        try:
+            st = path.stat()
+            ok = path.is_file() and st.st_size > 0
+            sz = st.st_size if ok else None
+        except OSError:
+            ok, sz = False, None
         if not ok:
             missing.append(f"{role} ({spec.files[role]})")
         weights.append({"role": role, "found": ok, "file": path.name if ok else None,
-                        "size_bytes": path.stat().st_size if ok else None,
+                        "size_bytes": sz,
                         "sha256": _declared_hash(entry, spec.files[role]) if ok else UNKNOWN})
     reasons = []
     if spec.unsupported:
@@ -263,7 +269,8 @@ def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = No
 
 
 def list_models(root: Path, binary: Path, overrides: dict | None = None) -> list[dict]:
-    return [describe(s, root, binary, overrides) for s in SPECS]
+    manifest = _manifest(root)
+    return [describe(s, root, binary, overrides, manifest) for s in SPECS]
 
 
 def ref_capacity(spec: SdSpec) -> int:

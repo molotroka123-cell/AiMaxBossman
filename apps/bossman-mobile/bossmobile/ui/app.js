@@ -2378,6 +2378,17 @@
         stCard.dataset.card = 'strata-pc';
         body.appendChild(stCard);
       }
+      if (s.ai_gateway && s.ai_gateway.status) {
+        const gw = s.ai_gateway; const gs = gw.stats || {};
+        const gwCard = stat('AI Шлюз (Приватность)', gw.status === 'active', [
+          kv('статус', gw.status === 'active' ? 'активен · приватные данные локально' : gw.status),
+          kv('лог текста', gw.log_raw_text_default === false ? 'выключен (только метаданные)' : 'включён'),
+          kv('проверено / очищено', `${gs.total || 0} / ${gs.scrubbed || 0}`),
+          kv('заблокировано внешних', `${gs.blocked || 0}`),
+        ]);
+        gwCard.dataset.card = 'ai-gateway';
+        body.appendChild(gwCard);
+      }
       statusExtras(body);
       const o = s.ollama || {}; const tags = el('div', 'tags'); (o.models || []).forEach((m) => tags.appendChild(el('span', '', `${m.name}${m.params ? ' · ' + m.params : ''}`)));
       body.appendChild(stat('Локальные модели (Ollama)', o.up, [kv('моделей', (o.models || []).length), kv('загружены сейчас', (o.loaded || []).join(', ') || 'нет'), kv('локальных агентов для чата', s.local_agents), tags]));

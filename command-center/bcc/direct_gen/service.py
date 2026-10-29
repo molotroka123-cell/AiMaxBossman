@@ -523,17 +523,24 @@ class DirectGenService:
 
     async def status(self) -> dict:
         runtime: dict[str, Any] = {"name": "comfyui"}
-        try:
-            await asyncio.wait_for(self.client.health(), 5)
-            runtime.update(reachable=True, reason="")
-        except Exception as exc:  # noqa: BLE001 - shown to the user as-is
-            runtime.update(reachable=False, reason=f"{type(exc).__name__}: {str(exc)[:200] or 'no answer'}")
         memory: dict[str, Any] = {"measured": False}
-        with contextlib.suppress(Exception):
-            live = await self.svc.metrics.read_async()
-            if live.get("ram_total_mb") is not None and live.get("ram_used_mb") is not None:
-                memory = {"measured": True, "total_mb": live["ram_total_mb"], "used_mb": live["ram_used_mb"],
-                          "free_mb": live["ram_total_mb"] - live["ram_used_mb"]}
+
+        async def _probe_comfy() -> None:
+            try:
+                await asyncio.wait_for(self.client.health(), 5)
+                runtime.update(reachable=True, reason="")
+            except Exception as exc:  # noqa: BLE001 - shown to the user as-is
+                runtime.update(reachable=False, reason=f"{type(exc).__name__}: {str(exc)[:200] or 'no answer'}")
+
+        async def _probe_memory() -> None:
+            nonlocal memory
+            with contextlib.suppress(Exception):
+                live = await self.svc.metrics.read_async()
+                if live.get("ram_total_mb") is not None and live.get("ram_used_mb") is not None:
+                    memory = {"measured": True, "total_mb": live["ram_total_mb"], "used_mb": live["ram_used_mb"],
+                              "free_mb": live["ram_total_mb"] - live["ram_used_mb"]}
+
+        _, _, assist_info = await asyncio.gather(_probe_comfy(), _probe_memory(), self.assist_status())
         resident_info = self._resident_info()
         photo_ok = self.sd_bin.is_file()
         photo_active = ("sd-server" if resident_info and resident_info.get("loaded") else "sd-cli") if photo_ok else None
@@ -547,7 +554,7 @@ class DirectGenService:
                       "reason": runtime.get("reason", ""),
                       "note": "" if runtime["reachable"] else "Видео-модели требуют ComfyUI; фото от него не зависит"}}
         return {"runtime": runtime, "backends": backends, "sd_cli": {"present": photo_ok}, "resident": resident_info, "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
-                "assist": await self.assist_status()}
+                "assist": assist_info}
 
     # ---------- warm queue (resident engine) ----------
 

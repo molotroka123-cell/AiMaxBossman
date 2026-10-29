@@ -153,6 +153,8 @@ class FakeBossman:
             return httpx.Response(200, json=DG_MODELS)
         if path == "/api/direct-gen/status":
             return httpx.Response(200, json=DG_STATUS)
+        if path == "/api/ai-gateway/status":
+            return httpx.Response(200, json={"status": "active", "log_raw_text_default": False, "stats": {"total": 2, "blocked": 1, "scrubbed": 1, "local_routed": 1, "cloud_routed": 0}})
         if path == "/api/direct-gen/timings":
             return httpx.Response(200, json=TIMINGS) if TIMINGS else httpx.Response(404, json={"detail": "Not Found"})
         if path == "/api/direct-gen/faceswap":

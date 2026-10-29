@@ -321,6 +321,7 @@ _PERSONAL_HINTS = tuple(
         ("telegram-", "companion"),
     )
 )
+_PERSONAL_HINTS_FOLDED = tuple(h.casefold() for h in _PERSONAL_HINTS)
 
 # Scrubbable INTERNAL patterns (replaced with reversible Russian placeholders [КЛИЕНТ_1], [СЧЕТ_1], etc.)
 _CLIENT_COMPANY_RE = re.compile(
@@ -425,11 +426,21 @@ class LocalScrubber:
 
     def __init__(self, *, project_names: tuple[str, ...] = DEFAULT_PRIVATE_PROJECT_NAMES) -> None:
         self.project_names = tuple(p for p in project_names if p and p.strip())
+        self._project_union_re = (
+            re.compile(r"\b(?:" + "|".join(re.escape(p) for p in self.project_names) + r")\b", re.I)
+            if self.project_names
+            else None
+        )
+        self._clean_cache: set[str] = set()
 
     def scrub_text(self, text: str, session: RedactionSession) -> str:
         if not text:
             return text
+        if len(text) <= 4096 and text in self._clean_cache:
+            return text
         out = text
+        rules_before = len(session.triggered_rules)
+        placeholders_before = len(session.placeholder_to_original)
 
         # 1. Hard secrets & seed phrases -> irreversible removal + mark unscrubbable/confidential
         seed_hit = _detect_seed_phrase(out)
@@ -446,8 +457,8 @@ class LocalScrubber:
 
         # 2. Personal hints / protected paths -> mark confidential
         folded = out.casefold()
-        for hint in _PERSONAL_HINTS:
-            if hint.casefold() in folded:
+        for hint_folded in _PERSONAL_HINTS_FOLDED:
+            if hint_folded in folded:
                 session.unscrubbable_secrets_found = True
                 session.record_rule("confidential:personal_data_hint", "personal_memory")
 
@@ -457,15 +468,13 @@ class LocalScrubber:
 
         # 3. Reversible pseudonymization for INTERNAL data
         # 3a. Private project names -> [ПРОЕКТ_N]
-        for proj in self.project_names:
-            proj_re = re.compile(rf"\b{re.escape(proj)}\b", re.I)
-            if proj_re.search(out):
-                out = proj_re.sub(
-                    lambda m: session.assign_placeholder(
-                        "ПРОЕКТ", m.group(0), rule="redact:project_name", category="project_name"
-                    ),
-                    out,
-                )
+        if self._project_union_re is not None and self._project_union_re.search(out):
+            out = self._project_union_re.sub(
+                lambda m: session.assign_placeholder(
+                    "ПРОЕКТ", m.group(0), rule="redact:project_name", category="project_name"
+                ),
+                out,
+            )
 
         # 3b. Client company names & FIO -> [КЛИЕНТ_N]
         out = _CLIENT_COMPANY_RE.sub(
@@ -540,6 +549,17 @@ class LocalScrubber:
             ),
             out,
         )
+
+        if (
+            out == text
+            and len(text) <= 4096
+            and len(session.triggered_rules) == rules_before
+            and len(session.placeholder_to_original) == placeholders_before
+            and not session.unscrubbable_secrets_found
+        ):
+            if len(self._clean_cache) >= 512:
+                self._clean_cache.clear()
+            self._clean_cache.add(text)
 
         return out
 
@@ -912,6 +932,21 @@ class GatewayAuditLogger:
     def recent(self, limit: int = 100) -> list[dict[str, Any]]:
         with self._lock:
             return list(reversed(self._entries[-max(1, limit) :]))
+
+    def stats(self) -> dict[str, int]:
+        with self._lock:
+            items = list(self._entries)
+        return {
+            "total": len(items),
+            "blocked": sum(1 for e in items if str(e.get("decision", "")).startswith("block")),
+            "scrubbed": sum(
+                1
+                for e in items
+                if any(str(r).startswith("redact:") for r in (e.get("triggered_rules") or []))
+            ),
+            "local_routed": sum(1 for e in items if "local" in str(e.get("decision", ""))),
+            "cloud_routed": sum(1 for e in items if "cloud" in str(e.get("decision", ""))),
+        }
 
 
 # ---------------------------------------------------------------------------
