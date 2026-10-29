@@ -1,11 +1,11 @@
 {
   "audit_id": "2026-10-29-full-emulator-buttons-proof",
-  "timestamp_utc": "2026-10-29T23:04:13Z",
-  "build_sha": "f1367f48ff5e4fdbc6a1efd19d8c35708d09eb05",
-  "build_sha_short": "f1367f48ff5e",
+  "timestamp_utc": "2026-10-29T23:20:48Z",
+  "build_sha": "735f4267d7b7e9a3c84df2a19e63f9c2aacb9980",
+  "build_sha_short": "735f4267d7b7",
   "source_identity": "PASS",
-  "total_checks": 37,
-  "passed": 37,
+  "total_checks": 38,
+  "passed": 38,
   "failed": 0,
   "status": "PASS",
   "cost_usd": 0.0,
@@ -13,12 +13,21 @@
     {
       "step": "api:8801/health/live",
       "ok": true,
-      "detail": "status=ALIVE, sha=f1367f48ff5e, identity=PASS"
+      "detail": "status=ALIVE, sha=735f4267d7b7, identity=PASS"
     },
     {
       "step": "api:8801/api/ai-gateway/status",
       "ok": true,
-      "detail": "status=active, log_raw_text_default=False"
+      "detail": "status=active, log_raw_text_default=False, stats={'total': 0, 'blocked': 0, 'scrubbed': 0, 'local_routed': 0, 'cloud_routed': 0} (3.4 ms)",
+      "latency_ms": 3.4
+    },
+    {
+      "step": "api:8801/api/direct-gen/status+models (fast probe)",
+      "ok": true,
+      "detail": "direct-gen/status=429.1 ms (was 2276.2 ms), direct-gen/models=7.5 ms",
+      "status_latency_ms": 429.1,
+      "models_latency_ms": 7.5,
+      "baseline_status_ms": 2276.2
     },
     {
       "step": "api:8801/api/ai-gateway/inspect (scrubbing)",
@@ -181,9 +190,12 @@
       "detail": "Jeff training view active, summary: Методичкаметодичка.docxРазделов53Размер3.0 МБСтрогий режимвключён · дл"
     },
     {
-      "step": "emulator:8840/tab:status",
+      "step": "emulator:8840/tab:status + ai-gateway-card",
       "ok": true,
-      "detail": "Status view rendered (1504 chars)"
+      "detail": "Status view + AI Gateway card rendered in 664.6 ms (was 2327.5 ms, 1650 chars)",
+      "latency_ms": 664.6,
+      "baseline_ms": 2327.5,
+      "ai_gateway_card": true
     },
     {
       "step": "emulator:8840/stop-banner + stop-resume button",
