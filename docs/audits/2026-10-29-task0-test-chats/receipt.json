@@ -1,0 +1,31 @@
+{
+ "receipt": "TZ 2.5 M0 / Task 0 - test conversations archived",
+ "date": "2026-10-29",
+ "tool": "tools/archive_test_conversations.py",
+ "tests": "command-center/tests/test_archive_test_conversations.py - 4 passed (metadata-only selection, no content printed, owner chats untouched, restore on a copy matches, tampered archive detected, pytest data dir is not the live one)",
+ "acceptance": {
+  "1_dry_run_ids_only": "PASS - 7 candidates, ids + marker only",
+  "2_zero_test_marked_after": "PASS - dry-run after: 0",
+  "3_restore_on_copy": "PASS - 7/7 restored sha256 == live sha256 (throw-away data dir, real key)",
+  "4_pytest_not_in_live_db": "PASS - test_pytest_never_writes_to_the_owners_live_data_dir",
+  "5_receipt_numbers_sha": "this file"
+ },
+ "archived": 7,
+ "markers": [
+  "title:DEMO rehearsal",
+  "title:PROOF"
+ ],
+ "archive_dir": "D:\\Bossman\\archive\\test-conversations\\2026-10-29",
+ "manifest_sha256": "e3c11730e361c9674ab453acf3d427aa41df98cc8a0114e9b5337e348360de57",
+ "archive_sha256": {
+  "20261025-072243-789cf8": "28db8ee22589d16d7696b608b6fe6c198fff09bfe70b6712deb67e9830b0725b",
+  "20261025-073423-e13cfc": "c66cbfb01e2c590702614f38107ed74c7fc59df9f1c1d8c4113f96f8fbb4b4b3",
+  "20261025-073740-e45e3a": "fffb9171225e884b90141bfce997722d9a733ee48a08ad31d1ac7617b0920488",
+  "20261025-074543-dfc94c": "16db8043936a31a1380ad3b18cce0317458de78c4c16537b69312c8f0c95a5ad",
+  "20261025-074552-481606": "b9a5e24c130a393eb904dc3f934f978c33187ce4a630101c1816ebc6beb68dfd",
+  "20261029-051539-43bea3": "208ee663ba6308800dde1438777327b4e5332f3d5b71011b52cc4d45a680870d",
+  "20261029-052014-e0cf47": "9a2c2c6980cb14d31e3522668a33eb8d8f1ba820d9448ed50ee6f1efebd0fc27"
+ },
+ "privacy": "selection by threads-meta.json title prefix/project only; session bytes hashed and encrypted as opaque bytes; nothing printed but ids",
+ "restore_path": "in-app: pult > archive > restore (the backend keeps its encrypted copy too); D: copy for M0"
+}
