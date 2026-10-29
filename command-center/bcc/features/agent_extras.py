@@ -139,6 +139,21 @@ def _parse_window(value: Any) -> int | None:
     return int(float(match.group(1)) * scale) or None
 
 
+async def _last_turn_agent_id(svc: Any, raw: dict | None) -> int | None:
+    """Агент последнего хода сессии по базе задач (только id: текст ходов не читается)."""
+    if not isinstance(raw, dict):
+        return None
+    task_ids = [int(t["task_id"]) for _, t in reversed(_turns(raw)[-12:]) if int(t["task_id"]) > 0]
+    if not task_ids:
+        return None
+    from ..db import tasks as tasks_t
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(tasks_t.c.agent_id)
+                               .where(tasks_t.c.id.in_(task_ids), tasks_t.c.agent_id.is_not(None))
+                               .order_by(tasks_t.c.id.desc()).limit(1))).first()
+    return int(row[0]) if row and row[0] is not None else None
+
+
 async def _resolve_session_agent_id(svc: Any, cfg: dict, raw: dict | None = None) -> int | None:
     """Найти исполнителя сессии: cfg -> агент последнего хода в базе -> первый включённый локальный агент."""
     clean = str(cfg.get("model") or "").removeprefix("local:").strip()
@@ -173,7 +188,17 @@ def _model_of_agent_sync(agent: dict, models: dict[int, dict], providers: dict[i
 
 
 async def _context_window(svc: Any, cfg: dict, raw: dict | None = None) -> tuple[int | None, str | None]:
-    """Окно выбранной модели сессии: исполнитель -> ярус роутера -> реестр моделей. Нет данных - (None, None)."""
+    """Окно модели сессии: агент, реально ответивший последним -> исполнитель -> ярус роутера -> реестр моделей.
+
+    Владелец 29.10: датчик показывал 33 тыс. (Gemma из настроек сессии), хотя отвечал DeepSeek (1 млн): окно берётся
+    у той модели, что реально работала в последнем ходе. Нет данных - (None, None)."""
+    last_agent = await _last_turn_agent_id(svc, raw)
+    if last_agent is not None:
+        view = await _model_of_agent(svc, last_agent)
+        window = (view or {}).get("context_window")
+        # cloud models: the registry window is the provider's real one; local models keep the old resolution below
+        if (view or {}).get("locality") != "local" and isinstance(window, int) and window > 0:
+            return int(window), "last_turn_model"
     worker = cfg.get("worker")
     if worker and worker in WORKERS:
         window = _parse_window(WORKERS[worker].get("context_window"))

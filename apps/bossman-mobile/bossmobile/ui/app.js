@@ -511,6 +511,7 @@
     } catch (err) { $('model-name').textContent = 'нет моделей'; toast(err.message); }
   }
   const agentOf = (id) => S.agents.find((a) => a.id === id);
+  const curAgentCloud = () => !!(agentOf(S.agentId) || {}).cloud;   // cloud agents never get AUTO approvals / bypass
   function renderModelChip() {
     const a = agentOf(S.agentId);
     $('model-name').textContent = a ? `${a.name} · ${(a.model && (a.model.alias || a.model.name)) || ''}` : 'выберите модель';
@@ -518,11 +519,21 @@
   $('btn-model').addEventListener('click', () => {
     const list = $('model-list'); list.replaceChildren();
     if (!S.agents.length) list.appendChild(el('p', 'muted', 'Доступных агентов нет. Создайте агента на локальной модели в Панели.'));
+    if (S.threadId) list.appendChild(el('p', 'muted', 'Модель закреплена за этим чатом. Выбор другой модели откроет новый чат.'));
     S.agents.forEach((a) => {
       const b = el('button', 'model-opt' + (a.id === S.agentId ? ' sel' : ''));
       const t = el('div', 'mtxt'); t.append(el('b', '', a.name), el('span', '', `${(a.model && (a.model.alias || a.model.name)) || '—'}${a.tools.length ? ' · инструменты: ' + a.tools.join(', ') : ''}`));
       b.append(el('span', 'dot'), t, el('span', a.cloud ? 'badge-cloud' : 'badge-local', a.cloud ? `облако · ${a.provider || '—'}` : 'локально'));
-      b.addEventListener('click', () => { tap(); S.agentId = a.id; store.set('agent', a.id); renderModelChip(); closeModelSheet(); });
+      // Owner 29.10: no model switch in the middle of a chat (context gauge and cost stay tied to one model).
+      // Another model in an open chat = a NEW chat with that model; the current chat stays as it was.
+      b.addEventListener('click', () => {
+        tap();
+        if (a.id !== S.agentId && S.threadId) {
+          if (!window.confirm(`Модель закреплена за этим чатом. Начать новый чат с «${a.name}»?`)) return;
+          newChat();
+        }
+        S.agentId = a.id; store.set('agent', a.id); renderModelChip(); closeModelSheet();
+      });
       list.appendChild(b);
     });
     $('model-sheet').hidden = false;
@@ -887,18 +898,30 @@
       box.appendChild(el('pre', '', ev.preview || ev.approval_kind || 'действие'));
       box.appendChild(el('p', 'rollback-hint', ev.rollback_hint || 'Как откатить: нажмите «Отклонить» или ⛔ STOP — изменения не применятся (git checkout -- .)'));
     }
-    const row = el('div', 'row'); const no = el('button', 'btn', 'Отклонить'); const yes = el('button', 'btn primary', 'Разрешить');
-    row.append(no, yes); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; autoScroll();
-    const decide = async (approve, auto) => {
+    const row = el('div', 'row approval-choices'); const no = el('button', 'btn', 'Отклонить'); const yes = el('button', 'btn primary', 'Разрешить один раз');
+    const op = approvalOp(ev); const sticky = op && !ev.approval_kind?.startsWith('self_improve') && !hardAsk(ev);
+    const always = sticky ? el('button', 'btn primary', `Не спрашивать в этом чате: ${op.split('|').pop()}`) : null;
+    row.append(no, yes); if (always) row.append(always); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; autoScroll();
+    const decide = async (approve, auto, remember) => {
       if (!auto) tap();
-      yes.disabled = no.disabled = true;
-      try { await api('POST', `/approvals/${ev.id}`, { approve }); row.replaceWith(el('div', 'done', approve ? (auto ? '⚡ Авто-разрешено (AUTO)' : '✓ Разрешено вами') : '✕ Отклонено вами')); refreshApprovals(); }
-      catch (err) { yes.disabled = no.disabled = false; if (!auto) toast(err.message); }
+      yes.disabled = no.disabled = true; if (always) always.disabled = true;
+      if (remember) chatAllow(op);          // before the await: the next ask of the same operation may already be arriving
+      try {
+        await api('POST', `/approvals/${ev.id}`, { approve });
+        row.replaceWith(el('div', 'done', approve ? (auto === 'chat' ? `⚡ Разрешено для этого чата: ${op.split('|').pop()}` : auto ? '⚡ Авто-разрешено (AUTO)' : remember ? '✓ Разрешено — больше не спрошу в этом чате' : '✓ Разрешено вами') : '✕ Отклонено вами'));
+        refreshApprovals();
+      } catch (err) { if (remember) S.chatAllow[chatAllowKey()].delete(op); yes.disabled = no.disabled = false; if (always) always.disabled = false; if (!auto) toast(err.message); }
     };
     yes.addEventListener('click', () => decide(true, false)); no.addEventListener('click', () => decide(false, false));
+    if (always) always.addEventListener('click', () => decide(true, false, true));
+    // Owner 29.10: «в чате больше не спрашивать за текущую операцию» — a tap on «Не спрашивать» covers the same operation
+    // for the rest of THIS chat. Destructive / wallet / key / self-improve asks always wait for a fresh tap.
+    if (sticky && chatAllowed(op)) { decide(true, 'chat'); return; }
     // AUTO never sends text to the cloud for the owner: cloud.ask is decided by a tap, every time
     if (cloud && S.agentMode === 'AUTO') box.appendChild(el('p', 'cloud-warn', 'Режим AUTO не отправляет текст в облако сам — нужно ваше нажатие.'));
-    if (S.agentMode === 'AUTO' && ev.approval_kind !== 'self_improve' && !cloud) decide(true, true);
+    // Owner 29.10: AUTO auto-approves only for a LOCAL agent; a cloud agent with PC access (DeepSeek/Kimi) always waits for the owner's tap.
+    if (S.agentMode === 'AUTO' && curAgentCloud()) box.appendChild(el('p', 'cloud-warn', 'Облачная модель: в режиме AUTO команды на ПК всё равно ждут вашего нажатия.'));
+    if (S.agentMode === 'AUTO' && ev.approval_kind !== 'self_improve' && !cloud && !curAgentCloud()) decide(true, true);
   }
   function approvalDecided(b, ev) {
     const box = b.cards['ap' + ev.id]; if (!box) return; const row = box.querySelector('.row');
@@ -1214,7 +1237,7 @@
         if (S.agentMode && S.agentMode !== 'CHAT') {
           api('PATCH', `/agent/sessions/${encodeURIComponent(S.threadId)}`, {
             mode: S.agentMode,
-            bypass_permissions: S.agentMode === 'AUTO',
+            bypass_permissions: S.agentMode === 'AUTO' && !curAgentCloud(),
           }).catch(() => {});
         }
       }
@@ -2612,7 +2635,7 @@
   }
   async function startTerm(command, cwd, approvalId) {
     const out = $('oc-term-out');
-    const body = { command, mode: 'project_host', cwd, bypass_permissions: S.agentMode === 'AUTO' };
+    const body = { command, mode: 'project_host', cwd, bypass_permissions: S.agentMode === 'AUTO' && !curAgentCloud() };
     if (approvalId != null) body.approval_id = approvalId;
     const res = await api('POST', '/terminal/run', body);
     if (res && res.approval_required) { termApproval(command, cwd, res.approval_id); return; }
@@ -3327,6 +3350,19 @@
   /* ---------- «☁️ Отправить в облако?»: tool cloud.ask, каждый вызов подтверждает владелец ---------- */
   const flat = (x) => (typeof x === 'string' ? x : x == null ? '' : (() => { try { return JSON.stringify(x); } catch { return ''; } })());
   function isCloudAsk(ev) { return /\bcloud\.ask\b/i.test([ev.preview, ev.approval_kind, ev.tool, ev.name].map(flat).join(' ')); }
+  /* «Не спрашивать в этом чате»: operation = approval kind + tool name (engine preview «…хочет выполнить terminal.run»).
+     Kept in memory only, per chat thread — a new chat or a reload asks again. */
+  function approvalOp(ev) {
+    const text = [ev.tool, ev.name, ev.preview].map(flat).join(' ');
+    const m = text.match(/выполнить\s+([a-z_][\w-]*\.[\w.-]+)/i) || text.match(/\b(cloud\.ask|terminal\.run|code\.[\w]+|browser\.[\w]+|desktop\.[\w]+|pc\.[\w]+|photo\.[\w]+)\b/i);
+    const tool = (ev.tool || (m && m[1]) || '').toLowerCase();
+    const kind = String(ev.approval_kind || 'tool');
+    return tool || kind !== 'tool' ? `${kind}|${tool || kind}` : null;
+  }
+  function hardAsk(ev) { return /деструктив|кошел|wallet|ключ|private.?key|seed|mnemonic|\brm\s+-rf|format\s+[a-z]:|reg\s+delete|vault/i.test(flat(ev.preview)); }
+  const chatAllowKey = () => String(S.threadId ?? 'draft');
+  function chatAllow(op) { if (!op) return; S.chatAllow = S.chatAllow || {}; (S.chatAllow[chatAllowKey()] ||= new Set()).add(op); }
+  function chatAllowed(op) { return !!(op && S.chatAllow && S.chatAllow[chatAllowKey()] && S.chatAllow[chatAllowKey()].has(op)); }
   function cloudInfo(p) {
     let o = null; let raw = typeof p === 'string' ? p : '';
     if (p && typeof p === 'object') { o = p; raw = JSON.stringify(p, null, 2); }

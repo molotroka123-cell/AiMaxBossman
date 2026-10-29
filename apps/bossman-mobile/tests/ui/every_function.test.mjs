@@ -196,7 +196,8 @@ test('approvalCard on 320px viewport renders model, task_id, status, $0.00 / N/A
   const hint = a.d.querySelector('.approval .rollback-hint');
   assert.ok(hint && hint.textContent.includes('Как откатить'), 'rollback hint rendered');
   const btns = [...a.d.querySelectorAll('.approval .row .btn')];
-  assert.equal(btns.length, 2);
+  // owner 29.10: «Отклонить» / «Разрешить один раз» / «Не спрашивать в этом чате: <операция>»
+  assert.deepEqual(btns.map((b) => b.textContent.split(':')[0]), ['Отклонить', 'Разрешить один раз', 'Не спрашивать в этом чате']);
 });
 
 

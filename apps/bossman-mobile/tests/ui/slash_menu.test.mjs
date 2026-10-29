@@ -229,10 +229,31 @@ ${text}`;
   const pre = box.querySelector('pre.cloud-text'); assert.ok(pre.textContent.includes(text), 'exact text, as text'); assert.equal(pre.querySelector('b'), null, 'no markup from the text');
   assert.equal(pre.getAttribute('tabindex'), '0');
   await sleep(100); assert.equal(posts().length, 0, 'AUTO does not approve cloud.ask');
-  [...box.querySelectorAll('button')].find((x) => x.textContent === 'Разрешить').click();
+  [...box.querySelectorAll('button')].find((x) => x.textContent === 'Разрешить один раз').click();
   await until(() => posts().length === 1, 'owner tap decides'); assert.deepEqual(posts()[0].body, { approve: true });
   es[0].onmessage({ data: JSON.stringify({ kind: 'approval.created', id: 10, approval_kind: 'tool', preview: 'terminal.run git status' }) });
   await until(() => posts().length === 2, 'AUTO still auto-approves ordinary tools'); assert.equal(posts()[1].path, '/approvals/10');
+});
+
+test('«Не спрашивать в этом чате»: same operation is auto-decided in this chat; destructive asks always wait', { skip }, async () => {
+  const es = [];
+  const a = await app({}, { before: (w) => { w.EventSource = class { constructor(u) { this.url = u; es.push(this); } close() {} }; w.localStorage.setItem('bm.agentMode', 'CHAT'); } });
+  const posts = () => a.calls.filter((c) => c.path.startsWith('/approvals/'));
+  type(a, 'привет'); a.$('composer').requestSubmit();
+  await until(() => es.length > 0, 'stream opened');
+  const ask = (id, preview) => es[0].onmessage({ data: JSON.stringify({ kind: 'approval.created', id, approval_kind: 'tool', preview }) });
+  ask(21, 'Агент «D» хочет выполнить terminal.run\nnpm test');
+  await sleep(50); assert.equal(posts().length, 0, 'first ask waits for the owner');
+  const btns = [...a.d.querySelectorAll('.approval button')].map((x) => x.textContent);
+  assert.deepEqual(btns, ['Отклонить', 'Разрешить один раз', 'Не спрашивать в этом чате: terminal.run']);
+  [...a.d.querySelectorAll('.approval button')].find((x) => x.textContent.startsWith('Не спрашивать')).click();
+  await until(() => posts().length === 1, 'owner tap decides');
+  ask(22, 'Агент «D» хочет выполнить terminal.run\nnpm run build');
+  await until(() => posts().length === 2, 'same operation auto-decided'); assert.equal(posts()[1].path, '/approvals/22');
+  ask(23, 'Агент «D» хочет выполнить code.write');
+  await sleep(50); assert.equal(posts().length, 2, 'another operation still asks');
+  ask(24, 'Агент «D» хочет выполнить terminal.run\nдеструктивная команда: rm -rf build');
+  await sleep(50); assert.equal(posts().length, 2, 'destructive asks always wait');
 });
 
 test('zero innerHTML in app.js and the shell cache is bumped', { skip: false }, () => {

@@ -244,3 +244,50 @@ def test_approve_all_button_confirms_and_decides_each_approval_separately():
     assert "for (const a of items)" in block and "api('POST', `/approvals/${a.id}`, { approve: true })" in block
     assert "не прошли" in block
     assert "/approvals/all" not in js and "approvals/bulk" not in js
+
+
+def test_auto_mode_never_auto_approves_or_bypasses_for_a_cloud_agent():
+    """Owner 29.10 screenshot: AUTO stopped asking while a cloud model (DeepSeek, PC access) was selected."""
+    from pathlib import Path
+    js = (Path(__file__).resolve().parents[1] / "bossmobile" / "ui" / "app.js").read_text(encoding="utf-8")
+    assert "const curAgentCloud = () => !!(agentOf(S.agentId) || {}).cloud;" in js
+    assert "!cloud && !curAgentCloud()) decide(true, true)" in js
+    assert "bypass_permissions: S.agentMode === 'AUTO'," not in js and "bypass_permissions: S.agentMode === 'AUTO' }" not in js
+    assert js.count("bypass_permissions: S.agentMode === 'AUTO' && !curAgentCloud()") >= 2
+
+
+def test_approval_card_offers_dont_ask_again_in_this_chat_except_dangerous():
+    """Owner 29.10: «Сделай так же варианты. В чате больше не спрашивать за текущую операцию»."""
+    import re
+    import shutil
+    import subprocess
+    from pathlib import Path
+    import pytest
+    js = (Path(__file__).resolve().parents[1] / "bossmobile" / "ui" / "app.js").read_text(encoding="utf-8")
+    assert "'Разрешить один раз'" in js and "Не спрашивать в этом чате: " in js
+    assert "if (sticky && chatAllowed(op)) { decide(true, 'chat'); return; }" in js
+    assert "if (remember) chatAllow(op);" in js
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    helpers = "\n".join(re.search(p, js, re.S).group(0) for p in (
+        r"const flat = .*?\n", r"function approvalOp\(ev\) \{.*?\n  \}\n", r"function hardAsk\(ev\) .*?\n",
+        r"const chatAllowKey = .*?\n", r"function chatAllow\(op\) .*?\n", r"function chatAllowed\(op\) .*?\n"))
+    script = "const S = {threadId: 7};\n" + helpers + r"""
+const ev = {approval_kind: 'tool', preview: 'Агент «X» хочет выполнить terminal.run\nnpm test'};
+const op = approvalOp(ev);
+const out = [op, chatAllowed(op)];
+chatAllow(op); out.push(chatAllowed(op));
+out.push(chatAllowed(approvalOp({approval_kind: 'tool', preview: 'хочет выполнить code.write'})));
+S.threadId = 8; out.push(chatAllowed(op));
+out.push(hardAsk({preview: 'деструктивная команда: доступ к кошельку'}), hardAsk(ev));
+console.log(JSON.stringify(out));
+"""
+    res = subprocess.run([node, "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=30)
+    assert res.returncode == 0, res.stderr
+    assert json_loads(res.stdout) == ["tool|terminal.run", False, True, False, False, True, False]
+
+
+def json_loads(s):
+    import json
+    return json.loads(s.strip())

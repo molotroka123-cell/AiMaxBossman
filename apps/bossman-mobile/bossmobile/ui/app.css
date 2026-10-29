@@ -219,6 +219,7 @@ button, .chip, .tab, .thumb, .mode-pill, .oc-mini-btn {
 .approval pre { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--line);
   font: 13px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
 .approval .row { display: flex; flex-wrap: wrap; gap: 10px; } .approval .row .btn { flex: 1 1 116px; min-width: 0; }
+.approval .row.approval-choices .btn:last-child:nth-child(3) { flex-basis: 100%; }
 .approval .done { font-weight: 600; font-size: 14px; }
 
 .inline-photo { margin: 0 0 8px; }
