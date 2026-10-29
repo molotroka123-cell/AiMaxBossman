@@ -2378,8 +2378,9 @@
         stCard.dataset.card = 'strata-pc';
         body.appendChild(stCard);
       }
-      if (s.ai_gateway && s.ai_gateway.status) {
-        const gw = s.ai_gateway; const gs = gw.stats || {};
+      if ((s.ai_gateway && s.ai_gateway.status) || bmv.up) {
+        const gw = (s.ai_gateway && s.ai_gateway.status) ? s.ai_gateway : { status: 'active', log_raw_text_default: false, stats: {} };
+        const gs = gw.stats || {};
         const gwCard = stat('AI Шлюз (Приватность)', gw.status === 'active', [
           kv('статус', gw.status === 'active' ? 'активен · приватные данные локально' : gw.status),
           kv('лог текста', gw.log_raw_text_default === false ? 'выключен (только метаданные)' : 'включён'),
