@@ -1,0 +1,132 @@
+[
+ {
+  "step_id": "motion-rap-music-acestep",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 26,
+   "decisions": 16,
+   "procedures": 14,
+   "failures": 21
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "6fc3da61fa48dc09b30bfac87790116f2796452191b206aabf0f4751e8709cd2"
+ },
+ {
+  "step_id": "motion-rap-canvas-engine",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 27,
+   "decisions": 17,
+   "procedures": 15,
+   "failures": 22
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "255204802ead07f1cb87526cd32526128de06349d4b8f464c6335b20908e130d"
+ },
+ {
+  "step_id": "motion-rap-remotion",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 28,
+   "decisions": 18,
+   "procedures": 16,
+   "failures": 23
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "3f3a13520b3cf5630eb47d129db4f47239b9c80a89e228b4a3dab0ed6ac78de5"
+ },
+ {
+  "step_id": "plugin-emil",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 29,
+   "decisions": 19,
+   "procedures": 17,
+   "failures": 24
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "66221e35e01e2d5be4e7c37328d6370120ddc2b4be94c49183d3c2009f77821e"
+ },
+ {
+  "step_id": "plugin-hyperframes",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 30,
+   "decisions": 20,
+   "procedures": 18,
+   "failures": 25
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "2ecb10e4f56aa2f03790cf71933b3cd3488c4911523683464ada1f32f17961aa"
+ },
+ {
+  "step_id": "plugin-remotion",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 31,
+   "decisions": 21,
+   "procedures": 19,
+   "failures": 26
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "d98dedbcd829c3f2e07bf9512dbea93412d34059e8ae0df4466891b098421f85"
+ },
+ {
+  "step_id": "plugin-taste-skill",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 32,
+   "decisions": 22,
+   "procedures": 20,
+   "failures": 27
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "d42b87ba909e922e06a093c70144988e18548c5390b9b047dc865dcc12bc1879"
+ },
+ {
+  "step_id": "plugin-impeccable",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 33,
+   "decisions": 23,
+   "procedures": 21,
+   "failures": 28
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "ad61541869041e5d1dfdf9cacc785b0c339f3c2033d37bb1b817a5912ce643f7"
+ },
+ {
+  "step_id": "plugin-frontend-design",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 34,
+   "decisions": 24,
+   "procedures": 22,
+   "failures": 29
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "ca71f4d355f710c2763336be64cd51c5b4ba3d09aa7650953fbc6ca71a9caf49"
+ },
+ {
+  "step_id": "plugin-uiux",
+  "ok": true,
+  "postcondition_detail": "file_contains: found",
+  "db_counts": {
+   "facts": 35,
+   "decisions": 25,
+   "procedures": 23,
+   "failures": 30
+  },
+  "obsidian_written": true,
+  "sha256_receipt": "6cf6263b1449568d237f46c9ab6837fe8686c9d618c9f93428993c313a495556"
+ }
+]

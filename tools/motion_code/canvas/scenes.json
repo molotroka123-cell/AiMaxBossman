@@ -1,0 +1,133 @@
+{
+ "bpm": 96,
+ "offset": 0.0,
+ "duration": 20,
+ "version_tag": "v2.6 · main 9f031330 · local-first",
+ "scenes": [
+  {
+   "kind": "title",
+   "text": "BOSSMAN",
+   "sub": "THE AI THAT RUNS YOUR PC",
+   "beats": 3
+  },
+  {
+   "kind": "stop",
+   "lines": [
+    "ONE BRAIN.",
+    "ONE BASE.",
+    "ONE STOP."
+   ],
+   "sub": "owner STOP beats every agent",
+   "beats": 2.5
+  },
+  {
+   "kind": "chip",
+   "chip": "RYZEN AI MAX+",
+   "chip_sub": "395 · 128 GB · 8060S",
+   "title": "LOCAL ON THE MAX",
+   "metrics": [
+    {
+     "label": "Cold model load (SSD D:)",
+     "value": 0.95,
+     "text": "2.47× faster"
+    },
+    {
+     "label": "Voice reply latency",
+     "value": 0.6,
+     "text": "11.2 → 4.8 s"
+    },
+    {
+     "label": "Data leaving the PC",
+     "value": 0.02,
+     "text": "0 bytes by default"
+    }
+   ],
+   "beats": 3.5
+  },
+  {
+   "kind": "pult",
+   "app": "Bossman · пульт",
+   "title": "PULT IN",
+   "title2": "MY POCKET",
+   "sub": "iPhone · Telegram · Command Center",
+   "msgs": [
+    "Сделай отчёт и пришли",
+    "Готово ✓ квитанция sha256",
+    "STOP",
+    "Остановлено. Ничего не тронуто"
+   ],
+   "beats": 4
+  },
+  {
+   "kind": "receipts",
+   "title": "EVERY FEATURE PROVEN",
+   "rows": [
+    {
+     "name": "Job Object kill-on-close",
+     "sha": "81b2552b…f43220"
+    },
+    {
+     "name": "Approval bound to payload",
+     "sha": "3b1018f5…8a8ef3"
+    },
+    {
+     "name": "Owner spend reconcile",
+     "sha": "c49757e1…739678"
+    },
+    {
+     "name": "Harness execute-step",
+     "sha": "5c2195d9…c17255"
+    }
+   ],
+   "beats": 4.5
+  },
+  {
+   "kind": "chorus",
+   "text": "BOSSMAN!",
+   "sub": "RUNNING ON MY PC",
+   "stats": [
+    {
+     "value": 1152,
+     "label": "tests passed"
+    },
+    {
+     "value": 24,
+     "label": "lessons in memory"
+    },
+    {
+     "value": 0,
+     "suffix": " $",
+     "label": "cloud cost of this video"
+    }
+   ],
+   "beats": 4
+  },
+  {
+   "kind": "loop",
+   "steps": [
+    "STOP check",
+    "Recall",
+    "Act",
+    "Verify",
+    "Learn",
+    "Receipt"
+   ],
+   "center": "HARNESS",
+   "center_sub": "/api/v20/harness",
+   "title": "LOCKED.",
+   "notes": [
+    "no postcondition = no pass",
+    "every lesson → SQLite + Obsidian"
+   ],
+   "beats": 4
+  },
+  {
+   "kind": "outro",
+   "text": "BOSSMAN",
+   "sub": "local-first operator of your PC",
+   "foot": "music: ACE-Step on this PC · motion: rendered by code · v2.6",
+   "beats": 8
+  }
+ ],
+ "lyrics_sync": "scene cuts placed on Whisper word timestamps of the generated vocal: Local@3.50 Pult@5.88 Every@8.38 Bossman!@11.14 Bossman!@15.96"
+}

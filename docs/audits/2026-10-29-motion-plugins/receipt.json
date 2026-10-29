@@ -1,0 +1,34 @@
+{
+ "receipt": "motion-plugins",
+ "date": "2026-10-29",
+ "videos": {
+  "v1_canvas": {
+   "file": "D:/Bossman/work/motion-rap/out/bossman_rap_motion_20s.mp4",
+   "sha256": "b3d872fd950bcdb2553407aa946d483b99ec3a2b1ca9932e876aa30b73b45dce",
+   "render_s": 355,
+   "pult_message_id": 3838
+  },
+  "v2_remotion": {
+   "file": "D:/Bossman/work/motion-rap-v2/bossman-rap/out/bossman_rap_v2_remotion.mp4",
+   "sha256": "de2a869c6497b13dcafceb594f7e8aee11df6569691015e72611663ccf7253cc",
+   "render_s": 30,
+   "pult_message_id": 3839
+  }
+ },
+ "audio": {
+  "provider": "ACE-Step 1.5 via live :8801 /api/music",
+  "task_id": "f98dcc17-675a-4b13-940d-1080608be688",
+  "master_sha256": "5e668d300f4a6f91ee2ff99a44ae8fffd96d81d0eb09bc60f710e0f21718ffb1",
+  "lufs": -9.5,
+  "bpm_measured": 95.9,
+  "whisper_words": "Bossman@0.56 ... Local@3.50 Pult@5.88 Telegram@7.12 Every@8.38 receipts@9.40 Bossman!@11.14 Bossman!@15.96",
+  "not_sung": "chorus line 'Two point six, harness locked' (version shown on screen only)"
+ },
+ "plugins": "tools/motion_code/PLUGINS.json (7/7 official repos, audited; telemetry off; Impeccable hooks and UI/UX Pro Max paid-API scripts not installed)",
+ "taught": "10 live execute-step lessons on :8801, see teach_receipts.json",
+ "cloud_cost_usd": 0,
+ "not_proven": [
+  "Bossman producing a motion video autonomously from a pult request (tools + lessons exist, no end-to-end agent run yet)",
+  "HyperFrames local render (needs Node >= 22, PC has Node 20)"
+ ]
+}

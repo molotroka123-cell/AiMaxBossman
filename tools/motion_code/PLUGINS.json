@@ -1,0 +1,69 @@
+{
+ "date": "2026-10-29",
+ "source_clones": "D:\\Bossman\\work\\plugins",
+ "plugins": [
+  {
+   "name": "Emil Kowalski skills",
+   "repo": "https://github.com/emilkowalski/skills",
+   "sha": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+   "license": "MIT",
+   "verdict": "CLEAN (markdown only)",
+   "installed_as": "~/.claude/skills/emil-* (16)",
+   "use_for": "easing curves (0.23,1,0.32,1 / 0.77,0,0.175,1), nothing appears from scale(0), springs with small bounce, animation decision framework"
+  },
+  {
+   "name": "HyperFrames (HeyGen)",
+   "repo": "https://github.com/heygen-com/hyperframes",
+   "sha": "6df754fbf3289ee0dc19e123e0628cc69218e518",
+   "license": "Apache-2.0",
+   "verdict": "RISK medium: PostHog telemetry on by default -> DO_NOT_TRACK=1 + HYPERFRAMES_NO_TELEMETRY=1 set for the user; reads vendor API keys only for vendor calls",
+   "installed_as": "~/.claude/skills/hyperframes, hyperframes-cli, hyperframes-registry, remotion-to-hyperframes",
+   "use_for": "HTML/GSAP -> deterministic MP4 via headless Chrome; needs Node >=22 (this PC has Node 20 -> not yet usable for local render)"
+  },
+  {
+   "name": "Remotion skills",
+   "repo": "https://github.com/remotion-dev/skills",
+   "sha": "30d4553ecd46fbc5212fd0ff006ae43af522158b",
+   "license": "none in repo; Remotion License (free <=3 people, company license above)",
+   "verdict": "CLEAN",
+   "installed_as": "~/.claude/skills/remotion-* (12)",
+   "use_for": "React video: scaffold (create-video --blank), Sequence per scene, spring/interpolate, npx remotion render (bundled ffmpeg)"
+  },
+  {
+   "name": "Taste-skill",
+   "repo": "https://github.com/Leonxlnx/taste-skill",
+   "sha": "12af471f627f866411b4bd785b19646d3672784c",
+   "license": "MIT",
+   "verdict": "CLEAN / low (fetches public-domain images when asked)",
+   "installed_as": "~/.claude/skills/taste-skill",
+   "use_for": "anti-slop art direction: the idea comes from the subject, whole fields of colour, large type, no ornaments (glows, thin rules, mono captions)"
+  },
+  {
+   "name": "Impeccable",
+   "repo": "https://github.com/pbakaus/impeccable",
+   "sha": "5e745ace7e151feb2a93d360d0281fe39448b857",
+   "license": "Apache-2.0",
+   "verdict": "RISK medium: plugin hooks download an engine binary + telemetry -> installed SKILL + reference only, NO hooks; IMPECCABLE_NO_TELEMETRY=1",
+   "installed_as": "~/.claude/skills/impeccable",
+   "use_for": "critique/polish/audit commands for UI and motion"
+  },
+  {
+   "name": "Frontend-design (Anthropic)",
+   "repo": "https://github.com/anthropics/claude-plugins-official",
+   "sha": "f8c5e7a1dcb71b10cb74586224b5401f3de5db28",
+   "license": "Apache-2.0",
+   "verdict": "CLEAN",
+   "installed_as": "~/.claude/skills/frontend-design",
+   "use_for": "intentional aesthetic direction, typography that is not a template default"
+  },
+  {
+   "name": "UI/UX Pro Max",
+   "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+   "sha": "28b3b8dee8c976df4fa3e94aed4e092ad43fcb03",
+   "license": "MIT",
+   "verdict": "LOW: core search is offline; paid image-API scripts (design/brand/banner) NOT installed",
+   "installed_as": "~/.claude/skills/uipro-ui-ux-pro-max, uipro-design-system, uipro-ui-styling, uipro-slides",
+   "use_for": "offline database of styles, palettes, font pairings, UX rules"
+  }
+ ]
+}
