@@ -1,0 +1,40 @@
+{
+ "receipt": "TZ 2.5 T3 - Governor 2.0 completion (Claude lane)",
+ "date": "2026-10-29",
+ "commit": "dafbd7f6",
+ "done": {
+  "direct_gen_leases": "every Direct Gen job (photo sd-cli, video, swap) takes a governor lease inside the GPU gate when the owner's resource policy enforces it; queued waits with heartbeats (30 min), refused fails the job before it runs, the GPU lock is never kept; idempotency key per job",
+  "seeds": "provisional seeds sdcli_image 30 GB, wan_video 55 GB, faceswap 40 GB (replaced by measured P95 after 10 samples)",
+  "memory_meter": "tools/resource_governor/measure.py: N runs, peak above the pre-job baseline sampled every 0.25 s, first run cold, config_hash, POST /api/resources/measurement",
+  "resources_card": "Resources page: 'Аренды памяти' panel - who holds memory, who waits and why, which profiles are still estimates"
+ },
+ "live_measurement": {
+  "consumer": "sdcli_image",
+  "model": "flux1-schnell",
+  "resolution": "768x768",
+  "steps": 4,
+  "config_hash": "1d5d651d466bce22",
+  "completed": 10,
+  "p95_gb": 24.818,
+  "max_gb": 24.818,
+  "peaks_gb": [
+   24.818,
+   19.85,
+   24.394,
+   17.224,
+   17.827,
+   17.831,
+   17.87,
+   18.599,
+   17.907,
+   18.028
+  ]
+ },
+ "tests": "test_direct_gen_leases.py 15 passed; Direct Gen + music + resources + studio suites 739 passed, 2 skipped",
+ "not_run": [
+  "20 live cycles 'Jeff + photo' without Gemma reload (owner granted local GPU 29.10; to run after the autopilot video run frees the GPU)",
+  "measurements for wan/ltx/faceswap/gemma_chat (10 runs each)",
+  "enforce=true on the owner's real policy (off by default; switch on the Resources page)",
+  "Jeff keep_alive extended by a lease (governor.py still fixed 2h)"
+ ]
+}

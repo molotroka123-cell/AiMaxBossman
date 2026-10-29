@@ -1,0 +1,82 @@
+{
+ "consumer": "sdcli_image",
+ "model": "flux1-schnell",
+ "resolution": "768x768",
+ "steps": 4,
+ "config_hash": "1d5d651d466bce22",
+ "runs": [
+  {
+   "run": 1,
+   "status": "completed",
+   "peak_gb": 24.818,
+   "cold": true,
+   "recorded": true
+  },
+  {
+   "run": 2,
+   "status": "completed",
+   "peak_gb": 19.85,
+   "cold": false,
+   "recorded": true
+  },
+  {
+   "run": 3,
+   "status": "completed",
+   "peak_gb": 24.394,
+   "cold": false,
+   "recorded": true
+  },
+  {
+   "run": 4,
+   "status": "completed",
+   "peak_gb": 17.224,
+   "cold": false,
+   "recorded": true
+  },
+  {
+   "run": 5,
+   "status": "completed",
+   "peak_gb": 17.827,
+   "cold": false,
+   "recorded": true
+  },
+  {
+   "run": 6,
+   "status": "completed",
+   "peak_gb": 17.831,
+   "cold": false,
+   "recorded": true
+  },
+  {
+   "run": 7,
+   "status": "completed",
+   "peak_gb": 17.87,
+   "cold": false,
+   "recorded": true
+  },
+  {
+   "run": 8,
+   "status": "completed",
+   "peak_gb": 18.599,
+   "cold": false,
+   "recorded": true
+  },
+  {
+   "run": 9,
+   "status": "completed",
+   "peak_gb": 17.907,
+   "cold": false,
+   "recorded": true
+  },
+  {
+   "run": 10,
+   "status": "completed",
+   "peak_gb": 18.028,
+   "cold": false,
+   "recorded": true
+  }
+ ],
+ "completed": 10,
+ "p95_gb": 24.818,
+ "max_gb": 24.818
+}
