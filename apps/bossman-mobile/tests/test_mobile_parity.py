@@ -231,3 +231,16 @@ def test_coding_status_counts_the_list(penv):
 
 def test_coding_status_needs_session(env):
     assert env.c.get("/m/api/coding-tasks/status").status_code == 401
+
+
+def test_approve_all_button_confirms_and_decides_each_approval_separately():
+    """Owner 29.10 «кнопку принять все»: one confirm, then the SAME per-approval owner endpoint for every item
+    (no bulk endpoint that could skip the per-payload binding), failures reported."""
+    from pathlib import Path
+    js = (Path(__file__).resolve().parents[1] / "bossmobile" / "ui" / "app.js").read_text(encoding="utf-8")
+    start = js.index("approveAll = btn(")
+    block = js[start:start + 900]
+    assert "Разрешить все (" in block and "window.confirm(" in block
+    assert "for (const a of items)" in block and "api('POST', `/approvals/${a.id}`, { approve: true })" in block
+    assert "не прошли" in block
+    assert "/approvals/all" not in js and "approvals/bulk" not in js

@@ -2379,7 +2379,19 @@
       try {
         const r = await api('GET', '/approvals'); const items = r.items || [];
         if (!items.length) { fill(approvals, [el('p', 'muted', 'Ничего не ждёт решения')]); return; }
-        fill(approvals, items.map((a) => {
+        // Owner 29.10: «кнопку принять все». One confirm, then every approval is decided ONE BY ONE through the same
+        // owner endpoint (each stays bound to its own payload on the server); failures are counted, never hidden.
+        const approveAll = btn(`Разрешить все (${items.length})`, 'primary approve-all', async (b) => {
+          if (!window.confirm(`Разрешить все ${items.length} решений? Каждое выполнится как отдельное «Разрешить».`)) return;
+          b.disabled = true; let ok = 0; const bad = [];
+          for (const a of items) {
+            try { await api('POST', `/approvals/${a.id}`, { approve: true }); ok += 1; }
+            catch (err) { bad.push(`#${a.id}: ${err.message}`); }
+          }
+          toast(bad.length ? `Разрешено ${ok} из ${items.length}; не прошли: ${bad.join('; ')}` : `Разрешено вами: ${ok}`);
+          refreshApprovals(); renderApprovals();
+        });
+        fill(approvals, [approveAll, ...items.map((a) => {
           const row = el('div', 'approval-row'); row.dataset.id = a.id;
           row.append(
             el('div', 'kv', `${a.kind || 'действие'}${a.task_id ? ' · задача ' + a.task_id : ''}`),
@@ -2393,7 +2405,7 @@
           };
           row.append(btn('Разрешить', 'primary', decide(true)), btn('Отклонить', 'danger', decide(false)));
           return row;
-        }));
+        })]);
       } catch (err) { failed(approvals, err); }
     };
     renderApprovals();
