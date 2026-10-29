@@ -30,6 +30,7 @@ import contextlib
 import functools
 import hashlib
 import json
+import math
 import re
 import time
 from pathlib import Path
@@ -184,16 +185,25 @@ def _today() -> str:
 
 
 def _read_audit(svc: Any) -> list[dict]:
-    try:
-        lines = _audit_path(svc).read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return []
+    """Read the complete audit; corrupt or unreadable data must not reset spend."""
     out = []
-    for line in lines:
-        with contextlib.suppress(ValueError):
-            row = json.loads(line)
-            if isinstance(row, dict):
+    try:
+        with _audit_path(svc).open("r", encoding="utf-8") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                if not isinstance(row, dict) or not isinstance(row.get("ts"), str):
+                    raise ValueError("invalid audit row")
+                raw_cost = row.get("cost_usd")
+                if isinstance(raw_cost, bool) or raw_cost is None:
+                    raise ValueError("missing audit cost")
+                cost = float(raw_cost)
+                if not math.isfinite(cost) or cost < 0:
+                    raise ValueError("invalid audit cost")
                 out.append(row)
+    except FileNotFoundError:
+        return []
     return out
 
 
@@ -223,7 +233,12 @@ async def _session_of_task(svc: Any, task_id: int | None) -> str | None:
 
 async def budget_state(svc: Any, task_id: int | None) -> dict:
     """Бюджет, из которого платит вызов: сессия агента (учёт роутера) или, вне сессии, сутки по журналу cloud.ask."""
-    rows = await asyncio.to_thread(_read_audit, svc)
+    try:
+        rows = await asyncio.to_thread(_read_audit, svc)
+    except (OSError, UnicodeError, ValueError, TypeError, OverflowError):
+        return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD,
+                "spent_usd": DEFAULT_SESSION_BUDGET_USD, "remaining_usd": 0.0,
+                "billing_unknown": True, "audit_unavailable": True}
     today_rows = [r for r in rows if str(r.get("ts", ""))[:10] == _today()]
     if any(r.get("status") == "billing_unknown" for r in today_rows):
         return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD,
@@ -451,14 +466,14 @@ async def default_transport(svc: Any, route: dict, messages: list[dict], *, max_
                 await close()
 
 
-def _actual_cost(route: dict, result: Any) -> float:
-    """Стоимость по данным провайдера (его cost или токены x цена); нет данных у платной модели - худший случай оценки."""
+def _actual_cost(route: dict, result: Any) -> float | None:
+    """Known actual cost or None; an estimate is not evidence of a provider charge."""
     if not route.get("paid"):
         return 0.0
     from .. import long_run
     priced = {"price_in": route.get("price_in_1m"), "price_out": route.get("price_out_1m")}
     spent = long_run.actual_eur(priced, result)
-    return round(spent if spent is not None else float(route.get("est_cost_usd") or 0.0), 6)
+    return round(spent, 6) if spent is not None and math.isfinite(spent) and spent >= 0 else None
 
 
 # ------------------------------------------------------------------------------------------------------- обработчик
@@ -506,7 +521,8 @@ async def _t_ask(args: dict, ctx: ToolContext) -> ToolResult:
                                           "сообщите владельцу")
     answer = str(getattr(result, "text", "") or "").strip()
     cost = _actual_cost(bound, result)
-    await audit(svc, **base, chars_in=len(answer), cost_usd=cost, status="ok" if answer else "empty",
+    await audit(svc, **base, chars_in=len(answer), cost_usd=cost if cost is not None else 0.0,
+                status="billing_unknown" if cost is None else ("ok" if answer else "empty"),
                 ms=int((time.monotonic() - started) * 1000))
     if cost and budget["scope"] == "session" and budget["session_id"]:
         rt = _orch(svc).runtime(budget["session_id"])

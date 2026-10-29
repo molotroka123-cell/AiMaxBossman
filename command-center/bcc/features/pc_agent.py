@@ -2750,13 +2750,15 @@ async def _execute_self_modify_step(
                 approved=True,
                 t0=t0,
             )
+            rollback_verified = rb_res.get("ok") is True and rb_res.get("verified") is True
             return {
-                "ok": True,
-                "verified": True,
+                "ok": rollback_verified,
+                "verified": rollback_verified,
                 "mod_id": target_mod_id,
-                "auto_rolled_back": True,
+                "auto_rolled_back": rollback_verified,
                 "rollback": rb_res,
-                "summary": f"Контроль здоровья (5 мин): обнаружен сбой после `{target_mod_id}` — выполнен автоматический откат.",
+                "summary": (f"Контроль здоровья (5 мин): обнаружен сбой после `{target_mod_id}` — выполнен автоматический откат."
+                            if rollback_verified else f"Контроль здоровья: откат `{target_mod_id}` не подтверждён; требуется проверка."),
                 "duration_ms": round((time.perf_counter() - t0) * 1000),
             }
         return {
