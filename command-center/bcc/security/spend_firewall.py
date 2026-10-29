@@ -177,36 +177,37 @@ class SpendFirewall:
             is_local = self._is_loopback(host)
         else:
             is_local = provider_kind in ("ollama", "local", "llama_cpp", "vllm")
-        if is_local and not any(tag in model_name.lower() for tag in (":cloud", "-cloud")):
-            return True
+        if is_local:
+            return not any(tag in model_name.lower() for tag in (":cloud", "-cloud"))
 
-        def _to_float(v: Any) -> float:
-            if v is None:
-                return 0.0
+        prices = None
+        if pricing:
+            if any(key not in {"prompt", "completion", "price_in", "price_out"} for key in pricing):
+                return False  # Other fees are not yet modeled by this gate.
+            # A single zero or an invalid value is not proof of zero total cost.
+            pairs = [("prompt", "completion"), ("price_in", "price_out")]
+            present = [(a, b) for a, b in pairs if a in pricing or b in pricing]
             try:
-                return float(v)
-            except (ValueError, TypeError):
-                return 0.0
-
-        prices: list[float] = []
-        prompt_cost = completion_cost = price_in = price_out = None
-        if pricing is not None:
-            prompt_cost, completion_cost = pricing.get("prompt"), pricing.get("completion")
-            price_in, price_out = pricing.get("price_in"), pricing.get("price_out")
-            prices = [_to_float(prompt_cost), _to_float(completion_cost), _to_float(price_in), _to_float(price_out)]
-        if any(v > 0.0 for v in prices):
-            return False                              # an explicit price beats every flag and every name
+                if not present or any(a not in pricing or b not in pricing for a, b in present):
+                    return False
+                prices = [Decimal(str(pricing[k])) for a, b in present for k in (a, b)]
+                if any(not v.is_finite() or v < 0 for v in prices):
+                    return False
+            except (ValueError, TypeError, ArithmeticError):
+                return False
+            if any(v > 0 for v in prices):
+                return False
 
         # 2. OpenRouter :free models (the suffix means nothing on any other provider)
-        on_openrouter = provider_kind == "openrouter" or (host is not None and (host == "openrouter.ai" or host.endswith(".openrouter.ai")))
+        on_openrouter = (host == "openrouter.ai" or (host is None and provider_kind == "openrouter"))
         if on_openrouter and model_name.endswith(":free"):
             return True
 
         # 3. Declared price of zero (a missing price is NOT zero)
-        if pricing is not None and prices and all(v == 0.0 for v in prices) and (prompt_cost is not None or price_in is not None):
+        if prices is not None and all(v == 0 for v in prices):
             return True
 
-        return isinstance(model, dict) and model.get("free") is True
+        return False
 
     def verify_pre_call_free_or_authorized(
         self,
@@ -214,6 +215,7 @@ class SpendFirewall:
         model: dict[str, Any] | str,
         pricing: Mapping[str, Any] | None = None,
         owner_token: str | None = None,
+        estimated_usd: float | None = None,
     ) -> dict[str, Any]:
         """Verify that inference call is either provably free ($0.00) or authorized by owner token.
 
@@ -254,9 +256,18 @@ class SpendFirewall:
 
         with self._lock:
             if owner_token in self._consumed_tokens:
-                raise TokenInvalidOrConsumedError(f"Owner token {owner_token} has already been consumed")
+                raise TokenInvalidOrConsumedError("Owner token has already been consumed")
             if owner_token not in self._active_tokens:
-                raise TokenInvalidOrConsumedError(f"Owner token {owner_token} is invalid or unrecognized")
+                raise TokenInvalidOrConsumedError("Owner token is invalid or unrecognized")
+
+            try:
+                estimated = Decimal(str(estimated_usd))
+                maximum = Decimal(str(self._active_tokens[owner_token].get("max_usd")))
+                if (not estimated.is_finite() or estimated <= 0 or not maximum.is_finite()
+                        or maximum < 0 or estimated > maximum):
+                    raise ValueError("invalid or over-budget estimate")
+            except (ValueError, TypeError, ArithmeticError):
+                raise PaidCallBlockedError("Paid call requires a valid estimate within the owner token limit") from None
 
             # Consume token
             meta = self._active_tokens.pop(owner_token)
@@ -266,7 +277,7 @@ class SpendFirewall:
                 "provider": p_name,
                 "model": m_name,
                 "paid": True,
-                "token_consumed": owner_token,
+                "token_consumed": True,
                 "purpose": meta.get("purpose", ""),
                 "max_usd": meta.get("max_usd", 1.0),
             }

@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -175,6 +176,13 @@ class SpendLedger:
         again. The overrun itself locks the ledger and is raised afterwards."""
         usage = result.provider_meta.get("usage") if isinstance(result.provider_meta, dict) else {}
         reported = usage.get("cost") if isinstance(usage, dict) else None
+        if not spec.free and (type(reported) not in (int, float) or not math.isfinite(reported) or reported < 0):
+            # The provider may already have billed the request; retain the
+            # reservation until the charge is independently reconciled.
+            self.locked = True
+            self.rows.append({"role": spec.role, "model": spec.model, "tokens_in": result.tokens_in,
+                              "tokens_out": result.tokens_out, "cost_usd": None, "status": "UNKNOWN_BILLING"})
+            raise PaidViolation("paid provider charge unknown; reservation retained and ledger locked")
         calculated = result.tokens_in * spec.price_in + result.tokens_out * spec.price_out
         self.reserved_usd = max(0.0, self.reserved_usd - float(reserved or 0.0))
         violation: EconomyError | None = None
@@ -249,17 +257,22 @@ class BossmanOpenRouter:
         if spec.free and not spec.model.endswith(":free"):
             raise PaidViolation(f"free role {role} is not bound to a :free model")
 
-        # SpendFirewall pre-call verification: blocks any paid call without explicit owner token
-        if os.environ.get("BOSSMAN_ENFORCE_SPEND_FIREWALL") == "1" or self.owner_token is not None or "BOSSMAN_OWNER_SPEND_TOKEN" in os.environ:
+        # Reserve before authorization to check the request against both limits.
+        # Neither path makes a network request; unwind if authorization fails.
+        reserved = self.ledger.reserve(spec, messages, tools=tools, max_tokens=max_tokens)
+        try:
             from .security.spend_firewall import get_spend_firewall
-            get_spend_firewall().verify_pre_call_free_or_authorized(
+            authorization = get_spend_firewall().verify_pre_call_free_or_authorized(
                 provider={"kind": "openai_compat", "base_url": OPENROUTER_BASE, "name": "OpenRouter"},
                 model={"name": spec.model, "free": spec.free, "price_in": spec.price_in, "price_out": spec.price_out},
                 pricing={"price_in": spec.price_in, "price_out": spec.price_out},
                 owner_token=self.owner_token or os.environ.get("BOSSMAN_OWNER_SPEND_TOKEN"),
+                estimated_usd=reserved,
             )
+        except Exception:
+            self.ledger.reserved_usd = max(0.0, self.ledger.reserved_usd - reserved)
+            raise
 
-        reserved = self.ledger.reserve(spec, messages, tools=tools, max_tokens=max_tokens)
         adapter = self._adapter(spec)
         delays = (2.0, 5.0, 15.0) if spec.free else ()
         attempt = 0
@@ -286,7 +299,11 @@ class BossmanOpenRouter:
                     "wait_s": wait, "kind": exc.kind, "reason": text[:160],
                 })
                 await asyncio.sleep(wait)
-        self.ledger.record(spec, result, reserved=reserved)
+        actual = self.ledger.record(spec, result, reserved=reserved)
+        if authorization.get("paid") and actual > float(authorization["max_usd"]) + 1e-12:
+            # Accounting happens first: the provider may already have billed the overrun.
+            self.ledger.locked = True
+            raise PaidViolation("actual charge exceeded the owner token limit; ledger locked")
         return result
 
 

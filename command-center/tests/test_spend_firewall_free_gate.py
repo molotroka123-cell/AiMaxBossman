@@ -61,6 +61,47 @@ def test_zero_price_is_free_but_a_missing_price_is_not(fw):
     assert fw.is_free_model(paid, "m", None) is False
 
 
+@pytest.mark.parametrize("pricing", [
+    {"price_in": 0}, {"prompt": "invalid", "completion": "invalid"},
+    {"prompt": 0, "completion": float("nan")}, {"prompt": -1, "completion": 0},
+    {"prompt": 0, "completion": 0, "request": 0.01},
+    {"price_in": 0, "price_out": 0, "image": 0.1},
+])
+def test_unknown_malformed_or_incomplete_prices_are_not_free(fw, pricing):
+    assert not fw.is_free_model({"kind": "openai", "base_url": PAID}, {"name": "m", "free": True}, pricing)
+
+
+def test_free_suffix_cannot_spoof_openrouter_kind_with_foreign_host(fw):
+    assert not fw.is_free_model({"kind": "openrouter", "base_url": PAID}, "model:free")
+    assert not fw.is_free_model({"kind": "openai", "base_url": PAID}, {"name": "m", "free": True}, None)
+
+
+@pytest.mark.parametrize("estimate", [None, float("nan"), float("inf"), -1])
+def test_paid_authorization_rejects_missing_or_invalid_estimate(fw, estimate):
+    token = fw.issue_one_time_owner_token(purpose="test", max_usd=1)
+    with pytest.raises(PaidCallBlockedError):
+        fw.verify_pre_call_free_or_authorized({"base_url": PAID}, "m", {"prompt": 1, "completion": 1},
+                                              owner_token=token, estimated_usd=estimate)
+
+
+def test_paid_authorization_enforces_estimate_and_one_time_limit(fw):
+    token = fw.issue_one_time_owner_token(purpose="test", max_usd=0.01)
+    paid = {"kind": "openai", "base_url": PAID}
+    with pytest.raises(PaidCallBlockedError):
+        fw.verify_pre_call_free_or_authorized(paid, "m", {"prompt": 1, "completion": 1},
+                                              owner_token=token, estimated_usd=0.02)
+    # A rejected over-budget attempt must not silently consume an approval.
+    assert fw.verify_pre_call_free_or_authorized(paid, "m", {"prompt": 1, "completion": 1},
+                                                owner_token=token, estimated_usd=0.005)["status"] == "AUTHORIZED_PAID"
+
+
+def test_zero_estimate_does_not_authorize_a_paid_call(fw):
+    token = fw.issue_one_time_owner_token(purpose="test", max_usd=0)
+    with pytest.raises(PaidCallBlockedError):
+        fw.verify_pre_call_free_or_authorized({"base_url": PAID}, "m", {"prompt": 1, "completion": 1},
+                                              owner_token=token, estimated_usd=0)
+
+
 def test_cloud_models_served_through_a_local_ollama_are_not_free(fw):
     assert fw.is_free_model({"kind": "ollama", "base_url": "http://127.0.0.1:11434"}, "gpt-oss:120b-cloud") is False
 
@@ -70,6 +111,6 @@ def test_verify_blocks_the_attacker_url_and_the_token_is_single_use(fw):
     with pytest.raises(PaidCallBlockedError):
         fw.verify_pre_call_free_or_authorized(attacker, "gpt-5-pro", {"prompt": 0.00003})
     token = fw.issue_one_time_owner_token(purpose="test", max_usd=1.0)
-    assert fw.verify_pre_call_free_or_authorized(attacker, "gpt-5-pro", {"prompt": 0.00003}, owner_token=token)["status"] == "AUTHORIZED_PAID"
+    assert fw.verify_pre_call_free_or_authorized(attacker, "gpt-5-pro", {"prompt": 0.00003}, owner_token=token, estimated_usd=0.01)["status"] == "AUTHORIZED_PAID"
     with pytest.raises(TokenInvalidOrConsumedError):
-        fw.verify_pre_call_free_or_authorized(attacker, "gpt-5-pro", {"prompt": 0.00003}, owner_token=token)
+        fw.verify_pre_call_free_or_authorized(attacker, "gpt-5-pro", {"prompt": 0.00003}, owner_token=token, estimated_usd=0.01)

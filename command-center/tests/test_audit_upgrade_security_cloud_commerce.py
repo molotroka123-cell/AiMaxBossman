@@ -89,9 +89,11 @@ def test_spend_firewall_consumes_one_time_token_single_use():
         model="z-ai/glm-5.3-flash",
         pricing={"prompt": 0.05, "completion": 0.10},
         owner_token=token,
+        estimated_usd=0.1,
     )
     assert res1["status"] == "AUTHORIZED_PAID"
-    assert res1["token_consumed"] == token
+    assert res1["token_consumed"] is True
+    assert token not in repr(res1)
 
     # 2. Replay attack fails closed
     with pytest.raises(TokenInvalidOrConsumedError, match="already been consumed"):
@@ -100,6 +102,7 @@ def test_spend_firewall_consumes_one_time_token_single_use():
             model="z-ai/glm-5.3-flash",
             pricing={"prompt": 0.05, "completion": 0.10},
             owner_token=token,
+            estimated_usd=0.1,
         )
 
 

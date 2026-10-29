@@ -10,11 +10,81 @@ from bcc.economy_orchestrator import (
     SpendLedger, TrainingRound, ROLE_SPECS, model_policy,
 )
 from bcc.providers import ChatResult, ProviderError
+from bcc.security.spend_firewall import PaidCallBlockedError, TokenInvalidOrConsumedError, get_spend_firewall
 
 
 def result(*, tin=1000, tout=100, cost=None):
     usage = {} if cost is None else {"cost": cost}
     return SimpleNamespace(tokens_in=tin, tokens_out=tout, provider_meta={"usage": usage})
+
+
+def test_paid_gateway_blocks_before_adapter_by_default(monkeypatch):
+    monkeypatch.delenv("BOSSMAN_ENFORCE_SPEND_FIREWALL", raising=False)
+    monkeypatch.delenv("BOSSMAN_OWNER_SPEND_TOKEN", raising=False)
+    calls = []
+    gw = BossmanOpenRouter(key="test")
+    monkeypatch.setattr(gw, "_adapter", lambda _spec: calls.append("adapter"))
+    with pytest.raises(PaidCallBlockedError):
+        asyncio.run(gw.chat("glm_finalizer", [{"role": "user", "content": "synthetic"}]))
+    assert calls == []
+    assert gw.ledger.reserved_usd == 0
+
+
+def test_paid_gateway_requires_single_use_owner_token(monkeypatch):
+    monkeypatch.delenv("BOSSMAN_ENFORCE_SPEND_FIREWALL", raising=False)
+    monkeypatch.delenv("BOSSMAN_OWNER_SPEND_TOKEN", raising=False)
+    calls = []
+    class Paid:
+        async def chat(self, *args, **kwargs):
+            calls.append("called")
+            return ChatResult(text="ok", tokens_in=10, tokens_out=2, provider_meta={"usage": {"cost": 0.0001}})
+    token = get_spend_firewall().issue_one_time_owner_token(purpose="synthetic test", max_usd=0.25)
+    gw = BossmanOpenRouter(key="test", owner_token=token)
+    monkeypatch.setattr(gw, "_adapter", lambda _spec: Paid())
+    asyncio.run(gw.chat("glm_finalizer", [{"role": "user", "content": "synthetic"}]))
+    with pytest.raises(TokenInvalidOrConsumedError):
+        asyncio.run(gw.chat("glm_finalizer", [{"role": "user", "content": "synthetic"}]))
+    assert calls == ["called"]
+
+
+def test_paid_gateway_rejects_token_limit_before_adapter(monkeypatch):
+    monkeypatch.delenv("BOSSMAN_OWNER_SPEND_TOKEN", raising=False)
+    token = get_spend_firewall().issue_one_time_owner_token(purpose="synthetic zero limit", max_usd=0)
+    calls = []
+    gw = BossmanOpenRouter(key="test", owner_token=token)
+    monkeypatch.setattr(gw, "_adapter", lambda _spec: calls.append("adapter"))
+    with pytest.raises(PaidCallBlockedError, match="limit"):
+        asyncio.run(gw.chat("glm_finalizer", [{"role": "user", "content": "synthetic"}]))
+    assert calls == []
+    assert gw.ledger.reserved_usd == 0
+
+
+def test_actual_cost_over_owner_limit_is_recorded_and_locks_gateway(monkeypatch):
+    class Paid:
+        async def chat(self, *args, **kwargs):
+            return ChatResult(text="ok", tokens_in=10, tokens_out=2, provider_meta={"usage": {"cost": 0.02}})
+    token = get_spend_firewall().issue_one_time_owner_token(purpose="synthetic limit", max_usd=0.01)
+    gw = BossmanOpenRouter(key="test", owner_token=token, ledger=SpendLedger(glm_budget_usd=0.25))
+    monkeypatch.setattr(gw, "_adapter", lambda _spec: Paid())
+    with pytest.raises(PaidViolation, match="owner.*limit"):
+        asyncio.run(gw.chat("glm_finalizer", [{"role": "user", "content": "synthetic"}]))
+    assert gw.ledger.spent_usd == pytest.approx(0.02)
+    assert gw.ledger.locked
+
+
+@pytest.mark.parametrize("usage", [{}, {"cost": "unknown"}, {"cost": float("nan")}])
+def test_paid_gateway_unknown_charge_stays_reserved_and_locks(monkeypatch, usage):
+    class Paid:
+        async def chat(self, *args, **kwargs):
+            return ChatResult(text="ok", tokens_in=0, tokens_out=0, provider_meta={"usage": usage})
+    token = get_spend_firewall().issue_one_time_owner_token(purpose="synthetic limit", max_usd=0.25)
+    gw = BossmanOpenRouter(key="test", owner_token=token)
+    monkeypatch.setattr(gw, "_adapter", lambda _spec: Paid())
+    with pytest.raises(PaidViolation, match="unknown"):
+        asyncio.run(gw.chat("glm_finalizer", [{"role": "user", "content": "synthetic"}]))
+    assert gw.ledger.locked
+    assert gw.ledger.reserved_usd > 0
+    assert gw.ledger.rows[-1]["cost_usd"] is None
 
 
 def test_roles_are_bound_to_owner_requested_models_and_free_workers():
@@ -212,7 +282,8 @@ def test_the_gateway_releases_the_reservation_it_booked(monkeypatch):
             return ChatResult(text="ok", tokens_in=10, tokens_out=2,
                               provider_meta={"usage": {"cost": 0.0001}})
 
-    gw = BossmanOpenRouter(key="test", ledger=SpendLedger(glm_budget_usd=0.25))
+    token = get_spend_firewall().issue_one_time_owner_token(purpose="synthetic test", max_usd=0.25)
+    gw = BossmanOpenRouter(key="test", ledger=SpendLedger(glm_budget_usd=0.25), owner_token=token)
     monkeypatch.setattr(gw, "_adapter", lambda _spec: Paid())
     asyncio.run(gw.chat("glm_finalizer", [{"role": "user", "content": "bundle"}]))
     assert gw.ledger.reserved_usd == pytest.approx(0.0)
