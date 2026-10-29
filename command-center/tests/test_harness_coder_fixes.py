@@ -139,6 +139,49 @@ def test_changed_step_arguments_after_approval_do_not_run(tmp_path, monkeypatch)
     assert rec["status"] == "failed" and "approval_payload_mismatch" in rec["error"]
 
 
+# ------------------------------------------------------------------ Task 3 (Codex H4-A): owner reconciliation of unknown spend
+
+def _unknown_day(tmp_path):
+    from bcc.features import tools_cloud
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path))
+    asyncio.run(tools_cloud.audit(svc, model="m-paid", provider="p", worker="w", cost_usd=0.0, status="billing_unknown",
+                                  error="CancelledError", chars_out=10, chars_in=0))
+    sha = tools_cloud.unresolved_unknown_spend(tmp_path)[0]["sha256"]
+    return tools_cloud, svc, sha
+
+
+def test_owner_reconciliation_unlocks_the_budget_and_counts_the_confirmed_cost(tmp_path):
+    tc, svc, sha = _unknown_day(tmp_path)
+    before = asyncio.run(tc.budget_state(svc, None))
+    assert before["remaining_usd"] == 0 and before.get("billing_unknown") is True
+    row = tc.reconcile_unknown_spend_by_owner(tmp_path, target_record_sha256=sha, actual_cost_usd=0.05, owner_id="owner",
+                                              evidence_note="provider usage page, request at 10:00Z")
+    after = asyncio.run(tc.budget_state(svc, None))
+    assert row["status"] == "billing_reconciled" and row["decided_by"] == "owner"
+    assert not after.get("billing_unknown") and after["spent_usd"] == pytest.approx(0.05) and after["remaining_usd"] > 0
+    assert tc.unresolved_unknown_spend(tmp_path) == []
+    again = tc.reconcile_unknown_spend_by_owner(tmp_path, target_record_sha256=sha, actual_cost_usd=0.07, owner_id="owner",
+                                                evidence_note="duplicate")
+    assert again["cost_usd"] == 0.05                                          # idempotent, the first decision stands
+    lines = (tmp_path / "cloud_ask" / "audit.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2 and '"billing_unknown"' in lines[0]                # append-only: the original row is untouched
+
+
+@pytest.mark.parametrize("kw,exc", [
+    ({"owner_id": "agent"}, PermissionError),
+    ({"actual_cost_usd": -0.01}, ValueError),
+    ({"actual_cost_usd": float("nan")}, ValueError),
+    ({"evidence_note": "  "}, ValueError),
+    ({"target_record_sha256": "0" * 64}, LookupError),
+])
+def test_bad_reconciliations_are_refused_and_the_budget_stays_locked(tmp_path, kw, exc):
+    tc, svc, sha = _unknown_day(tmp_path)
+    args = {"target_record_sha256": sha, "actual_cost_usd": 0.05, "owner_id": "owner", "evidence_note": "usage page", **kw}
+    with pytest.raises(exc):
+        tc.reconcile_unknown_spend_by_owner(tmp_path, **args)
+    assert asyncio.run(tc.budget_state(svc, None))["remaining_usd"] == 0
+
+
 def test_unchanged_step_arguments_run_once(tmp_path, monkeypatch):
     rec, calls = _pending_task(tmp_path, monkeypatch, change_args=False)      # positive control
     assert len(calls) == 1 and calls[0]["tool"] == "pc.write_file"

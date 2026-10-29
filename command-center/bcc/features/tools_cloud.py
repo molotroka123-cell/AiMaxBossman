@@ -34,9 +34,11 @@ import math
 import re
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import sqlalchemy as sa
+from fastapi import APIRouter, HTTPException, Request
 
 from .. import conversation_context
 from ..db import task_runs as runs_t
@@ -215,6 +217,57 @@ def _append_audit(svc: Any, row: dict) -> None:
         fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
 
 
+def _row_sha256(row: dict) -> str:
+    """Identity of one audit row: SHA-256 of the exact line `_append_audit` wrote (canonical JSON, sorted keys)."""
+    return hashlib.sha256(json.dumps(row, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _resolved_unknown(rows: list[dict]) -> set[str]:
+    return {str(r.get("reconciles_sha256")) for r in rows
+            if r.get("status") == "billing_reconciled" and r.get("decided_by") == "owner" and r.get("reconciles_sha256")}
+
+
+def unresolved_unknown_spend(data_dir: Path) -> list[dict]:
+    """The billing_unknown rows the owner has not reconciled yet (metadata only, never request text)."""
+    rows = _read_audit(SimpleNamespace(settings=SimpleNamespace(data_dir=data_dir)))
+    done = _resolved_unknown(rows)
+    return [{"sha256": _row_sha256(r), "ts": r.get("ts"), "model": r.get("model"), "provider": r.get("provider"),
+             "error": r.get("error")} for r in rows if r.get("status") == "billing_unknown" and _row_sha256(r) not in done]
+
+
+def reconcile_unknown_spend_by_owner(data_dir: Path, *, target_record_sha256: str, actual_cost_usd: float, owner_id: str,
+                                     evidence_note: str) -> dict[str, Any]:
+    """Owner's append-only reconciliation of ONE billing_unknown row (trio audit 29.10, Codex H4-A).
+
+    Fail-closed stays the default: an unknown charge blocks paid calls until the owner states the real amount from the provider's
+    own usage. The original row is never rewritten; a `billing_reconciled` row is appended that names it by SHA-256 and carries the
+    confirmed cost, which then counts in the day's spend. Idempotent: a second reconciliation of the same row returns the first.
+    """
+    if owner_id != "owner":
+        raise PermissionError("only the owner reconciles unknown cloud spend")
+    if isinstance(actual_cost_usd, bool) or not isinstance(actual_cost_usd, (int, float)) \
+            or not math.isfinite(float(actual_cost_usd)) or float(actual_cost_usd) < 0:
+        raise ValueError("actual_cost_usd must be a finite number >= 0")
+    note = str(evidence_note or "").strip()
+    if not note:
+        raise ValueError("evidence_note (where the amount comes from) is required")
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=data_dir))
+    rows = _read_audit(svc)
+    target = next((r for r in rows if r.get("status") == "billing_unknown" and _row_sha256(r) == target_record_sha256), None)
+    if target is None:
+        raise LookupError("no billing_unknown row with this SHA-256")
+    existing = next((r for r in rows if r.get("status") == "billing_reconciled"
+                     and r.get("reconciles_sha256") == target_record_sha256), None)
+    if existing is not None:
+        return existing
+    record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "status": "billing_reconciled",
+              "reconciles_sha256": target_record_sha256, "cost_usd": round(float(actual_cost_usd), 6),
+              "decided_by": "owner", "evidence_note": note[:500], "model": target.get("model"),
+              "provider": target.get("provider")}
+    _append_audit(svc, record)
+    return record
+
+
 async def audit(svc: Any, **row: Any) -> dict:
     """Одна строка журнала. Намеренно без полей текста: только метаданные вызова."""
     record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **row}
@@ -241,7 +294,8 @@ async def budget_state(svc: Any, task_id: int | None) -> dict:
                 "spent_usd": DEFAULT_SESSION_BUDGET_USD, "remaining_usd": 0.0,
                 "billing_unknown": True, "audit_unavailable": True}
     today_rows = [r for r in rows if str(r.get("ts", ""))[:10] == _today()]
-    if any(r.get("status") == "billing_unknown" for r in today_rows):
+    resolved = _resolved_unknown(rows)                       # owner reconciliations (any day) clear the matching unknown row
+    if any(r.get("status") == "billing_unknown" and _row_sha256(r) not in resolved for r in today_rows):
         return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD,
                 "spent_usd": DEFAULT_SESSION_BUDGET_USD, "remaining_usd": 0.0,
                 "billing_unknown": True}
@@ -568,4 +622,44 @@ async def _setup(svc) -> None:
         REGISTRY.register(spec)
 
 
-FEATURE = Feature(name="tools_cloud", router=None, setup=_setup)
+router = APIRouter()
+
+
+def _require_owner(request: Request) -> None:
+    """Owner only: the role comes from the verified session/token, never from a header or the body."""
+    principal = getattr(request.state, "principal", None)
+    if principal is None or getattr(principal, "role", None) != "owner":
+        raise HTTPException(403, {"code": "OWNER_CREDENTIAL_REQUIRED", "message": "сверку облачных расходов делает только владелец"})
+    for header in ("x-participant", "x-bcc-participant"):
+        value = request.headers.get(header)
+        if value is not None and value.strip() != "owner":
+            raise HTTPException(403, {"code": "owner_only", "message": "участник не может сверять расходы"})
+
+
+@router.get("/cloud/budget/unknown")
+async def api_cloud_budget_unknown(request: Request):
+    _require_owner(request)
+    svc = request.app.state.svc
+    return {"unresolved": await asyncio.to_thread(unresolved_unknown_spend, Path(svc.settings.data_dir))}
+
+
+@router.post("/cloud/budget/reconcile")
+async def api_cloud_budget_reconcile(request: Request, body: dict[str, Any]):
+    """Owner states the real amount of one billing_unknown call (from the provider's usage page); append-only."""
+    _require_owner(request)
+    svc = request.app.state.svc
+    try:
+        async with _STATE.audit_lock:
+            row = await asyncio.to_thread(
+                reconcile_unknown_spend_by_owner, Path(svc.settings.data_dir),
+                target_record_sha256=str((body or {}).get("target_record_sha256") or ""),
+                actual_cost_usd=(body or {}).get("actual_cost_usd"), owner_id="owner",
+                evidence_note=str((body or {}).get("evidence_note") or ""))
+    except LookupError as exc:
+        raise HTTPException(404, {"code": "UNKNOWN_ROW_NOT_FOUND", "message": str(exc)}) from exc
+    except ValueError as exc:
+        raise HTTPException(422, {"code": "RECONCILE_INVALID", "message": str(exc)}) from exc
+    return {"ok": True, "reconciliation": row, "budget": await budget_state(svc, None)}
+
+
+FEATURE = Feature(name="tools_cloud", router=router, setup=_setup)
