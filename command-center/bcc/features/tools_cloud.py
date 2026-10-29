@@ -40,6 +40,7 @@ import sqlalchemy as sa
 
 from .. import conversation_context
 from ..db import task_runs as runs_t
+from ..single_flight import await_shared
 from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
 from ..trace import current_trace_id
 from . import Feature
@@ -511,8 +512,9 @@ async def _t_ask(args: dict, ctx: ToolContext) -> ToolResult:
                                         timeout=CALL_TIMEOUT_S + 5.0)
     except asyncio.CancelledError:
         if bound.get("paid"):
-            await asyncio.shield(audit(svc, **base, chars_in=0, cost_usd=0.0, status="billing_unknown", error="CancelledError",
-                                       ms=int((time.monotonic() - started) * 1000)))
+            # await_shared, not asyncio.shield (bcc/single_flight.py): the audit row must be written even if this caller is cancelled
+            await await_shared(asyncio.ensure_future(audit(svc, **base, chars_in=0, cost_usd=0.0, status="billing_unknown",
+                                                            error="CancelledError", ms=int((time.monotonic() - started) * 1000))))
         raise
     except Exception as exc:  # noqa: BLE001 - не включать текст исключения, он может содержать запрос
         await audit(svc, **base, chars_in=0, cost_usd=0.0, status="billing_unknown" if bound.get("paid") else "error", error=type(exc).__name__,
