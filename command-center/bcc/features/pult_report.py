@@ -6,6 +6,7 @@ replayed automatically (non-idempotent), so a restart cannot send the same repor
 """
 from __future__ import annotations
 
+import html
 import re
 import time
 
@@ -28,13 +29,49 @@ def redact(text: str) -> str:
     return _SECRET.sub("[скрыто]", text)
 
 
+def format_telegram_html(title: str, body: str, agent: str | None = None) -> str:
+    """Format an audit/status report using Telegram HTML (<b>, <blockquote>, <code>) and sign as Argon by default."""
+    safe_title = html.escape(title.strip() or "Отчёт Аргона")
+    sig_name = html.escape((agent or "Аргон").strip())
+
+    lines = html.escape(body.strip()).splitlines()
+    out_lines: list[str] = []
+    quote_buf: list[str] = []
+
+    def _inline_markup(s: str) -> str:
+        s = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", s)
+        s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+        return s
+
+    def _flush_quote() -> None:
+        if quote_buf:
+            out_lines.append("<blockquote>" + "\n".join(quote_buf) + "</blockquote>")
+            quote_buf.clear()
+
+    for raw_line in lines:
+        stripped = raw_line.lstrip()
+        if stripped.startswith("&gt;"):
+            quote_buf.append(_inline_markup(stripped[4:].lstrip()))
+        else:
+            _flush_quote()
+            out_lines.append(_inline_markup(raw_line))
+    _flush_quote()
+
+    formatted_body = "\n".join(out_lines)
+    header = f"<b>📋 {safe_title}</b>"
+    footer = f"<blockquote>🤖 <b>Подпись:</b> {sig_name}</blockquote>"
+    full = f"{header}\n\n{formatted_body}\n\n{footer}"
+    return full[:MAX_CHARS]
+
+
 async def _send_text(token: str, chat_id: int, text: str, proxy: str = "", transport=None) -> int | None:
     from ..telegram_companion.adapters import bot_api_url
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30, connect=15), follow_redirects=False, trust_env=False,
                                      proxy=(proxy or None) if transport is None else None, transport=transport) as c:
             r = await c.post(bot_api_url(token, "sendMessage"),
-                             data={"chat_id": str(chat_id), "text": text, "disable_web_page_preview": "true"})
+                             data={"chat_id": str(chat_id), "text": text, "parse_mode": "HTML",
+                                   "disable_web_page_preview": "true"})
         body = r.json()
     except (httpx.HTTPError, OSError, TimeoutError, ValueError):
         raise _pult.PultError(502, "pult_unreachable", "Telegram недоступен с этого ПК — отчёт не отправлен") from None
@@ -44,7 +81,7 @@ async def _send_text(token: str, chat_id: int, text: str, proxy: str = "", trans
 
 
 async def _report(args: dict, ctx: ToolContext) -> ToolResult:
-    title = redact(str(args.get("title") or "Отчёт агента").strip())[:80]
+    title = redact(str(args.get("title") or "Отчёт Аргона").strip())[:80]
     body = redact(str(args.get("text") or "").strip())
     if not body:
         return ToolResult(content="REFUSED: text is empty", error=True, one_line="pult.report: empty")
@@ -54,7 +91,7 @@ async def _report(args: dict, ctx: ToolContext) -> ToolResult:
         return ToolResult(content=f"REFUSED: at most {MAX_PER_HOUR} reports per hour", error=True,
                           one_line="pult.report: rate limit")
     agent = (ctx.agent or {}).get("name") if isinstance(getattr(ctx, "agent", None), dict) else None
-    text = f"📋 {title}\n— {agent or 'агент Bossman'}\n\n{body}"[:MAX_CHARS]
+    text = format_telegram_html(title, body, agent=agent or "Аргон")
     try:
         token, chat_id, proxy = _pult.load_target()
         mid = await _send_text(token, chat_id, text, proxy)

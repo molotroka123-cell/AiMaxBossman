@@ -34,6 +34,15 @@ def test_report_is_sent_to_the_fixed_owner_chat_with_secrets_cut(monkeypatch):
     assert not res.error and res.data["message_id"] == 77
     body = calls[0].content.decode()
     assert "chat_id=555" in body and fake_sk[:15] not in body and "%5B%D1%81%D0%BA%D1%80%D1%8B%D1%82%D0%BE%5D" in body
+    assert "parse_mode=HTML" in body
+
+
+def test_format_telegram_html_defaults_to_argon_signature():
+    rendered = pr.format_telegram_html("Аудит системы", "> Все проверки пройдены\n- `status=PASS`")
+    assert "<b>" in rendered
+    assert "<blockquote>" in rendered
+    assert "<code>status=PASS</code>" in rendered
+    assert "Аргон" in rendered
 
 
 def test_empty_text_refused_and_rate_limit(monkeypatch):
