@@ -65,3 +65,45 @@ def test_unknown_cloud_charge_blocks_further_daily_spend(tmp_path, monkeypatch):
     path.parent.mkdir()
     path.write_text(json.dumps({'ts':'2026-10-28T00:00:00Z','status':'billing_unknown','cost_usd':0})+'\n', encoding='utf-8')
     assert asyncio.run(tools_cloud.budget_state(svc, None))['remaining_usd'] == 0
+
+@pytest.mark.parametrize('bad_row', ['{broken', '[]', '{"ts":"2026-10-28T00:00:00Z","cost_usd":-1}', '{"ts":"2026-10-28T00:00:00Z","cost_usd":NaN}'])
+def test_cloud_budget_corrupt_audit_fails_closed(tmp_path, monkeypatch, bad_row):
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path))
+    path = tmp_path / 'cloud_ask' / 'audit.jsonl'
+    path.parent.mkdir()
+    path.write_text(bad_row + '\n', encoding='utf-8')
+    monkeypatch.setattr(tools_cloud, '_today', lambda: '2026-10-28')
+    assert asyncio.run(tools_cloud.budget_state(svc, None))['remaining_usd'] == 0
+
+def test_cloud_budget_unreadable_audit_fails_closed(tmp_path, monkeypatch):
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path))
+    path = tmp_path / 'cloud_ask' / 'audit.jsonl'
+    path.mkdir(parents=True)
+    assert asyncio.run(tools_cloud.budget_state(svc, None))['remaining_usd'] == 0
+
+def test_cloud_budget_missing_audit_allows_first_use(tmp_path):
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path))
+    assert asyncio.run(tools_cloud.budget_state(svc, None))['remaining_usd'] > 0
+
+def test_paid_cloud_missing_usage_is_not_a_zero_or_estimated_actual_cost():
+    result = SimpleNamespace()
+    assert tools_cloud._actual_cost({'paid': True, 'est_cost_usd': 0.3, 'price_in_1m': 1, 'price_out_1m': 2}, result) is None
+
+@pytest.mark.parametrize('rollback_ok', [False, True])
+def test_self_modify_health_reports_actual_rollback_result(tmp_path, monkeypatch, rollback_ok):
+    import time
+    from bcc.features import pc_agent
+    root=tmp_path / 'selfmods'
+    mod=root / 'sm-test'
+    mod.mkdir(parents=True)
+    (mod / 'proposal.json').write_text(json.dumps({'status':'applied', 'applied_at':time.time()}), encoding='utf-8')
+    rt=SimpleNamespace(self_mod_dir=root, is_stopped=lambda svc:False)
+    original=pc_agent._execute_self_modify_step
+    async def fake_nested(*args, **kwargs):
+        assert kwargs['args']['action'] == 'rollback'
+        return {'ok':rollback_ok, 'verified':rollback_ok}
+    monkeypatch.setattr(pc_agent, '_execute_self_modify_step', fake_nested)
+    result=asyncio.run(original(None,rt,task_id=1,run_id=1,args={'action':'health_check','mod_id':'sm-test','simulate_unhealthy':True},actor='watchdog',approved=True,t0=time.perf_counter()))
+    assert result['ok'] is rollback_ok
+    assert result['verified'] is rollback_ok
+    assert result['auto_rolled_back'] is rollback_ok

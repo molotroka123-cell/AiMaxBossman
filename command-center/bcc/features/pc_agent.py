@@ -2750,13 +2750,18 @@ async def _execute_self_modify_step(
                 approved=True,
                 t0=t0,
             )
+            rb_ok = bool(rb_res.get("ok"))
+            rb_verified = bool(rb_res.get("verified"))
             return {
-                "ok": True,
-                "verified": True,
+                "ok": rb_ok,
+                "verified": rb_verified,
                 "mod_id": target_mod_id,
-                "auto_rolled_back": True,
+                "auto_rolled_back": rb_ok,
                 "rollback": rb_res,
-                "summary": f"Контроль здоровья (5 мин): обнаружен сбой после `{target_mod_id}` — выполнен автоматический откат.",
+                "summary": (
+                    f"Контроль здоровья (5 мин): обнаружен сбой после `{target_mod_id}` — "
+                    + ("выполнен автоматический откат." if rb_ok else "автоматический откат не удался.")
+                ),
                 "duration_ms": round((time.perf_counter() - t0) * 1000),
             }
         return {
@@ -6359,8 +6364,28 @@ async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
             detail={"code": "PC_AGENT_STOPPED", "message": "СТОП активен: операции самоизменения заблокированы до /resume."},
         )
     payload = dict(body or {})
-    actor = str(payload.get("actor") or "owner").strip()
-    approved = bool(payload.get("approved", False))
+    principal = getattr(getattr(request, "state", None), "principal", None)
+    actor = str(getattr(principal, "role", None) or payload.get("actor") or "owner").strip()
+    requested_approved = bool(payload.get("approved", False))
+    approval_id_raw = payload.get("approval_id")
+    approval_verified = False
+    if requested_approved and approval_id_raw is not None:
+        with contextlib.suppress(Exception):
+            aid = int(approval_id_raw)
+            approvals_mgr = getattr(svc, "approvals", None)
+            if approvals_mgr is not None and hasattr(approvals_mgr, "get"):
+                rec = await approvals_mgr.get(aid)
+                if isinstance(rec, dict) and rec.get("status") == "approved":
+                    rec_tool = str(rec.get("tool") or "pc.self_modify")
+                    if rec_tool in {"pc.self_modify", "self_modify"}:
+                        approval_verified = True
+            pending_map = getattr(rt, "pending_approvals", None) or {}
+            if not approval_verified and str(approval_id_raw) in pending_map:
+                p_rec = pending_map[str(approval_id_raw)]
+                if isinstance(p_rec, dict) and p_rec.get("status") == "approved":
+                    approval_verified = True
+    approved = bool(requested_approved and approval_verified)
+    payload["approved"] = approved
     res = await execute_pc_step(
         svc,
         rt,
@@ -6372,6 +6397,8 @@ async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
         actor=actor,
         approved=approved,
     )
+    if isinstance(res, dict):
+        res["approval_verified"] = approval_verified
     rt.journal.append(
         actor=actor,
         task_id=int(payload.get("task_id") or 0) or None,
@@ -6379,7 +6406,10 @@ async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
         tool="pc.self_modify",
         args=payload,
         tier=str(res.get("tier") or ("T2" if approved else "T1")),
-        decision=str(res.get("decision") or ("approved" if approved else "auto")),
+        decision=str(
+            res.get("decision")
+            or ("approved" if approved else ("unverified_json_approved_ignored" if requested_approved else "auto"))
+        ),
         result=res.get("summary") or res.get("error"),
         verified=res.get("verified"),
     )

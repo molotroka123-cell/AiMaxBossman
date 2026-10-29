@@ -25,6 +25,7 @@ from .pc_agent_policy_paths import (
     is_t3_secret_or_protected_path,
     is_within_safe_roots,
 )
+from .pc_agent_policy_guards import validate_powershell_ast_or_tokens
 from .pc_agent_policy_procs import _check_proc_tree_protected, is_protected_process
 
 _GIT_HEADS = {"git", "git.exe"}
@@ -195,6 +196,9 @@ def _classify_run_command(
                 f"Команда обращается к ресурсу T3 ({cat}).",
                 True,
             )
+    ps_ok, ps_why = validate_powershell_ast_or_tokens(joined)
+    if not ps_ok:
+        return PolicyVerdict("T3", "deny", ps_why, f"Отказ PowerShell ({ps_why}).", True)
     verdict = _classify_argv_secrets(argv, expanded_argv, repo_root, data_dir)
     if verdict is None:
         verdict = _classify_kill_argv(argv, joined)

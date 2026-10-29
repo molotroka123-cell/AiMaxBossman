@@ -75,18 +75,35 @@ class SpendFirewall:
         self._cost_vector = LocalComputeCostVector()
         self._audit_log: list[dict[str, Any]] = []
 
-    def issue_one_time_owner_token(self, *, purpose: str, max_usd: float = 1.0) -> str:
+    def issue_one_time_owner_token(
+        self,
+        *,
+        purpose: str,
+        max_usd: float = 1.0,
+        allowed_provider: str | None = None,
+        allowed_model: str | None = None,
+    ) -> str:
         """Issue a single-use authorization token for an explicitly approved paid call."""
         token = f"spend-tok-{secrets.token_urlsafe(24)}"
         with self._lock:
             self._active_tokens[token] = {
                 "purpose": purpose,
                 "max_usd": float(max_usd),
+                "allowed_provider": str(allowed_provider).strip().lower() if allowed_provider else None,
+                "allowed_model": str(allowed_model).strip().lower() if allowed_model else None,
                 "created_at": os.environ.get("BOSSMAN_TEST_CLOCK") or "",
             }
         return token
 
-    def register_owner_token(self, token: str, *, purpose: str = "registered_token", max_usd: float = 1.0) -> None:
+    def register_owner_token(
+        self,
+        token: str,
+        *,
+        purpose: str = "registered_token",
+        max_usd: float = 1.0,
+        allowed_provider: str | None = None,
+        allowed_model: str | None = None,
+    ) -> None:
         """Register an existing token (e.g. from test or external approval channel)."""
         if not token or not isinstance(token, str):
             raise SpendFirewallError("Invalid token format")
@@ -96,6 +113,8 @@ class SpendFirewall:
             self._active_tokens[token] = {
                 "purpose": purpose,
                 "max_usd": float(max_usd),
+                "allowed_provider": str(allowed_provider).strip().lower() if allowed_provider else None,
+                "allowed_model": str(allowed_model).strip().lower() if allowed_model else None,
             }
 
     def record_local_compute(
@@ -260,9 +279,25 @@ class SpendFirewall:
             if owner_token not in self._active_tokens:
                 raise TokenInvalidOrConsumedError("Owner token is invalid or unrecognized")
 
+            tok_meta = self._active_tokens[owner_token]
+            bound_provider = tok_meta.get("allowed_provider")
+            bound_model = tok_meta.get("allowed_model")
+            if (bound_provider and bound_provider != p_name.strip().lower()) or (
+                bound_model and bound_model != m_name.strip().lower()
+            ):
+                self._audit_log.append({
+                    "status": "BLOCKED_PAID",
+                    "provider": p_name,
+                    "model": m_name,
+                    "reason": "token_scope_mismatch",
+                })
+                raise PaidCallBlockedError(
+                    f"SpendFirewall FAIL-CLOSED: token_scope_mismatch for {p_name}:{m_name}"
+                )
+
             try:
                 estimated = Decimal(str(estimated_usd))
-                maximum = Decimal(str(self._active_tokens[owner_token].get("max_usd")))
+                maximum = Decimal(str(tok_meta.get("max_usd")))
                 if (not estimated.is_finite() or estimated <= 0 or not maximum.is_finite()
                         or maximum < 0 or estimated > maximum):
                     raise ValueError("invalid or over-budget estimate")
