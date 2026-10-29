@@ -1,0 +1,22 @@
+{
+ "errors": {
+  "dark": [],
+  "light": []
+ },
+ "api_5xx": {
+  "dark": [],
+  "light": []
+ },
+ "api_4xx": {
+  "dark": [
+   "401 /m/api/session"
+  ],
+  "light": [
+   "401 /m/api/session"
+  ]
+ },
+ "logged_in": {
+  "dark": true,
+  "light": true
+ }
+}

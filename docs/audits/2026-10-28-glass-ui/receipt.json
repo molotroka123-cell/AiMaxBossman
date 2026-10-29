@@ -7,9 +7,15 @@
   "iPhone 15 Pro emulation (Playwright Chromium), light and dark: 8 tabs opened through the app's own tab buttons, 0 page errors, bundled Inter font loaded, sliding pill index follows the active tab"
  ],
  "not_checked": [
-  "real iPhone Safari (backdrop-filter rendering, safe-area)",
-  "shell served by the live pult with a real backend: screens were rendered as a static shell, so data panels show HTTP 404 by design"
+  "real iPhone Safari (backdrop-filter rendering, safe-area)"
  ],
  "tool": "tools/mobile_ui_emulator_check.py <ui dir> <out dir>",
- "font": "Inter variable 4.1, SIL OFL 1.1, bundled in bossmobile/ui/fonts"
+ "font": "Inter variable 4.1, SIL OFL 1.1, bundled in bossmobile/ui/fonts",
+ "live_emulator": {
+  "pult": "candidate code on :8842 (test data dir)",
+  "backend": "candidate :8811 at build 4074e2945cca, source_identity PASS",
+  "result": "logged in with the test pairing token in light and dark, all 8 tabs opened, 0 page errors, 0 API answers >= 500; only 401 on session before login (expected)",
+  "note": "Status tab fills after ~2-9 s on the candidate (slow load, not an error)",
+  "tool": "tools/mobile_ui_live_emulator_check.py [url] [mobile data dir] [out dir]"
+ }
 }
