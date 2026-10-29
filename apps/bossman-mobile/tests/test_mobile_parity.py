@@ -43,6 +43,8 @@ def penv(tmp_path, monkeypatch):
         path, method = request.url.path, request.method
         extra = {("GET", "/api/control-plane/active"): ACTIVE, ("POST", "/api/control-plane/stop-all"): STOPPED,
                  ("GET", "/api/studio/orders"): {"orders": [ORDER]}, ("GET", f"/api/studio/orders/{OID}"): ORDER,
+                 ("POST", f"/api/studio/orders/{OID}/approve"): {**ORDER, "status": "approved"},
+                 ("POST", f"/api/studio/orders/{OID}/rework"): {**ORDER, "status": "rework"},
                  ("GET", "/api/coding-tasks"): CODING}
         if (method, path) not in extra:
             return orig(self, request)
@@ -148,6 +150,18 @@ def test_studio_orders_need_session(env):
 def test_studio_order_mutations_are_not_on_the_phone_api(penv):
     for sub in ("quote", "accept", "start", "deliver", "cancel"):
         assert penv.post(f"/m/api/studio/orders/{OID}/{sub}").status_code in (404, 405)
+
+
+def test_studio_order_preview_approve_and_rework(penv):
+    prev = penv.c.get(f"/m/api/studio/orders/{OID}/preview")
+    assert prev.status_code == 200 and prev.json()["cost"] == "1.20" and "SECRET" not in prev.text
+    ap = penv.post(f"/m/api/studio/orders/{OID}/approve", json={})
+    assert ap.status_code == 200 and ap.json()["status"] == "approved"
+    assert json.loads(_calls(penv, f"/api/studio/orders/{OID}/approve")[-1]["body"]) == {"answer": "yes"}
+    rw = penv.post(f"/m/api/studio/orders/{OID}/rework", json={"reason": "fix lighting"})
+    assert rw.status_code == 200 and rw.json()["status"] == "rework"
+    assert json.loads(_calls(penv, f"/api/studio/orders/{OID}/rework")[-1]["body"]) == {"reason": "fix lighting"}
+
 
 
 # ------------------------------------------------------------------ niche research

@@ -955,3 +955,154 @@ async def test_api_reads_order_files_off_the_event_loop(env, monkeypatch):
     assert (await env.client.get(f"{URL}/{oid}?client={A}", headers=OWNER)).status_code == 200
     assert (await env.client.get(URL, headers=as_a)).status_code == 200
     assert seen and loop_thread not in seen, "order files were read on the event-loop thread"
+
+
+# ---------- T1 (29.10): manifest, source_rights, delivery_link ----------
+
+def test_t1_manifest_written_at_generating_qc_approve_deliver(book):
+    j = make_job(book.jobs, A)
+    job = book.jobs.load(A, j)
+    job["seed"] = 777
+    book.jobs.save(job)
+    o = _order(book, A, {"kind": "image", "job_ids": [j]})
+    oid = o["order_id"]
+    book.accept(A, oid)
+    mpath = book.jobs.participant_dir(A) / "orders" / f"{oid}.manifest.json"
+
+    s = book.start(A, oid)
+    assert s["manifest"]["status"] == "generating" and mpath.exists()
+    assert s["manifest"]["jobs"][0]["seed"] == 777
+    assert s["manifest"]["jobs"][0]["model"] == "z-image-turbo"
+
+    q = book.qc(A, oid, True, "looks sharp")
+    assert q["manifest"]["status"] == "owner_review"
+    assert json.loads(mpath.read_text("utf-8"))["status"] == "owner_review"
+
+    book.disclose(A, oid)
+    book.watermark(A, oid)
+    ap = book.approve("owner", A, oid, "yes")
+    assert ap["manifest"]["status"] == "approved"
+    assert ap["manifest"]["owner_approval"]["sha256"][j] == job["result"]["sha256"]
+
+    dl = book.deliver(A, oid)
+    assert dl["manifest"]["status"] == "delivered"
+    disk_m = json.loads(mpath.read_text("utf-8"))
+    assert disk_m["status"] == "delivered"
+    assert disk_m["jobs"][0]["artifact_sha256"] == job["result"]["sha256"]
+
+
+def test_t1_source_rights_independent_gate_blocks_preflight_and_delivery(book):
+    j = make_job(book.jobs, A)
+    o = book.create(A, {
+        "items": [{"kind": "image", "job_ids": [j]}],
+        "source_rights_required": True,
+        "source_rights_confirmed": False,
+        "client_source_hashes": ["c" * 64],
+    })
+    oid = o["order_id"]
+    book.accept(A, oid)
+    with pytest.raises(OrderError) as e:
+        book.start(A, oid)
+    assert e.value.code == "source_rights_missing"
+
+    confirmed = book.confirm_source_rights(A, oid, True, "client signed source rights form")
+    assert confirmed["source_rights_confirmed"] is True
+    assert book.start(A, oid)["status"] == "generating"
+    book.qc(A, oid, True)
+    book.disclose(A, oid)
+    book.watermark(A, oid)
+    book.approve("owner", A, oid, "yes")
+
+    # Revoking source rights before delivery blocks deliver with source_rights_missing
+    book.confirm_source_rights(A, oid, False, "disputed source photo")
+    with pytest.raises(OrderError) as e:
+        book.deliver(A, oid)
+    assert e.value.code == "source_rights_missing"
+
+    book.confirm_source_rights(A, oid, True, "resolved")
+    assert book.deliver(A, oid)["status"] == "delivered"
+
+
+async def test_t1_delivery_link_revoked_expired_and_cross_client_404(env):
+    j = _api_job(env, A)
+    as_a = await _token(env, A)
+    as_b = await _token(env, B)
+    r = await env.client.post(f"{URL}?client={A}", json={"items": [{"kind": "image", "job_ids": [j]}]}, headers=OWNER)
+    oid = r.json()["order_id"]
+    await env.client.post(f"{URL}/{oid}/accept?client={A}", headers=OWNER)
+    await _owner_ready(env, oid, A)
+    await env.client.post(f"{URL}/{oid}/deliver?client={A}", headers=OWNER)
+
+    issued = await env.client.post(f"{URL}/{oid}/delivery-link?client={A}", json={"ttl_hours": 24}, headers=OWNER)
+    assert issued.status_code == 200, issued.text
+    tok = issued.json()["token"]
+    assert tok.startswith("stdl_")
+
+    # Raw token is NOT stored on disk, only token_sha256
+    links_disk = env.svc.studio_orders.delivery_links_path.read_text("utf-8")
+    assert tok not in links_disk and hashlib.sha256(tok.encode()).hexdigest() in links_disk
+
+    # Client A opens its link -> 200
+    opened_a = await env.client.get(f"/api/studio/delivery/{tok}", headers=as_a)
+    assert opened_a.status_code == 200 and opened_a.json()["order"]["order_id"] == oid
+
+    # Client B cannot open Client A's link -> 404
+    opened_b = await env.client.get(f"/api/studio/delivery/{tok}", headers=as_b)
+    assert opened_b.status_code == 404
+
+    # Expired link -> 404
+    links_data = json.loads(links_disk)
+    th = hashlib.sha256(tok.encode()).hexdigest()
+    links_data["links"][th]["expires_at"] = "2020-01-01T00:00:00+00:00"
+    env.svc.studio_orders.delivery_links_path.write_text(json.dumps(links_data), encoding="utf-8")
+    expired_resp = await env.client.get(f"/api/studio/delivery/{tok}", headers=as_a)
+    assert expired_resp.status_code == 404
+
+    # Re-issue and revoke -> 404
+    tok2 = (await env.client.post(f"{URL}/{oid}/delivery-link?client={A}", json={"ttl_hours": 24}, headers=OWNER)).json()["token"]
+    assert (await env.client.get(f"/api/studio/delivery/{tok2}", headers=as_a)).status_code == 200
+    rev = await env.client.post(f"{URL}/{oid}/delivery-link/revoke?client={A}", json={"reason": "rotated"}, headers=OWNER)
+    assert rev.status_code == 200 and rev.json()["active"] is False
+    revoked_resp = await env.client.get(f"/api/studio/delivery/{tok2}", headers=as_a)
+    assert revoked_resp.status_code == 404
+
+
+# ---------- T2 (29.10): preset product_spin / hand_reveal + kill recovery + contact_sheet + QC ----------
+
+def test_t2_preset_product_spin_and_hand_reveal_kill_recovery_and_contact_sheet_qc(book):
+    o = book.create_preset_order(A, "product_spin", "luxury watch rotating on velvet", seed=101)
+    oid = o["order_id"]
+    assert o["preset"] == "product_spin"
+    job_ids_before = list(o["items"][0]["job_ids"])
+    assert len(job_ids_before) == 1
+    book.accept(A, oid)
+
+    # Simulate killed process mid-render -> reconcile_required without duplicate jobs
+    killed = book.render_preset(A, oid, simulate_kill_mid_render=True)
+    assert killed["status"] == "reconcile_required"
+    assert killed["items"][0]["job_ids"] == job_ids_before
+    # Jeff pause state is cleared when render exits
+    pause_state = json.loads(book.jeff_pause_path.read_text("utf-8"))
+    assert pause_state["paused"] is False
+
+    # Re-run from reconcile_required -> completes cleanly on the SAME job_id without duplicate jobs
+    done_qc = book.render_preset(A, oid, simulate_kill_mid_render=False)
+    assert done_qc["status"] == "owner_review"
+    assert done_qc["items"][0]["job_ids"] == job_ids_before
+    assert Path(done_qc["contact_sheet_path"]).exists()
+    assert Path(done_qc["qc_report_path"]).exists()
+
+    qm = done_qc["qc_metrics"]
+    assert qm["resolution_ok"] is True and qm["width"] == 1080 and qm["height"] == 1920
+    assert qm["sharpness_laplacian"] >= 60.0 and qm["flicker_score"] <= 0.15 and qm["duration_s"] == 6.0
+
+    # Approve and deliver with full manifest + delivery link
+    book.approve("owner", A, oid, "yes")
+    delivered = book.deliver(A, oid)
+    assert delivered["status"] == "delivered"
+    assert delivered["receipt"]["cost_complete"] is True
+    assert Decimal(delivered["receipt"]["cost"]) > Decimal("0")
+    link = book.issue_delivery_link(A, oid, ttl_hours=48)
+    opened = book.open_delivery_link(link["token"], caller_client=A)
+    assert opened["order"]["order_id"] == oid
+

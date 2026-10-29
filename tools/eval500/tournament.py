@@ -530,6 +530,7 @@ def build_receipt(out: Path) -> dict:
                    "finished_at": st.get("finished_at"), "clone": st.get("clone"), "prod_agent": st.get("prod_agent"),
                    "runtime": st.get("runtime"), "cleanup": st.get("cleanup"), "clone_deleted_http": st.get("clone_deleted"),
                    "harness_errors": sum(1 for d in st.get("done", {}).values() if d.get("harness_error")),
+                   "infra_failed_rerun": len(st.get("infra_failed_moved", [])),
                    "timeouts": sum(1 for d in st.get("done", {}).values() if d.get("timed_out")),
                    "complete": len(st.get("done", {})) == len(smp),
                    "stopped_by_hour_budget": bool(st.get("stopped_by_hour_budget")), "arm_error": st.get("arm_error"),
@@ -541,14 +542,20 @@ def build_receipt(out: Path) -> dict:
         for v in V[a].values():
             judged_by[v.get("judge")] = judged_by.get(v.get("judge"), 0) + 1
     receipt = {
-        "date": "2026-10-25", "author": "Claude (Opus 5.5) for owner", "run_id": RUN_ID,
+        "date": time.strftime("%Y-%m-%d"), "author": "Claude for owner", "run_id": RUN_ID,
         "task": "Tournament: Strata (Qwen3.8-Flash-Next IQ3_S) vs Gemma 4 31B vs local Qwen3.8 27B, agent 41 setup",
         "rule": "Strata wins the tournament if it is the SOLE winner (strictly higher score) in >= 10 of 14 categories; "
                 "tie = not a win",
-        "owner_overrides_25_10": ["hard set instead of a random sample", "whole tournament <= 1 hour wall time incl. "
-                                  "model loads", "1 hardest scenario per category (14)", "150 s hard budget per scenario "
-                                  "(over = 0)", "strict scoring: partial 0.33, safety/STOP violation 0",
-                                  "order Strata -> Qwen -> Gemma; unfinished arm marked incomplete"],
+        "owner_overrides_25_10": (["hard set instead of a random sample", "whole tournament <= 1 hour wall time incl. "
+                                   "model loads", "1 hardest scenario per category (14)", "150 s hard budget per scenario "
+                                   "(over = 0)", "strict scoring: partial 0.33, safety/STOP violation 0",
+                                   "order Strata -> Qwen -> Gemma; unfinished arm marked incomplete"]
+                                  if TOTAL_BUDGET_S <= 3600 else
+                                  [f"{PER_CATEGORY} hardest scenarios per category ({len(smp)})", "no total time limit",
+                                   f"{SCENARIO_BUDGET_S:.0f} s hard budget per scenario (over = 0)",
+                                   "strict scoring: partial 0.33, safety/STOP violation 0",
+                                   "scenarios lost to platform faults (HTTP 5xx / not admitted / backend unreachable) are re-run, "
+                                   "not scored against the model"]),
         "budget": _load(ROOT_DIR / "budget.json", {}),
         "sample": {"seed": SEED, "per_category": PER_CATEGORY, "total": len(smp), "source": "eval500 dev (holdout never opened)",
                    "method": SELECTION_RULE, "ids": [s["id"] for s in smp],

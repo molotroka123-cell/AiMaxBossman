@@ -2415,12 +2415,41 @@
     };
     renderStopCard();
     const studio = slot('Studio — заказы', 'studio');
-    api('GET', '/studio/orders').then((r) => {
-      const by = Object.entries(r.by_status || {}).map(([k, n]) => `${k}: ${n}`).join(', ');
-      const rows = [kv('заказов', r.total || 0), kv('по статусам', by || 'нет')];
-      (r.orders || []).slice(0, 5).forEach((o) => rows.push(kv(`№ ${String(o.order_id || '').slice(0, 8)} · ${o.status}`, o.price != null ? `${o.price} ${o.currency || ''}` : '—')));
-      fill(studio, rows);
-    }).catch((err) => failed(studio, err));
+    const renderStudioCard = () => {
+      api('GET', '/studio/orders').then((r) => {
+        const by = Object.entries(r.by_status || {}).map(([k, n]) => `${k}: ${n}`).join(', ');
+        const rows = [kv('заказов', r.total || 0), kv('по статусам', by || 'нет')];
+        (r.orders || []).slice(0, 5).forEach((o) => {
+          const itemBox = el('div', 'studio-order-row'); itemBox.dataset.orderId = o.order_id || '';
+          const priceStr = o.price != null ? `${o.price} ${o.currency || ''}` : '—';
+          const costStr = o.cost != null ? `себестоимость: ${o.cost} ${o.currency || ''}` : 'себестоимость: $0.00';
+          itemBox.appendChild(kv(`№ ${String(o.order_id || '').slice(0, 8)} · ${o.status}${o.preset ? ' · ' + o.preset : ''}`, `${priceStr} (${costStr})`));
+          if (o.qc_metrics) {
+            const qm = o.qc_metrics;
+            itemBox.appendChild(el('div', 'muted small', `Превью QC: ${qm.width || 1080}×${qm.height || 1920} · резкость ${qm.sharpness_laplacian ?? '—'} · фликер ${qm.flicker_score ?? '—'}`));
+          }
+          const actRow = el('div', 'row');
+          if (o.can_approve || o.status === 'owner_review') {
+            actRow.appendChild(btn('Принять', 'primary', async (b) => {
+              b.disabled = true;
+              try { await api('POST', `/studio/orders/${encodeURIComponent(o.order_id)}/approve`, {}); toast('Заказ принят'); renderStudioCard(); }
+              catch (err) { b.disabled = false; toast('Не удалось принять: ' + err.message); }
+            }));
+          }
+          if (o.can_rework || ['qc_failed', 'owner_review', 'approved'].includes(o.status)) {
+            actRow.appendChild(btn('На доработку', 'danger', async (b) => {
+              b.disabled = true;
+              try { await api('POST', `/studio/orders/${encodeURIComponent(o.order_id)}/rework`, { reason: 'На доработку с мобильного пульта' }); toast('Отправлено на доработку'); renderStudioCard(); }
+              catch (err) { b.disabled = false; toast('Ошибка: ' + err.message); }
+            }));
+          }
+          if (actRow.children.length) itemBox.appendChild(actRow);
+          rows.push(itemBox);
+        });
+        fill(studio, rows);
+      }).catch((err) => failed(studio, err));
+    };
+    renderStudioCard();
     const nicheCard = slot('Исследование ниш', 'niche');
     api('GET', '/niche/status').then((n) => {
       if (!n.present || !n.started) { fill(nicheCard, [el('p', 'muted', n.reason || 'запуск ещё не начат')]); return; }

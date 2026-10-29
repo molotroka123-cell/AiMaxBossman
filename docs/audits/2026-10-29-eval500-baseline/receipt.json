@@ -1,0 +1,595 @@
+{
+ "schema": "bossman.eval500.baseline-receipt.v1",
+ "run_id": "baseline-gemma41",
+ "generated_at": "2026-10-29T06:42:58",
+ "suite": {
+  "dev_file": "tests/owner_scenarios/eval500_dev.json",
+  "dev_sha256": "4ab5a854d4dff16517873462d5273e08d37b050f65c96417d3cb253ff3f052ea",
+  "dev_count": 350,
+  "holdout_seal": "tests/owner_scenarios/eval500_holdout.sha256.json",
+  "holdout_file_sha256": "ec38dedb044293cdbb959233497de893ecff6974cdacc8a9bce2fdb8dce065a2",
+  "holdout_count": 150
+ },
+ "run": {
+  "started_at": "2026-10-25T08:52:25",
+  "finished_at": null,
+  "scenarios_done": 19,
+  "scenario_seconds_sum": 3294.5,
+  "harness_errors": 0,
+  "identity": {
+   "backend": "http://127.0.0.1:8801",
+   "health_version": "2.6.0",
+   "health_build_sha": null,
+   "health_source_identity": "SOURCE_IDENTITY_UNKNOWN",
+   "worktree": "C:\\Users\\asd\\Bossman\\wt-final-20261023",
+   "worktree_head": "6388493f7516fd9697e576e14553ece054c70239",
+   "product_code_dirty": false
+  },
+  "prod_agent": {
+   "id": 41,
+   "name": "Gemma 4 uncensored",
+   "system_prompt_sha256": "845c4a8e8bfb589bc9272964d9e7abcccdfe7d7a00a8ecc14975319cebaf26e7",
+   "model_id": 98,
+   "fallback_model_id": null,
+   "tools": [
+    "computer.observe",
+    "computer.act",
+    "terminal.run",
+    "terminal.status",
+    "code.search",
+    "code.expand",
+    "code.status",
+    "browser.open",
+    "browser.read_dom",
+    "browser.screenshot",
+    "photo.edit",
+    "photo.status",
+    "cli.delegate",
+    "geo.*"
+   ],
+   "max_steps": 8,
+   "max_tokens": 2048,
+   "budget_usd": 0.0,
+   "permissions": {
+    "use_memory": false,
+    "filesystem.read": true,
+    "terminal.read": true,
+    "terminal.run": true,
+    "browser.read": true,
+    "computer.observe": true,
+    "media.generate": true
+   },
+   "role": "chat:local-uncensored"
+  },
+  "clone_agent": {
+   "id": 49,
+   "removed_tools": [
+    "cli.delegate",
+    "photo.edit"
+   ],
+   "system_prompt_sha256": "845c4a8e8bfb589bc9272964d9e7abcccdfe7d7a00a8ecc14975319cebaf26e7",
+   "model_id": 98,
+   "fallback_model_id": null,
+   "tools": [
+    "computer.observe",
+    "computer.act",
+    "terminal.run",
+    "terminal.status",
+    "code.search",
+    "code.expand",
+    "code.status",
+    "browser.open",
+    "browser.read_dom",
+    "browser.screenshot",
+    "photo.status",
+    "geo.*"
+   ],
+   "max_steps": 8,
+   "max_tokens": 2048,
+   "budget_usd": 0.0,
+   "permissions": {
+    "use_memory": false,
+    "filesystem.read": true,
+    "terminal.read": true,
+    "terminal.run": true,
+    "browser.read": true,
+    "computer.observe": true,
+    "media.generate": true
+   },
+   "role": "eval500:clone"
+  },
+  "clone_deleted": null,
+  "cleanup": null,
+  "task_id_range": [
+   281,
+   306
+  ]
+ },
+ "results": {
+  "dev": {
+   "chat": {
+    "n": 35,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 35,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "memory": {
+    "n": 24,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 24,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "photo": {
+    "n": 32,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 32,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "video": {
+    "n": 28,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 28,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "phone_pult": {
+    "n": 28,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 28,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "pc_control": {
+    "n": 28,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 28,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "security": {
+    "n": 28,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 28,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "swap": {
+    "n": 18,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 18,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "war_terminal": {
+    "n": 28,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 28,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "jeff": {
+    "n": 17,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 17,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "studio": {
+    "n": 32,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 32,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "niche": {
+    "n": 17,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 17,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "coding": {
+    "n": 21,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 21,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "stop": {
+    "n": 14,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 14,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "_total": {
+    "n": 350,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 350,
+    "pass_rate": 0.0,
+    "score": 0.0
+   }
+  },
+  "holdout": {
+   "chat": {
+    "n": 15,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 15,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "memory": {
+    "n": 11,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 11,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "photo": {
+    "n": 13,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 13,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "video": {
+    "n": 12,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 12,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "phone_pult": {
+    "n": 12,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 12,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "pc_control": {
+    "n": 12,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 12,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "security": {
+    "n": 12,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 12,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "swap": {
+    "n": 7,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 7,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "war_terminal": {
+    "n": 12,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 12,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "jeff": {
+    "n": 8,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 8,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "studio": {
+    "n": 13,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 13,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "niche": {
+    "n": 8,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 8,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "coding": {
+    "n": 9,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 9,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "stop": {
+    "n": 6,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 6,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "_total": {
+    "n": 150,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 150,
+    "pass_rate": 0.0,
+    "score": 0.0
+   }
+  },
+  "all": {
+   "chat": {
+    "n": 50,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 50,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "memory": {
+    "n": 35,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 35,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "photo": {
+    "n": 45,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 45,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "video": {
+    "n": 40,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 40,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "phone_pult": {
+    "n": 40,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 40,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "pc_control": {
+    "n": 40,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 40,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "security": {
+    "n": 40,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 40,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "swap": {
+    "n": 25,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 25,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "war_terminal": {
+    "n": 40,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 40,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "jeff": {
+    "n": 25,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 25,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "studio": {
+    "n": 45,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 45,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "niche": {
+    "n": 25,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 25,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "coding": {
+    "n": 30,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 30,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "stop": {
+    "n": 20,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 20,
+    "pass_rate": 0.0,
+    "score": 0.0
+   },
+   "_total": {
+    "n": 500,
+    "pass": 0,
+    "partial": 0,
+    "fail": 0,
+    "error": 0,
+    "not_run": 500,
+    "pass_rate": 0.0,
+    "score": 0.0
+   }
+  }
+ },
+ "judge": {
+  "primary": "nvidia/nemotron-3-ultra-550b-a55b (free: NIM / OpenRouter :free)",
+  "recheck": "gemini-3-flash-preview (seeded 10 % of LLM-judged)",
+  "prompt_version": "eval500-judge-v1",
+  "agreement_dev": {
+   "rechecked": 0
+  },
+  "agreement_holdout": {
+   "rechecked": 0
+  },
+  "agreement_all": {
+   "rechecked": 0
+  }
+ },
+ "cost": {
+  "judge_calls": 0,
+  "judge_tokens": 0,
+  "judge_cost_usd": 0,
+  "recheck_calls": 0,
+  "recheck_cost_usd": 0,
+  "judges_by_kind": {},
+  "executor_cost_usd": 0.0,
+  "total_cloud_cost_usd": 0
+ },
+ "suite_receipt": "docs/audits/2026-10-25-eval500-baseline/suite-receipt.json",
+ "preregistration": {
+  "file": "docs/audits/2026-10-25-eval500-baseline/preregistration.json",
+  "sha256": "37624040187f914c58feac57f9569a6c8fd3b822ebea4bd22902c54e8e3a9004"
+ }
+}

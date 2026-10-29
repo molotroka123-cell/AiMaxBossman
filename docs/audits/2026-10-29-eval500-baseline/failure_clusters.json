@@ -1,0 +1,6 @@
+{
+ "schema": "bossman.eval500.failure-clusters.v1",
+ "run_id": "baseline-gemma41",
+ "dev": [],
+ "holdout_counts_only": []
+}

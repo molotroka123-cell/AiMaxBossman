@@ -215,7 +215,8 @@ def llm_grade(prompt: str, model: str, max_attempts: int = 8) -> dict:
     calls = []
     order = generate.FREE_NEMOTRON if model == "free-nemotron" else (model,)
     for attempt in range(max_attempts):
-        res = generate.swarm()._call(order[attempt % len(order)], prompt, max_tokens=6000, timeout=600)
+        res = generate.call_swarm_tracked(order[attempt % len(order)], prompt, max_tokens=6000, timeout=600,
+                                          sanitize=False)
         meta = {k: v for k, v in res.items() if k not in ("text", "reasoning")}
         calls.append(meta)
         if res.get("ok"):

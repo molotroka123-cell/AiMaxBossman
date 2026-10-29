@@ -45,7 +45,7 @@ from typing import Annotated
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..direct_gen.orders import DISCLOSURE, WATERMARK, OrderBook, OrderError
+from ..direct_gen.orders import DISCLOSURE, PRESETS, WATERMARK, OrderBook, OrderError
 from ..direct_gen.store import JobStore, valid_participant
 from . import Feature
 from .direct_gen import _who
@@ -63,6 +63,9 @@ class ItemIn(BaseModel):
     face: bool = False
     consent_confirmed: bool = False
     consent_note: str = Field(default="", max_length=200)
+    source_rights_required: bool = False
+    source_rights_confirmed: bool | None = None
+    source_rights_note: str = Field(default="", max_length=200)
 
 
 class OrderIn(BaseModel):
@@ -71,6 +74,41 @@ class OrderIn(BaseModel):
     brief: str = Field(default="", max_length=2000)
     note: str = Field(default="", max_length=500)
     draft: bool = False
+    preset: str | None = Field(default=None, max_length=64)
+    source_rights_required: bool = False
+    source_rights_confirmed: bool | None = None
+    source_rights_note: str = Field(default="", max_length=200)
+    client_source_hashes: list[Annotated[str, Field(max_length=128)]] = Field(default_factory=list, max_length=50)
+
+
+class PresetOrderIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    preset: str = Field(default="product_spin", max_length=64)
+    brief: str = Field(default="", max_length=2000)
+    note: str = Field(default="", max_length=500)
+    price: str | float | int | None = None
+    face: bool = False
+    consent_confirmed: bool = True
+    consent_note: str = Field(default="", max_length=200)
+    source_rights_confirmed: bool = True
+    source_rights_note: str = Field(default="client owns product source assets", max_length=200)
+    seed: int = Field(default=42, ge=0)
+
+
+class SourceRightsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    confirmed: bool = True
+    note: str = Field(default="", max_length=200)
+
+
+class DeliveryLinkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ttl_hours: int | float = Field(default=72, gt=0, le=8760)
+
+
+class RenderPresetIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    simulate_kill_mid_render: bool = False
 
 
 class DiscloseIn(BaseModel):
@@ -359,4 +397,97 @@ async def cancel(order_id: str, request: Request, body: CancelIn | None = None, 
                               key=_key(request), actor="owner" if actor == "owner" else "client")
 
 
+@router.get("/presets")
+async def presets(request: Request, x_participant: str | None = Header(default=None)):
+    await _owner_ctx(x_participant, request)
+    return {"presets": PRESETS}
+
+
+@router.post("/orders/preset", status_code=201)
+async def create_preset(body: PresetOrderIn, request: Request, client: str | None = None,
+                        x_participant: str | None = Header(default=None)):
+    actor, ns = await _ctx(x_participant, request, client)
+    _owner(actor)
+    return await _run(_book(request).create_preset_order, ns, body.preset, body.brief,
+                      note=body.note, price=body.price, face=body.face,
+                      consent_confirmed=body.consent_confirmed, consent_note=body.consent_note,
+                      source_rights_confirmed=body.source_rights_confirmed,
+                      source_rights_note=body.source_rights_note, seed=body.seed)
+
+
+@router.post("/orders/{order_id}/source-rights")
+async def source_rights(order_id: str, body: SourceRightsIn | None = None, request: Request = None,
+                        client: str | None = None, x_participant: str | None = Header(default=None)):
+    actor, ns = await _ctx(x_participant, request, client)
+    body = body or SourceRightsIn()
+    return await _client_safe(_book(request), actor, ns, _book(request).confirm_source_rights,
+                              order_id, body.confirmed, body.note, key=_key(request),
+                              actor="owner" if actor == "owner" else "client")
+
+
+@router.post("/orders/{order_id}/render-preset")
+async def render_preset(order_id: str, body: RenderPresetIn | None = None, request: Request = None,
+                        client: str | None = None, x_participant: str | None = Header(default=None)):
+    actor, ns = await _ctx(x_participant, request, client)
+    _owner(actor)
+    body = body or RenderPresetIn()
+    return await _run(_book(request).render_preset, ns, order_id,
+                      simulate_kill_mid_render=body.simulate_kill_mid_render, key=_key(request))
+
+
+@router.get("/orders/{order_id}/manifest")
+async def order_manifest(order_id: str, request: Request, client: str | None = None,
+                         x_participant: str | None = Header(default=None)):
+    actor, ns = await _ctx(x_participant, request, client)
+    _owner(actor)
+    o = await _run(_book(request).get, ns, order_id)
+    return o.get("manifest") or {}
+
+
+@router.get("/orders/{order_id}/contact-sheet")
+async def contact_sheet(order_id: str, request: Request, client: str | None = None,
+                        x_participant: str | None = Header(default=None)):
+    actor, ns = await _ctx(x_participant, request, client)
+    _owner(actor)
+    o = await _run(_book(request).get, ns, order_id)
+    return {
+        "order_id": o["order_id"],
+        "preset": o.get("preset"),
+        "contact_sheet_path": o.get("contact_sheet_path"),
+        "qc_report_path": o.get("qc_report_path"),
+        "qc_metrics": o.get("qc_metrics"),
+    }
+
+
+@router.post("/orders/{order_id}/delivery-link")
+async def issue_delivery_link(order_id: str, body: DeliveryLinkIn | None = None, request: Request = None,
+                              client: str | None = None, x_participant: str | None = Header(default=None)):
+    actor, ns = await _ctx(x_participant, request, client)
+    _owner(actor)
+    body = body or DeliveryLinkIn()
+    return await _run(_book(request).issue_delivery_link, ns, order_id, ttl_hours=body.ttl_hours, key=_key(request))
+
+
+@router.post("/orders/{order_id}/delivery-link/revoke")
+async def revoke_delivery_link(order_id: str, body: ReasonIn | None = None, request: Request = None,
+                               client: str | None = None, x_participant: str | None = Header(default=None)):
+    actor, ns = await _ctx(x_participant, request, client)
+    _owner(actor)
+    body = body or ReasonIn()
+    return await _run(_book(request).revoke_delivery_link, ns, order_id, reason=body.reason, key=_key(request))
+
+
+@router.get("/delivery/{token}")
+async def open_delivery_link(token: str, request: Request, x_participant: str | None = Header(default=None)):
+    book = _book(request)
+    caller_client: str | None = None
+    ctok = request.headers.get(CLIENT_TOKEN_HEADER)
+    if ctok is not None:
+        caller_client = await _run(book.tokens.resolve, ctok.strip())
+        if caller_client is None:
+            raise HTTPException(404, {"code": "delivery_link_not_found", "message": "delivery link not found"})
+    return await _run(book.open_delivery_link, token, caller_client=caller_client)
+
+
 FEATURE = Feature(name="studio_orders", router=router)
+

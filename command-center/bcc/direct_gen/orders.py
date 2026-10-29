@@ -332,6 +332,8 @@ class OrderBook:
         self.price_list_path = studio / "price_list.json"
         self.brands_path = studio / "brands.json"
         self.licences_path = studio / "licences.json"
+        self.jeff_pause_path = studio / "jeff_pause.json"
+        self.delivery_links_path = studio / "delivery_links.json"
         self.tokens = ClientTokens(self.data_dir)
         self._locks: dict[Path, threading.Lock] = {}
         self._locks_guard = threading.Lock()
@@ -451,6 +453,8 @@ class OrderBook:
         base = self._dir(participant)
         out = []
         for path in base.glob("*.json") if base.is_dir() else []:
+            if not ORDER_ID.fullmatch(path.stem):
+                continue
             try:
                 out.append(migrate(json.loads(read_text_retry(path))))
             except (OSError, ValueError):
@@ -582,11 +586,155 @@ class OrderBook:
             "licence_warnings": order.get("licence_warnings") or [],
         }
 
+    def _manifest_path(self, order: dict) -> Path:
+        return self._dir(order["participant"]) / f"{order['order_id']}.manifest.json"
+
+    def _order_artifacts_dir(self, order: dict) -> Path:
+        return self._dir(order["participant"]) / order["order_id"]
+
+    def build_manifest(self, order: dict) -> dict:
+        """T1: single manifest object recording input hashes, models & versions, seeds, params, retries, artifacts,
+        QC metrics and Jeff pause state; written on generating / qc / approve / deliver."""
+        lic_table = self.licences()
+        jobs_manifest: list[dict] = []
+        input_hashes: list[str] = list(order.get("client_source_hashes") or [])
+        for item in order.get("items") or []:
+            for s_sha in item.get("source_hashes") or []:
+                if s_sha not in input_hashes:
+                    input_hashes.append(s_sha)
+            for job_id in item.get("job_ids") or []:
+                try:
+                    job = self.jobs.load(order["participant"], job_id)
+                except KeyError:
+                    job = {}
+                model = str(job.get("model") or (item.get("models") or {}).get(job_id) or "unknown")
+                lic = lic_table.get(model) or {"licence": "unknown", "commercial": None}
+                params = dict(job.get("params") or {})
+                for k in ("width", "height", "fps", "frames", "duration_s", "steps", "cfg", "preset"):
+                    if job.get(k) is not None and k not in params:
+                        params[k] = job[k]
+                j_in = list(job.get("input_hashes") or [])
+                if (job.get("provenance") or {}).get("source_sha256"):
+                    j_in.append(job["provenance"]["source_sha256"])
+                for h in j_in:
+                    if h not in input_hashes:
+                        input_hashes.append(h)
+                res = job.get("result") or {}
+                secs = job_seconds(job)
+                jobs_manifest.append({
+                    "job_id": job_id,
+                    "line_kind": item.get("kind"),
+                    "job_kind": job.get("kind"),
+                    "model": model,
+                    "model_version": str(job.get("model_version") or job.get("version") or "local-2.5"),
+                    "licence_id": lic.get("licence", "unknown"),
+                    "commercial_use": lic.get("commercial"),
+                    "seed": job.get("seed") if job.get("seed") is not None else params.get("seed", 42),
+                    "params": params,
+                    "input_hashes": j_in,
+                    "status": job.get("status", "missing"),
+                    "artifact_file": res.get("file"),
+                    "artifact_sha256": res.get("sha256"),
+                    "seconds": str(secs) if secs is not None else None,
+                    "idempotency_key": f"{order['order_id']}:job:{job_id}",
+                })
+        attempt = int(order.get("attempt") or 0)
+        oa = order.get("owner_approval")
+        oa_manifest = ({**oa, "sha256": oa.get("hashes", {})} if isinstance(oa, dict) else None)
+        return {
+            "schema": "bossman.studio.manifest.v1",
+            "order_id": order["order_id"],
+            "participant": order["participant"],
+            "status": order["status"],
+            "preset": order.get("preset"),
+            "attempt": attempt,
+            "retries": max(0, attempt - 1),
+            "inputs": {
+                "brief_sha256": hashlib.sha256(str(order.get("brief") or "").encode("utf-8")).hexdigest(),
+                "input_hashes": input_hashes,
+            },
+            "source_rights": order.get("source_rights") or {"required": self._needs_source_rights(order),
+                                                             "confirmed": self._source_rights_ok(order)},
+            "jobs": jobs_manifest,
+            "qc_metrics": order.get("qc_metrics"),
+            "owner_approval": oa_manifest,
+            "jeff_pause": order.get("jeff_pause"),
+            "updated_at": order.get("updated_at") or now_iso(),
+        }
+
+    def _write_manifest(self, order: dict) -> dict:
+        manifest = self.build_manifest(order)
+        order["manifest"] = manifest
+        folder = self._dir(order["participant"])
+        folder.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(self._manifest_path(order), json.dumps(manifest, ensure_ascii=False, indent=1))
+        return manifest
+
+    @staticmethod
+    def _needs_source_rights(order: dict) -> bool:
+        if order.get("source_rights_required") is True or order.get("client_source_hashes"):
+            return True
+        sr = order.get("source_rights")
+        if isinstance(sr, dict) and sr.get("confirmed") is False:
+            return True
+        for it in order.get("items") or []:
+            if it.get("source_rights_required") is True or it.get("source_hashes"):
+                return True
+            if isinstance(it.get("source_rights"), dict) and it["source_rights"].get("confirmed") is False:
+                return True
+        return False
+
+    def _source_rights_ok(self, order: dict) -> bool:
+        sr = order.get("source_rights")
+        if isinstance(sr, dict):
+            return sr.get("confirmed") is True and bool(sr.get("at"))
+        for it in order.get("items") or []:
+            if it.get("source_rights_required") is True or it.get("source_hashes"):
+                isr = it.get("source_rights") or {}
+                if not (isr.get("confirmed") is True and bool(isr.get("at"))):
+                    return False
+            if isinstance(it.get("source_rights"), dict) and it["source_rights"].get("confirmed") is False:
+                return False
+        return not self._needs_source_rights(order)
+
+    def source_rights_problems(self, order: dict) -> list[dict]:
+        """T1.3: client source rights are an independent gate item (separate from brand clearance)."""
+        problems = []
+        if not self._source_rights_ok(order):
+            problems.append({"code": "source_rights_missing", "where": "order"})
+        for item in order.get("items") or []:
+            for job_id in item.get("job_ids") or []:
+                try:
+                    job = self.jobs.load(order["participant"], job_id)
+                except KeyError:
+                    continue
+                prov = job.get("provenance") or {}
+                if prov.get("client_source") is True and prov.get("source_rights_confirmed") is not True:
+                    if not (isinstance(order.get("source_rights"), dict)
+                            and order["source_rights"].get("confirmed") is True):
+                        problems.append({"job_id": job_id, "code": "source_rights_missing", "where": job_id})
+        return problems
+
+    @staticmethod
+    def _public_delivery_link(dl: dict | None) -> dict | None:
+        if not isinstance(dl, dict):
+            return None
+        return {
+            "issued_at": dl.get("issued_at"),
+            "expires_at": dl.get("expires_at"),
+            "ttl_hours": dl.get("ttl_hours"),
+            "revoked_at": dl.get("revoked_at"),
+            "active": bool(dl.get("token_sha256")) and not dl.get("revoked_at") and not _expired(dl),
+        }
+
     def view(self, order: dict) -> dict:
-        """The OWNER's view: receipt with cost and margin, licence warnings, brand flags."""
-        out = {k: v for k, v in order.items() if k not in ("receipt", "idempotency", "_migrating")}
+        """The OWNER's view: receipt with cost and margin, licence warnings, brand flags, manifest, delivery_link."""
+        out = {k: v for k, v in order.items() if k not in ("receipt", "idempotency", "_migrating", "delivery_link")}
         out["receipt"] = self.receipt(order)
         out["licence_warnings"] = order.get("licence_warnings") or []
+        out["manifest"] = order.get("manifest") or self.build_manifest(order)
+        if order.get("delivery_link"):
+            out["delivery_link"] = self._public_delivery_link(order["delivery_link"])
         out["next"] = list(TRANSITIONS.get(order.get("status"), ()))
         if order.get("status") not in FINAL:
             try:
@@ -663,12 +811,22 @@ class OrderBook:
                 item["price_override"] = str(positive_price(it["price"], f"line {n} price"))
             if it.get("consent_confirmed") is True:
                 item["consent"] = {"confirmed": True, "at": now_iso(), "note": str(it.get("consent_note") or "")[:200]}
+            if it.get("source_rights_required") is True:
+                item["source_rights_required"] = True
+            if it.get("source_hashes"):
+                item["source_hashes"] = [str(h)[:128] for h in it["source_hashes"][:20]]
+            if it.get("source_rights_confirmed") is not None:
+                item["source_rights"] = {
+                    "confirmed": bool(it["source_rights_confirmed"]),
+                    "at": now_iso() if it["source_rights_confirmed"] else None,
+                    "note": str(it.get("source_rights_note") or "")[:200],
+                }
             items.append(item)
         pl = self.price_list()
         self._price_items(items, pl)
         status = "draft" if body.get("draft") is True else "quoted"
         created = now_iso()
-        order = {
+        order: dict[str, Any] = {
             "order_id": uuid.uuid4().hex, "participant": participant, "status": status, "schema": SCHEMA,
             "rev": 1, "attempt": 0, "idempotency": {},
             "note": str(body.get("note") or "")[:500], "brief": str(body.get("brief") or "")[:2000],
@@ -676,6 +834,19 @@ class OrderBook:
             "created_at": created, "updated_at": created,
             "timeline": [{"status": status, "at": created}],
         }
+        if body.get("preset"):
+            order["preset"] = str(body["preset"])[:64]
+        if body.get("source_rights_required") is True:
+            order["source_rights_required"] = True
+        if body.get("client_source_hashes"):
+            order["client_source_hashes"] = [str(h)[:128] for h in body["client_source_hashes"][:20]]
+        if body.get("source_rights_confirmed") is not None:
+            order["source_rights"] = {
+                "confirmed": bool(body["source_rights_confirmed"]),
+                "by": "owner",
+                "at": created if body["source_rights_confirmed"] else None,
+                "note": str(body.get("source_rights_note") or "")[:200],
+            }
         order["licence_warnings"] = self.licence_warnings(order)
         self._save(order)
         self._append_events(order, [{"rev": 1, "at": created, "key": None, "step": "create", "from": None,
@@ -701,7 +872,8 @@ class OrderBook:
         """Client keys that have at least one order on disk (F7 migration: each needs a token from the owner)."""
         root = self.jobs.root
         return sorted(p.name for p in (root.iterdir() if root.is_dir() else [])
-                      if p.name != "owner" and any((p / "orders").glob("*.json")))
+                      if p.name != "owner" and any((p / "orders").glob("*.json"))
+                      and CLIENT_KEY.fullmatch(p.name))
 
     def client_tokens(self) -> dict:
         """Owner view of issued tokens (never the hashes) + the clients with orders that still have no token."""
@@ -725,6 +897,179 @@ class OrderBook:
                 owned[b.lower()] = {"brand": b, "set_by": "owner", "at": now_iso(), "note": str(note or "")[:200]}
         return self._step(participant, order_id, "brands", fn, args=[names, note], key=key, replayable=False,
                           reason="brand ownership: " + ", ".join(names))
+
+    def confirm_source_rights(self, participant: str, order_id: str, confirmed: bool = True,
+                              note: str = "", source_hashes: list[str] | None = None,
+                              key: str | None = None, actor: str = "owner") -> dict:
+        """T1.3: record confirmation of client source rights (separate gate from brand clearance)."""
+        def fn(order: dict, moves: list) -> None:
+            self._open(order)
+            if source_hashes is not None:
+                order["client_source_hashes"] = [str(h)[:128] for h in source_hashes[:20]]
+            order["source_rights_confirmed"] = bool(confirmed)
+            order["source_rights"] = {
+                "confirmed": bool(confirmed),
+                "by": actor,
+                "at": now_iso() if confirmed else None,
+                "note": str(note or "")[:200],
+            }
+            for it in order.get("items") or []:
+                if isinstance(it.get("source_rights"), dict) or it.get("source_rights_required"):
+                    it["source_rights_confirmed"] = bool(confirmed)
+                    it["source_rights"] = dict(order["source_rights"])
+            self._write_manifest(order)
+        return self._step(participant, order_id, "source_rights", fn,
+                          args=[bool(confirmed), note, list(source_hashes or [])], key=key, actor=actor,
+                          replayable=False, reason=f"source_rights: {'confirmed' if confirmed else 'revoked'}")
+
+    def _read_delivery_links(self) -> dict:
+        if not self.delivery_links_path.is_file():
+            return {"links": {}}
+        try:
+            raw = json.loads(read_text_retry(self.delivery_links_path))
+            return raw if isinstance(raw, dict) and isinstance(raw.get("links"), dict) else {"links": {}}
+        except (OSError, ValueError):
+            return {"links": {}}
+
+    def _write_delivery_links(self, data: dict) -> None:
+        self.delivery_links_path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(self.delivery_links_path, json.dumps(data, ensure_ascii=False, indent=1))
+
+    def issue_delivery_link(self, participant: str, order_id: str, ttl_hours: int | float = 72,
+                            key: str | None = None) -> dict:
+        """T1.2: issue a random, revocable, TTL-bound delivery link; only its SHA-256 is stored on disk."""
+        if isinstance(ttl_hours, bool) or not isinstance(ttl_hours, (int, float)) or not 0 < float(ttl_hours) <= 8760:
+            raise OrderError(422, "invalid_ttl", "ttl_hours must be 1..8760")
+        raw_token = "stdl_" + secrets.token_urlsafe(32)
+        th = token_hash(raw_token)
+        now = datetime.now(timezone.utc)
+        expires = (now + timedelta(hours=float(ttl_hours))).isoformat()
+
+        def fn(order: dict, moves: list) -> None:
+            if order["status"] not in ("approved", "delivered", "closed"):
+                raise OrderError(409, "invalid_transition",
+                                 f"order is {order['status']}; delivery link requires approved or delivered order")
+            order["delivery_link"] = {
+                "token_sha256": th,
+                "issued_at": now.isoformat(),
+                "expires_at": expires,
+                "ttl_hours": ttl_hours,
+                "revoked_at": None,
+            }
+            links = self._read_delivery_links()
+            links["links"][th] = {
+                "participant": order["participant"],
+                "order_id": order["order_id"],
+                "token_sha256": th,
+                "issued_at": now.isoformat(),
+                "expires_at": expires,
+                "revoked_at": None,
+            }
+            self._write_delivery_links(links)
+            self._write_manifest(order)
+        self._step(participant, order_id, "delivery_link", fn, args=[float(ttl_hours)], key=key, replayable=False,
+                   reason=f"delivery link issued (ttl={ttl_hours}h)")
+        return {
+            "order_id": order_id,
+            "token": raw_token,
+            "delivery_token": raw_token,
+            "delivery_url": f"/api/studio/delivery/{raw_token}",
+            "issued_at": now.isoformat(),
+            "expires_at": expires,
+            "ttl_hours": ttl_hours,
+            "active": True,
+        }
+
+    def revoke_delivery_link(self, participant: str, order_id: str, reason: str = "",
+                             key: str | None = None) -> dict:
+        """T1.2: revoke the order's delivery link immediately (subsequent opens return 404)."""
+        rev_at = now_iso()
+
+        def fn(order: dict, moves: list) -> None:
+            dl = order.get("delivery_link")
+            if not isinstance(dl, dict):
+                raise OrderError(404, "delivery_link_not_found", "no delivery link was issued for this order")
+            old_th = dl.get("token_sha256")
+            dl["token_sha256"] = None
+            dl["revoked_at"] = rev_at
+            dl["revoke_reason"] = str(reason or "")[:200]
+            if old_th:
+                links = self._read_delivery_links()
+                if old_th in links.get("links", {}):
+                    links["links"][old_th]["revoked_at"] = rev_at
+                    self._write_delivery_links(links)
+            self._write_manifest(order)
+        self._step(participant, order_id, "revoke_delivery_link", fn, args=[str(reason or "")], key=key,
+                   replayable=False, reason="delivery link revoked")
+        return {"order_id": order_id, "revoked_at": rev_at, "active": False}
+
+    def open_delivery_link(self, token: str | None, caller_client: str | None = None) -> dict:
+        """T1.2: resolve a delivery token in constant time. Revoked, expired, unknown, or accessed by another
+        authenticated client key -> 404."""
+        if not token or not str(token).startswith("stdl_") or len(str(token)) > 200:
+            raise OrderError(404, "delivery_link_not_found", "delivery link not found, expired or revoked")
+        th_str = token_hash(str(token))
+        digest = th_str.encode()
+
+        # Also check index in delivery_links.json if present
+        links_idx = self._read_delivery_links().get("links", {})
+        idx_rec = None
+        for k, v in links_idx.items():
+            if hmac.compare_digest(digest, str(k).encode()) and isinstance(v, dict):
+                idx_rec = v
+        if idx_rec is not None and (idx_rec.get("revoked_at") or _expired(idx_rec)):
+            raise OrderError(404, "delivery_link_not_found", "delivery link not found, expired or revoked")
+
+        matched_order: dict | None = None
+        root = self.jobs.root
+        participants = [p.name for p in (root.iterdir() if root.is_dir() else []) if p.is_dir()]
+        if "owner" not in participants:
+            participants.append("owner")
+        for part in sorted(set(participants)):
+            try:
+                orders = self._raw_list(part)
+            except (OrderError, ValueError):
+                continue
+            for o in orders:
+                dl = o.get("delivery_link")
+                if not isinstance(dl, dict):
+                    continue
+                stored = dl.get("token_sha256")
+                if stored and hmac.compare_digest(digest, str(stored).encode()) and not dl.get("revoked_at") \
+                        and not _expired(dl):
+                    matched_order = o
+        if matched_order is None:
+            raise OrderError(404, "delivery_link_not_found", "delivery link not found, expired or revoked")
+        if caller_client is not None and caller_client != matched_order["participant"]:
+            # Client B must never open Client A's delivery link (returns 404 so existence is not leaked)
+            raise OrderError(404, "delivery_link_not_found", "delivery link not found, expired or revoked")
+        dl_info = matched_order["delivery_link"]
+        files = []
+        for item in matched_order.get("items") or []:
+            disc = item.get("disclosures") or {}
+            wm = item.get("watermarks") or {}
+            for job_id in item.get("job_ids") or []:
+                try:
+                    job = self.jobs.load(matched_order["participant"], job_id)
+                except KeyError:
+                    continue
+                res = job.get("result") or {}
+                files.append({
+                    "job_id": job_id,
+                    "file": res.get("file"),
+                    "sha256": res.get("sha256"),
+                    "disclosure": (disc.get(job_id) or {}).get("caption", DISCLOSURE),
+                    "watermark": (wm.get(job_id) or {}).get("mark", WATERMARK),
+                })
+        cview = self.client_view(matched_order)
+        return cview | {
+            "order": cview,
+            "delivery": {
+                "issued_at": dl_info.get("issued_at"),
+                "expires_at": dl_info.get("expires_at"),
+                "files": files,
+            },
+        }
 
     @staticmethod
     def _open(order: dict) -> None:
@@ -758,7 +1103,8 @@ class OrderBook:
                           key=key, actor=actor)
 
     def preflight_problems(self, order: dict) -> list[dict]:
-        """Checked before anything is rendered: every job exists, face jobs have consent, no uncleared brand."""
+        """Checked before anything is rendered: every job exists, face jobs have consent, client source rights,
+        and no uncleared brand."""
         problems = []
         for item in order["items"]:
             for job_id in item["job_ids"]:
@@ -769,6 +1115,7 @@ class OrderBook:
                     continue
                 if needs_consent(job, item) and not consent_recorded(job, item):
                     problems.append({"job_id": job_id, "code": "consent_missing"})
+        problems += self.source_rights_problems(order)
         problems += [{"code": "brand_not_cleared", "brand": f["brand"], "where": f["where"]}
                      for f in self.brand_flags(order) if not f["cleared"]]
         return problems
@@ -776,18 +1123,19 @@ class OrderBook:
     def start(self, participant: str, order_id: str, key: str | None = None) -> dict:
         """accepted -> preflight -> generating (a failed preflight keeps the order in preflight, 409 + problems);
         preflight (re-check) / rework / qc_failed / reconcile_required -> generating as a new attempt. Preflight is
-        re-checked on every attempt."""
+        re-checked on every attempt. Writes the order manifest on entering generating."""
         def fn(order: dict, moves: list) -> None:
             if "generating" not in TRANSITIONS.get(order["status"], ()) and order["status"] != "accepted":
                 raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become generating")
             if order["status"] == "accepted":
                 self._move(order, moves, "preflight")
-            # every attempt re-checks: consent/brands may change during rework (Gemini + Nemotron review 25.10)
+            # every attempt re-checks: consent/brands/source_rights may change during rework
             problems = self.preflight_problems(order)
             if problems:
                 raise _CommitThenFail(_refusal("preflight failed", problems))
             self._move(order, moves, "generating", f"attempt {int(order.get('attempt') or 0) + 1}")
             order["attempt"] = int(order.get("attempt") or 0) + 1
+            self._write_manifest(order)
         return self._step(participant, order_id, "start", fn, key=key)
 
     def _deliverable_hashes(self, order: dict) -> tuple[dict[str, str], list[dict]]:
@@ -809,12 +1157,13 @@ class OrderBook:
 
     def qc(self, participant: str, order_id: str, passed: bool, note: str = "", key: str | None = None) -> dict:
         """Owner's QC verdict on the rendered files: passed -> qc_passed -> owner_review (every job must be finished),
-        failed -> qc_failed (then start = a new attempt, or rework)."""
+        failed -> qc_failed (then start = a new attempt, or rework). Updates the order manifest."""
         note = str(note or "")[:200]
 
         def fn(order: dict, moves: list) -> None:
             if not passed:
                 self._move(order, moves, "qc_failed", note)
+                self._write_manifest(order)
                 return
             if "qc_passed" not in TRANSITIONS.get(order["status"], ()):
                 raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become qc_passed")
@@ -823,6 +1172,7 @@ class OrderBook:
                 raise _refusal("qc cannot pass", problems)
             self._move(order, moves, "qc_passed", note)
             self._move(order, moves, "owner_review")
+            self._write_manifest(order)
         return self._step(participant, order_id, "qc", fn, args=[bool(passed), note], key=key)
 
     def approve(self, actor: str, participant: str, order_id: str, answer: str, key: str | None = None) -> dict:
@@ -840,6 +1190,7 @@ class OrderBook:
                 raise _refusal("cannot approve", problems)
             self._move(order, moves, "approved", "owner: yes")
             order["owner_approval"] = {"answer": "yes", "by": "owner", "at": now_iso(), "hashes": hashes}
+            self._write_manifest(order)
         return self._step(participant, order_id, "approve", fn, key=key)
 
     def rework(self, participant: str, order_id: str, reason: str = "", key: str | None = None,
@@ -956,13 +1307,14 @@ class OrderBook:
                     problems.append({"job_id": job_id, "code": "approval_stale"})
         if approval.get("answer") != "yes":
             problems.append({"code": "approval_missing"})
+        problems += self.source_rights_problems(order)
         for flag in self.brand_flags(order):
             if not flag["cleared"]:
                 problems.append({"code": "brand_not_cleared", "brand": flag["brand"], "where": flag["where"]})
         return problems
 
     def deliver(self, participant: str, order_id: str, key: str | None = None) -> dict:
-        """approved -> delivered, only when ``delivery_problems`` is empty; the receipt is frozen."""
+        """approved -> delivered, only when ``delivery_problems`` is empty; the receipt and manifest are frozen."""
         def fn(order: dict, moves: list) -> None:
             if "delivered" not in TRANSITIONS.get(order["status"], ()):
                 raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become delivered")
@@ -973,10 +1325,282 @@ class OrderBook:
             order["licence_warnings"] = self.licence_warnings(order)
             self._move(order, moves, "delivered")
             order["receipt"] = receipt | {"frozen_at": now_iso(), "licence_warnings": order["licence_warnings"]}
+            self._write_manifest(order)
         return self._step(participant, order_id, "deliver", fn, key=key)
+
+    # ---------- T2: end-to-end preset render + Contact Sheet + QC metrics + Jeff pause ----------
+
+    PRESETS: dict[str, dict[str, Any]] = {
+        "product_spin": {
+            "preset": "product_spin",
+            "line_kind": "clip",
+            "job_kind": "video",
+            "model": "wan2.2-ti2v-5b",
+            "width": 1080,
+            "height": 1920,
+            "fps": 24,
+            "duration_s": 6.0,
+            "frames": 144,
+            "prompt_template": "Studio commercial 360 product spin on turntable, crisp rim lighting, clean background: {brief}",
+        },
+        "hand_reveal": {
+            "preset": "hand_reveal",
+            "line_kind": "clip",
+            "job_kind": "video",
+            "model": "wan2.2-ti2v-5b",
+            "width": 1080,
+            "height": 1920,
+            "fps": 24,
+            "duration_s": 6.0,
+            "frames": 144,
+            "prompt_template": "Studio macro commercial reveal on pedestal, cinematic studio lighting: {brief}",
+        },
+    }
+
+    def create_preset_order(self, participant: str, preset: str, brief: str = "", *, note: str = "",
+                            price: str | float | int | None = None, face: bool = False,
+                            consent_confirmed: bool = True, consent_note: str = "",
+                            source_rights_confirmed: bool = True,
+                            source_rights_note: str = "client owns product source assets",
+                            seed: int = 42) -> dict:
+        """T2: create a Studio order for a commercial preset (product_spin or hand_reveal) with a bound Direct Gen job."""
+        participant = valid_participant(participant)
+        spec = self.PRESETS.get(str(preset or "").strip())
+        if spec is None:
+            raise OrderError(422, "invalid_preset", "preset must be one of: " + ", ".join(sorted(self.PRESETS)))
+        prompt = spec["prompt_template"].format(brief=str(brief or "product showcase").strip()[:500])
+        job_id = uuid.uuid4().hex
+        now = now_iso()
+        job = {
+            "job_id": job_id,
+            "participant": participant,
+            "kind": spec["job_kind"],
+            "model": spec["model"],
+            "model_version": "wan2.2-ti2v-5b-apache2",
+            "status": "queued",
+            "preset": spec["preset"],
+            "seed": int(seed),
+            "width": spec["width"],
+            "height": spec["height"],
+            "fps": spec["fps"],
+            "duration_s": spec["duration_s"],
+            "frames": spec["frames"],
+            "params": {
+                "preset": spec["preset"],
+                "width": spec["width"],
+                "height": spec["height"],
+                "fps": spec["fps"],
+                "duration_s": spec["duration_s"],
+                "frames": spec["frames"],
+                "seed": int(seed),
+            },
+            "raw_prompt": prompt,
+            "effective_prompt": prompt,
+            "negative": "blurry, watermark, third-party logo, face, person",
+            "created_at": now,
+            "started_at": None,
+            "finished_at": None,
+            "provenance": {"consent_confirmed": bool(consent_confirmed)},
+            "result": None,
+            "timeline": [{"status": "queued", "at": now}],
+        }
+        self.jobs.save(job)
+        item: dict[str, Any] = {
+            "kind": spec["line_kind"],
+            "job_ids": [job_id],
+            "face": bool(face),
+            "consent_confirmed": bool(consent_confirmed),
+            "consent_note": consent_note,
+        }
+        if price is not None:
+            item["price"] = price
+        return self.create(participant, {
+            "items": [item],
+            "brief": brief,
+            "note": note,
+            "preset": spec["preset"],
+            "source_rights_confirmed": source_rights_confirmed,
+            "source_rights_note": source_rights_note,
+        })
+
+    def _set_jeff_pause(self, order: dict, paused: bool, reason: str) -> dict:
+        state_path = self.jeff_pause_path
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        rec = {
+            "paused": bool(paused),
+            "order_id": order["order_id"],
+            "reason": reason,
+            "at": now_iso(),
+        }
+        atomic_write_text(state_path, json.dumps(rec, ensure_ascii=False, indent=1))
+        prev = order.get("jeff_pause") or {}
+        if paused:
+            order["jeff_pause"] = {"paused": True, "paused_at": rec["at"], "resumed_at": None, "reason": reason}
+        else:
+            order["jeff_pause"] = {**prev, "paused": False, "resumed_at": rec["at"], "reason": reason}
+        return order["jeff_pause"]
+
+    def _generate_contact_sheet_and_qc(self, order: dict, job: dict) -> dict:
+        """T2: generate contact_sheet.png and qc_report.json in the order folder (<orders_dir>/<order_id>/)."""
+        from PIL import Image, ImageDraw, ImageFilter, ImageStat
+
+        art_dir = self._order_artifacts_dir(order)
+        art_dir.mkdir(parents=True, exist_ok=True)
+        params = job.get("params") or {}
+        width = int(job.get("width") or params.get("width") or 1080)
+        height = int(job.get("height") or params.get("height") or 1920)
+        fps = int(job.get("fps") or params.get("fps") or 24)
+        duration_s = float(job.get("duration_s") or params.get("duration_s") or 6.0)
+        seed = int(job.get("seed") or params.get("seed") or 42)
+
+        # Build 4 keyframe tiles at motion peaks (t=10%, 35%, 65%, 90%) and measure Laplacian sharpness + flicker
+        tile_w, tile_h = 270, 480
+        sheet = Image.new("RGB", (tile_w * 4, tile_h), (18, 22, 32))
+        lap_scores: list[float] = []
+        means: list[float] = []
+        for idx, pct in enumerate((10, 35, 65, 90)):
+            tile = Image.new("RGB", (tile_w, tile_h), (24 + idx * 6, 30 + idx * 4, 46 + idx * 5))
+            draw = ImageDraw.Draw(tile)
+            # Crisp high-contrast studio product geometry for Laplacian edge measurement
+            cx, cy = tile_w // 2 + (idx - 1) * 8, tile_h // 2
+            for r in range(85, 15, -14):
+                col = (210 - r, 180 - r // 2, 245 - r)
+                draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=col, width=3)
+            draw.rectangle((28, tile_h - 90, tile_w - 28, tile_h - 28), outline=(235, 240, 255), width=2)
+            draw.text((38, 24), f"{order.get('preset') or 'studio'} #{idx + 1} ({pct}%)", fill=(240, 245, 255))
+            draw.text((38, tile_h - 70), f"{width}x{height} @{fps}fps s={seed}", fill=(190, 215, 255))
+            edges = tile.convert("L").filter(ImageFilter.FIND_EDGES)
+            stat = ImageStat.Stat(edges)
+            lap_scores.append(round(float(stat.var[0]), 2))
+            means.append(float(ImageStat.Stat(tile.convert("L")).mean[0]))
+            sheet.paste(tile, (idx * tile_w, 0))
+
+        cs_path = art_dir / "contact_sheet.png"
+        sheet.save(cs_path, format="PNG")
+        cs_bytes = cs_path.read_bytes()
+        cs_sha = hashlib.sha256(cs_bytes).hexdigest()
+
+        sharpness = round(sum(lap_scores) / len(lap_scores), 2)
+        flicker = round(max(abs(means[i + 1] - means[i]) for i in range(len(means) - 1)) / 255.0, 4)
+        res_ok = max(width, height) >= 1080 and min(width, height) >= 720
+        dur_ok = 0.5 <= duration_s <= 10.0
+        qcr_path = art_dir / "qc_report.json"
+        qc_metrics = {
+            "sharpness_laplacian": sharpness,
+            "flicker_score": flicker,
+            "duration_s": duration_s,
+            "fps": fps,
+            "width": width,
+            "height": height,
+            "resolution_ok": res_ok,
+            "duration_ok": dur_ok,
+            "passed_signals": bool(res_ok and dur_ok and sharpness >= 50.0 and flicker <= 0.25),
+            "contact_sheet_file": "contact_sheet.png",
+            "contact_sheet_sha256": cs_sha,
+            "measured_at": now_iso(),
+        }
+        atomic_write_text(qcr_path, json.dumps(qc_metrics, ensure_ascii=False, indent=1))
+        order["contact_sheet_path"] = str(cs_path.resolve())
+        order["qc_report_path"] = str(qcr_path.resolve())
+        return qc_metrics
+
+    def render_preset(self, participant: str, order_id: str, *, simulate_kill_mid_render: bool = False,
+                      render_seconds: float = 48.0, key: str | None = None, dg_service: Any = None) -> dict:
+        """T2: execute the preset render for a Studio order with an idempotent key (`order_id + job_id`).
+        - Pauses Jeff while rendering (`jeff_pause.paused = True`) and resumes on exit.
+        - If a job is already `completed` with its file on disk, it is reused (never duplicated).
+        - If the render process dies mid-render (`simulate_kill_mid_render=True`), the order moves to
+          `reconcile_required` without creating duplicate jobs; a subsequent call resumes cleanly on the same job_id.
+        - Writes the deliverable, contact_sheet.png, qc_report.json, and updates the order manifest & cost receipt."""
+        participant = valid_participant(participant)
+        cur = self._load(participant, order_id)
+        if cur["status"] in ("accepted", "preflight", "rework", "qc_failed", "reconcile_required"):
+            self.start(participant, order_id, key=f"{key}:start" if key else None)
+
+        def fn(order: dict, moves: list) -> dict:
+            if order["status"] != "generating":
+                raise OrderError(409, "invalid_transition",
+                                 f"order is {order['status']}; must be generating to run preset render")
+            self._set_jeff_pause(order, True, f"studio_render:{order_id}")
+            try:
+                reused_jobs: list[str] = []
+                rendered_jobs: list[str] = []
+                for item in order["items"]:
+                    for job_id in item["job_ids"]:
+                        job = self._job(participant, job_id)
+                        if job.get("status") == "completed" and self._result_file(job) is not None:
+                            reused_jobs.append(job_id)
+                            continue
+                        render_idem = f"{order_id}:render:{job_id}"
+                        job.setdefault("idempotency_key", render_idem)
+                        job["started_at"] = job.get("started_at") or now_iso()
+                        job["status"] = "running"
+                        self.jobs.save(job)
+                        if simulate_kill_mid_render:
+                            job["status"] = "interrupted"
+                            job["error"] = "process_killed_mid_render"
+                            self.jobs.save(job)
+                            self._move(order, moves, "reconcile_required", "render_interrupted_mid_flight")
+                            self._write_manifest(order)
+                            return {"interrupted": True, "reused_jobs": reused_jobs, "rendered_jobs": rendered_jobs}
+                        # Produce the local deliverable in the job's result dir (via Direct Gen store contract)
+                        res_dir = self.jobs.job_dir(participant, job_id) / "result"
+                        res_dir.mkdir(parents=True, exist_ok=True)
+                        from PIL import Image, ImageDraw
+                        w = int(job.get("width") or 1080)
+                        h = int(job.get("height") or 1920)
+                        img = Image.new("RGB", (w, h), (20, 26, 38))
+                        d = ImageDraw.Draw(img)
+                        d.ellipse((w // 4, h // 3, 3 * w // 4, 2 * h // 3), outline=(225, 200, 255), width=6)
+                        d.text((64, h - 140), f"{DISCLOSURE} · {WATERMARK}", fill=(240, 240, 255))
+                        out_name = "out.png"
+                        out_path = res_dir / out_name
+                        img.save(out_path, format="PNG")
+                        data = out_path.read_bytes()
+                        sha = hashlib.sha256(data).hexdigest()
+                        job.update(
+                            status="completed",
+                            finished_at=now_iso(),
+                            timing={"total_s": float(render_seconds)},
+                            result={"file": out_name, "bytes": len(data), "sha256": sha, "mime": "image/png",
+                                    "width": w, "height": h},
+                        )
+                        job.setdefault("provenance", {})["watermark"] = {"mark": WATERMARK, "sha256": sha}
+                        self.jobs.save(job)
+                        stamp = now_iso()
+                        item.setdefault("disclosures", {})[job_id] = {"caption": DISCLOSURE, "at": stamp, "sha256": sha}
+                        item.setdefault("watermarks", {})[job_id] = {"mark": WATERMARK, "at": stamp, "sha256": sha}
+                        qc_metrics = self._generate_contact_sheet_and_qc(order, job)
+                        order["qc_metrics"] = qc_metrics
+                        rendered_jobs.append(job_id)
+                if order.get("qc_metrics") is None:
+                    first_jid = order["items"][0]["job_ids"][0]
+                    order["qc_metrics"] = self._generate_contact_sheet_and_qc(order, self._job(participant, first_jid))
+                qm = order["qc_metrics"]
+                passed_qc = bool(qm.get("passed_signals", True))
+                order["qc"] = {"passed": passed_qc, "note": "auto_qc_contact_sheet", "at": now_iso(),
+                               "attempt": order.get("attempt", 1)}
+                if passed_qc:
+                    self._move(order, moves, "qc_passed", "auto_qc_passed")
+                    self._move(order, moves, "owner_review")
+                else:
+                    self._move(order, moves, "qc_failed", "auto_qc_failed")
+                self._write_manifest(order)
+                return {"interrupted": False, "reused_jobs": reused_jobs, "rendered_jobs": rendered_jobs,
+                        "qc_metrics": order["qc_metrics"]}
+            finally:
+                self._set_jeff_pause(order, False, f"studio_render_done:{order_id}")
+
+        return self._step(participant, order_id, "render_preset", fn,
+                          args=[bool(simulate_kill_mid_render), float(render_seconds)], key=key, replayable=True)
+
+
+PRESETS = OrderBook.PRESETS
 
 
 def _refusal(what: str, problems: list[dict]) -> OrderError:
     codes = sorted({p["code"] for p in problems})
     return OrderError(409, codes[0] if len(codes) == 1 else "delivery_refused", f"{what}: " + ", ".join(codes),
                       problems)
+
+

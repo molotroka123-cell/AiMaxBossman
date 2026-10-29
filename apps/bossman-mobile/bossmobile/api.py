@@ -172,6 +172,11 @@ class StopAllIn(BaseModel):
     confirm: Literal[True]
 
 
+class StudioReworkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(default="отправлено на доработку с мобильного пульта", max_length=200)
+
+
 class CompactIn(BaseModel):
     """POST /m/api/agent/sessions/{id}/compact: an optional hint for the summary; nothing else is forwarded."""
     model_config = ConfigDict(extra="forbid")
@@ -913,16 +918,23 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                 "errors": len(res.get("errors") or []), "provider_outcome_unknown": len(res.get("provider_outcome_unknown") or []),
                 "stop": stop_view()}
 
-    # ------------------------------------------------------------------ Studio orders (read-only on the phone)
+    # ------------------------------------------------------------------ Studio orders (preview, cost, approve & rework on the phone)
     STUDIO_CLIENT = re.compile(r"^[0-9a-f]{64}$")
 
     def order_view(o: dict) -> dict:
         rc = o.get("receipt") if isinstance(o.get("receipt"), dict) else {}
         tl = o.get("timeline") if isinstance(o.get("timeline"), list) else []
-        return {"order_id": o.get("order_id"), "status": o.get("status"), "created_at": o.get("created_at"),
+        oid = o.get("order_id")
+        st_val = o.get("status")
+        return {"order_id": oid, "status": st_val, "created_at": o.get("created_at"),
                 "updated_at": o.get("updated_at"), "items": len(o.get("items") or []),
+                "preset": o.get("preset"),
                 "currency": rc.get("currency"), "price": rc.get("price"), "cost": rc.get("cost"),
                 "margin": rc.get("margin"), "cost_complete": rc.get("cost_complete"),
+                "qc_metrics": o.get("qc_metrics") if isinstance(o.get("qc_metrics"), dict) else None,
+                "preview_url": f"/m/api/studio/orders/{oid}/preview" if oid else None,
+                "can_approve": st_val == "owner_review",
+                "can_rework": st_val in ("qc_failed", "owner_review", "approved"),
                 "licence_warnings": len(o.get("licence_warnings") or []),
                 "last_change": tl[-1] if tl and isinstance(tl[-1], dict) else None}
 
@@ -935,8 +947,8 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.get("/m/api/studio/orders")
     async def studio_orders(client: str | None = None, _=Depends(session)):
-        """Studio orders (Direct Gen jobs sold as a service): status, price, cost, margin. Briefs, notes and client
-        data are not sent to the phone; every change of an order stays in the dashboard (Панель)."""
+        """Studio orders (Direct Gen jobs sold as a service): status, price, cost, margin, QC metrics. Briefs, notes and
+        client data are not sent to the phone; owner can approve («Принять») or send to rework («На доработку»)."""
         body = await call("GET", "/api/studio/orders", params=studio_params(client))
         rows = [order_view(o) for o in (body.get("orders") or []) if isinstance(o, dict)] if isinstance(body, dict) else []
         by_status: dict[str, int] = {}
@@ -950,6 +962,45 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if not re.fullmatch(r"[0-9a-f]{32}", order_id):
             raise fail(404, "заказ не найден", "BM_STUDIO_ORDER")
         o = await call("GET", f"/api/studio/orders/{order_id}", params=studio_params(client))
+        return order_view(o if isinstance(o, dict) else {})
+
+    @app.get("/m/api/studio/orders/{order_id}/preview")
+    async def studio_order_preview(order_id: str, client: str | None = None, _=Depends(session)):
+        if not re.fullmatch(r"[0-9a-f]{32}", order_id):
+            raise fail(404, "заказ не найден", "BM_STUDIO_ORDER")
+        o = await call("GET", f"/api/studio/orders/{order_id}", params=studio_params(client))
+        o = o if isinstance(o, dict) else {}
+        view = order_view(o)
+        return {
+            "order_id": view["order_id"],
+            "status": view["status"],
+            "preset": view["preset"],
+            "price": view["price"],
+            "cost": view["cost"],
+            "margin": view["margin"],
+            "currency": view["currency"],
+            "qc_metrics": view["qc_metrics"],
+            "contact_sheet_path": o.get("contact_sheet_path"),
+            "can_approve": view["can_approve"],
+            "can_rework": view["can_rework"],
+        }
+
+    @app.post("/m/api/studio/orders/{order_id}/approve")
+    async def studio_order_approve(order_id: str, client: str | None = None, _=Depends(session)):
+        if not re.fullmatch(r"[0-9a-f]{32}", order_id):
+            raise fail(404, "заказ не найден", "BM_STUDIO_ORDER")
+        o = await call("POST", f"/api/studio/orders/{order_id}/approve", params=studio_params(client),
+                       json={"answer": "yes"})
+        return order_view(o if isinstance(o, dict) else {})
+
+    @app.post("/m/api/studio/orders/{order_id}/rework")
+    async def studio_order_rework(order_id: str, body: StudioReworkIn | None = None, client: str | None = None,
+                                  _=Depends(session)):
+        if not re.fullmatch(r"[0-9a-f]{32}", order_id):
+            raise fail(404, "заказ не найден", "BM_STUDIO_ORDER")
+        reason = (body or StudioReworkIn()).reason
+        o = await call("POST", f"/api/studio/orders/{order_id}/rework", params=studio_params(client),
+                       json={"reason": reason})
         return order_view(o if isinstance(o, dict) else {})
 
     # ------------------------------------------------------------------ niche research run (read-only counters)

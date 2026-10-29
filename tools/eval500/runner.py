@@ -100,12 +100,19 @@ def reject_own_approvals(api: Api, task_ids: set[int], seen: dict[int, dict]) ->
 # ---------------------------------------------------------------- executor clone
 
 def _prod_default_agent(api: Api) -> dict:
-    code, pre = api.req("POST", "/tasks/preflight", {"prompt": "Привет! Как дела?", "agent_id": None})
-    if code != 200 or not pre.get("ok"):
-        raise SystemExit(f"preflight failed: {code} {pre}")
+    # EVAL500_PROD_AGENT pins the agent the owner actually uses in the pult (25.10: the backend preflight default was
+    # agent 42, a 70B model at ~455 s per scenario, while the pult runs agent 41 Gemma).
+    pinned = os.environ.get("EVAL500_PROD_AGENT", "").strip()
+    if pinned:
+        agent_id = int(pinned)
+    else:
+        code, pre = api.req("POST", "/tasks/preflight", {"prompt": "Привет! Как дела?", "agent_id": None})
+        if code != 200 or not pre.get("ok"):
+            raise SystemExit(f"preflight failed: {code} {pre}")
+        agent_id = int(pre["agent"]["id"])
     code, agents = api.req("GET", "/agents")
     agents = agents.get("items", agents) if isinstance(agents, dict) else agents
-    return next(a for a in agents if int(a["id"]) == int(pre["agent"]["id"]))
+    return next(a for a in agents if int(a["id"]) == agent_id)
 
 
 def agent_fingerprint(a: dict) -> dict:

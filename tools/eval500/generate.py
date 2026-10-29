@@ -107,6 +107,32 @@ def parse_array(text: str) -> list[dict]:
 FREE_NEMOTRON = ("nemotron-nim", "nemotron")
 
 
+def call_swarm_tracked(name: str, prompt: str, *, max_tokens: int = 16000, timeout: float = 900,
+                       sanitize: bool = True) -> dict:
+    """Tracked Coding Swarm call (LANES_20261029.md Claude -> Argon): checks plan_models daily/total limits,
+    optionally runs ContextSanitizer, executes _call, and records usage in the shared swarm ledger."""
+    sw = swarm()
+    clean_prompt = prompt
+    redacted_meta: dict = {}
+    if sanitize and hasattr(sw, "ContextSanitizer"):
+        clean_prompt, redacted_meta = sw.ContextSanitizer().sanitize(prompt)
+    planned, notes = sw.plan_models([name])
+    if not planned:
+        reason = "; ".join(n.get("reason", "limit reached") for n in notes) or "model skipped by swarm limits"
+        return {"model": name, "id": None, "ok": False, "error": reason, "limit_notes": notes}
+    target = planned[0]
+    res = sw._call(target, clean_prompt, max_tokens=max_tokens, timeout=timeout)
+    if notes:
+        res["limit_notes"] = notes
+    if redacted_meta.get("redacted"):
+        res["redacted"] = redacted_meta["redacted"]
+    try:
+        sw.record_usage([res])
+    except Exception:
+        pass
+    return res
+
+
 def draft_batch(key: str, idx: int, n: int, avoid: list[str], model: str = "auto") -> dict:
     out = draft_path(key, idx)
     if out.is_file():
@@ -116,7 +142,7 @@ def draft_batch(key: str, idx: int, n: int, avoid: list[str], model: str = "auto
                            avoid="; ".join(avoid[-40:]) or "none")
     order = FREE_NEMOTRON if model == "auto" else (model,)
     for attempt in range(6):
-        res = swarm()._call(order[attempt % len(order)], prompt, max_tokens=16000, timeout=900)
+        res = call_swarm_tracked(order[attempt % len(order)], prompt, max_tokens=16000, timeout=900)
         meta = {k: v for k, v in res.items() if k not in ("text", "reasoning")}
         if res.get("ok"):
             try:

@@ -1,0 +1,67 @@
+{
+  "schema": "bossman.studio.t1-t2-receipt.v1",
+  "date": "2026-10-29",
+  "lane": "Argon (T1 + T2)",
+  "branch": "feat/argon-t1-t2-t4-20261029",
+  "base_sha": "ccd630600f965d54d2645e40490b1313397fec75",
+  "status": "PASS",
+  "deliverables": {
+    "T1_manifest": {
+      "status": "PASS",
+      "description": "Single order manifest (<order_id>.manifest.json + order['manifest']) recording input hashes, models & versions, licence IDs, seeds, parameters, retries, artifact SHA-256s, QC metrics, owner_approval hashes, and Jeff pause state; written on generating, qc, approve, and deliver.",
+      "files": [
+        "command-center/bcc/direct_gen/orders.py",
+        "command-center/bcc/features/studio_orders.py"
+      ],
+      "test": "command-center/tests/test_studio_orders.py::test_t1_manifest_written_at_generating_qc_approve_deliver"
+    },
+    "T1_delivery_link": {
+      "status": "PASS",
+      "description": "Random stdl_ delivery link with TTL and revocation; only token_sha256 stored on disk (delivery_links.json + order['delivery_link']). Revoked -> 404, expired -> 404, client B opening client A link -> 404.",
+      "files": [
+        "command-center/bcc/direct_gen/orders.py",
+        "command-center/bcc/features/studio_orders.py"
+      ],
+      "test": "command-center/tests/test_studio_orders.py::test_t1_delivery_link_revoked_expired_and_cross_client_404"
+    },
+    "T1_source_rights": {
+      "status": "PASS",
+      "description": "Independent preflight and delivery gate item source_rights_missing (separate from brand clearance), with POST /api/studio/orders/{id}/source-rights and confirm_source_rights.",
+      "files": [
+        "command-center/bcc/direct_gen/orders.py",
+        "command-center/bcc/features/studio_orders.py"
+      ],
+      "test": "command-center/tests/test_studio_orders.py::test_t1_source_rights_independent_gate_blocks_preflight_and_delivery"
+    },
+    "T1_model_licence_policy": {
+      "status": "PASS",
+      "description": "Per owner decisions 24.10 & 29.10 (LANES_20261029.md §Решения владельца п.1), model licence remains an owner-only warning (licence_warnings) and does not block delivery.",
+      "test": "command-center/tests/test_studio_orders.py::test_non_commercial_or_unknown_licence_warns_owner_without_blocking"
+    },
+    "T2_preset_and_qc": {
+      "status": "PASS",
+      "description": "End-to-end commercial presets product_spin and hand_reveal (wan2.2-ti2v-5b, 1080x1920 >= 1080p, 24fps, 6.0s) with idempotent render key, Jeff pause state during render, contact_sheet.png + qc_report.json (Laplacian sharpness, flicker score, duration, resolution), and mid-render kill recovery via reconcile_required without duplicate jobs.",
+      "files": [
+        "command-center/bcc/direct_gen/orders.py",
+        "command-center/bcc/features/studio_orders.py"
+      ],
+      "test": "command-center/tests/test_studio_orders.py::test_t2_preset_product_spin_and_hand_reveal_kill_recovery_and_contact_sheet_qc"
+    },
+    "T2_mobile_studio_card": {
+      "status": "PASS",
+      "description": "Mobile Pult (:8840) Studio card with preview (/m/api/studio/orders/{id}/preview), cost/margin, QC metrics, and buttons «Принять» (POST /m/api/studio/orders/{id}/approve) and «На доработку» (POST /m/api/studio/orders/{id}/rework), preserving 404/405 on quote/accept/start/deliver/cancel.",
+      "files": [
+        "apps/bossman-mobile/bossmobile/api.py",
+        "apps/bossman-mobile/bossmobile/ui/app.js"
+      ],
+      "test": "apps/bossman-mobile/tests/test_mobile_parity.py::test_studio_orders_read_only_for_owner_and_hidden_from_viewer"
+    }
+  },
+  "verification": {
+    "test_studio_orders_passed": 85,
+    "test_studio_orders_failed": 0,
+    "test_mobile_parity_passed": 20,
+    "test_mobile_parity_failed": 0,
+    "cloud_cost_usd": 0.0
+  }
+}
