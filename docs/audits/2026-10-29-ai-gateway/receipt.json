@@ -1,0 +1,61 @@
+{
+  "audit_id": "2026-10-29-ai-gateway",
+  "title": "Bossman AI Gateway: Single Local Perimeter for Model Requests, Sensitivity Classification, Reversible Scrubbing & Provider Trust Policy",
+  "date_utc": "2026-10-29T22:00:00Z",
+  "owner": "Argon",
+  "status": "PASS",
+  "cost_usd": 0.0,
+  "modules": [
+    "command-center/bcc/security/ai_gateway.py",
+    "command-center/bcc/features/ai_gateway.py",
+    "command-center/bcc/provider_governance.py",
+    "tools/check_no_direct_llm_http.py",
+    "command-center/tests/test_ai_gateway.py"
+  ],
+  "invariants_enforced": {
+    "sensitivity_levels": ["public", "internal", "confidential"],
+    "confidential_local_only_domains": [
+      "personal_memory",
+      "personal_docs",
+      "business",
+      "finance",
+      "keys",
+      "private_repo"
+    ],
+    "local_scrubbing_placeholders": [
+      "[КЛИЕНТ_N]",
+      "[СЧЕТ_N]",
+      "[КАРТА_N]",
+      "[EMAIL_N]",
+      "[ТЕЛЕФОН_N]",
+      "[ВНУТР_АДРЕС_N]",
+      "[ПУТЬ_N]",
+      "[ПРОЕКТ_N]",
+      "[СЕКРЕТ_УДАЛЁН]",
+      "[SEED_ФРАЗА_УДАЛЕНА]"
+    ],
+    "minimal_context_packaging": {
+      "strips_memory_context_by_default": true,
+      "strips_local_only_messages": true,
+      "truncates_or_strips_tool_outputs": true,
+      "max_history_messages": 8,
+      "max_context_chars": 24000
+    },
+    "provider_trust_tiers": {
+      "local": "Allows public, internal, and confidential requests inside the PC/LAN perimeter",
+      "trusted": "Allows public and locally-scrubbed internal requests with minimal context; blocks confidential",
+      "experimental": "Allows only public/synthetic requests; blocks internal and confidential",
+      "unknown": "Blocked fail-closed until explicitly allowed by the owner"
+    },
+    "audit_logging": {
+      "logs_provider_model_ts_tokens_categories_rules": true,
+      "logs_raw_prompt_or_response_by_default": false
+    }
+  },
+  "verification": {
+    "test_suite": "command-center/tests/test_ai_gateway.py",
+    "regression_suite": "command-center/tests/test_provider_governance_memory.py",
+    "direct_http_linter": "tools/check_no_direct_llm_http.py",
+    "secret_scanner": "tools/ci_secret_scan.py"
+  }
+}

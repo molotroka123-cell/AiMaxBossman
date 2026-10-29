@@ -242,9 +242,12 @@ class FreeOnlyAdapter:
 
 
 class GovernedAdapter:
-    def __init__(self, adapter, provider, model, *, catalog_state: str | None = None):
+    def __init__(self, adapter, provider, model, *, catalog_state: str | None = None,
+                 local_fallback_adapter=None, strict_unknown: bool = False):
         self.adapter, self.provider, self.model = adapter, dict(provider), dict(model)
         self.catalog_state = catalog_state
+        self.local_fallback_adapter = local_fallback_adapter
+        self.strict_unknown = strict_unknown
 
     def __getattr__(self, name):
         return getattr(self.adapter, name)
@@ -286,6 +289,46 @@ class GovernedAdapter:
             family = long_run.classify(str(m.get("name") or ""), p.get("base_url") or "")
             if family is not None and not long_run.enabled():
                 family = None              # profile off: the free-only gate already decided
+
+        # Route through Bossman AI Gateway (classification -> local scrubbing -> minimal context -> provider policy)
+        from .security.ai_gateway import get_ai_gateway
+        gw = get_ai_gateway()
+        ctx_meta = dict(kwargs.pop("gateway_context_meta", None) or {})
+        if memory_to_cloud_allowed.get() and window != "open":
+            ctx_meta["allow_memory_opt_in"] = True
+        fb_adapter = kwargs.pop("local_fallback_adapter", self.local_fallback_adapter)
+        strict_unk = bool(kwargs.pop("strict_unknown", self.strict_unknown or p.get("trust_tier") == "unknown"))
+
+        msgs_in_kwargs = "messages" in kwargs
+        raw_messages = kwargs.get("messages") if msgs_in_kwargs else (args[1] if len(args) >= 2 else None)
+        model_arg = str(args[0] if args else kwargs.get("model") or m.get("name") or "")
+
+        if isinstance(raw_messages, list):
+            call_kw = {k: v for k, v in kwargs.items() if k != "messages"}
+
+            async def _dispatch(m_arg: str, sanitized_msgs: list[dict], **c_kw):
+                if msgs_in_kwargs:
+                    n_args = args
+                    n_kwargs = {**c_kw, "messages": sanitized_msgs}
+                else:
+                    n_args = (m_arg, sanitized_msgs, *args[2:])
+                    n_kwargs = c_kw
+                if family is None:
+                    return await self.adapter.chat(*n_args, **n_kwargs)
+                return await self._chat_long_run(family, n_args, n_kwargs)
+
+            return await gw.execute_chat(
+                _dispatch,
+                p,
+                m,
+                model_arg,
+                raw_messages,
+                call_kwargs=call_kw,
+                context_meta=ctx_meta,
+                local_fallback_adapter=fb_adapter,
+                strict_unknown=strict_unk,
+            )
+
         if family is None:
             return await self.adapter.chat(*args, **kwargs)
         return await self._chat_long_run(family, args, kwargs)
