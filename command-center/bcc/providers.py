@@ -517,10 +517,15 @@ class OpenAICompatAdapter(_BaseAdapter):
             calls.append(ToolCall(id=str(item.get("id") or f"call_{len(calls)}"),
                                   name=str(fn.get("name") or ""),
                                   arguments=args, raw_arguments=raw))
+        # Cached prompt tokens (part of prompt_tokens): OpenAI-style prompt_tokens_details.cached_tokens or DeepSeek-style
+        # prompt_cache_hit_tokens. Billed at the model's cache price (engine._cost) - owner 29.10: «цена диалога правильно».
+        details = usage.get("prompt_tokens_details") if isinstance(usage.get("prompt_tokens_details"), dict) else {}
+        cached = int(details.get("cached_tokens") or usage.get("prompt_cache_hit_tokens") or 0)
         return ChatResult(
             text=_content_text(message.get("content")),
             tokens_in=int(usage.get("prompt_tokens") or 0),
             tokens_out=int(usage.get("completion_tokens") or 0),
+            cache_read_tokens=max(0, min(cached, int(usage.get("prompt_tokens") or 0))),
             finish=choices[0].get("finish_reason") or "stop",
             model=data.get("model") or model,
             tool_calls=calls,

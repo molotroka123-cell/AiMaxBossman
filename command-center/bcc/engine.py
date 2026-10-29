@@ -3039,8 +3039,9 @@ def _cost(model: dict, result: ChatResult) -> float:
     read = int(getattr(result, "cache_read_tokens", 0) or 0)
     write = int(getattr(result, "cache_write_tokens", 0) or 0)
     fresh = max(0, result.tokens_in - read - write)
-    p_read = model.get("price_cache_read")
-    p_write = model.get("price_cache_write")
+    caps = model.get("caps") if isinstance(model.get("caps"), dict) else {}
+    p_read = model.get("price_cache_read", caps.get("price_cache_read"))     # caps carry it for OpenAI-compatible models
+    p_write = model.get("price_cache_write", caps.get("price_cache_write"))
     p_read = float(p_read) if p_read is not None else price_in
     p_write = float(p_write) if p_write is not None else price_in
     return (fresh / 1e6 * price_in + read / 1e6 * p_read + write / 1e6 * p_write
