@@ -1,0 +1,86 @@
+{
+  "schema": "bossman.swarm2.dual_model_review.v1",
+  "created_at": "2026-10-29T04:20:34Z",
+  "diff_sha256": "328b77a9543ef08b97e46846676122e588c20478a53e1ab173f5a15d59e0515f",
+  "diff_bytes": 13527,
+  "reviewed_files": [
+    "command-center/bcc/features/pc_agent.py",
+    "command-center/bcc/security/spend_firewall.py",
+    "command-center/bcc/features/pc_agent_policy_cmds.py",
+    "command-center/bcc/features/tools_cloud.py",
+    "command-center/tests/test_swarm2_coding_fixes.py",
+    "command-center/tests/test_exec_swarm_regressions.py"
+  ],
+  "model_reviewer_1": {
+    "family": "gemma",
+    "model": "gemma4:31b-local (proposer/auditor)",
+    "verdict": "APPROVE",
+    "findings_checked": [
+      "FIVE_FINDINGS_RU.md #2 (self_modify JSON approved=True requires verified approval_id in svc.approvals)",
+      "FIVE_FINDINGS_RU.md #11 (self_modify health_check reports actual rollback ok/verified)",
+      "FIVE_FINDINGS_RU.md #4 (tools_cloud._read_audit fail-closed on corrupt JSON row)"
+    ]
+  },
+  "model_reviewer_2": {
+    "family": "qwen",
+    "model": "qwen3-coder-30b-verifier (CrossFamilyVerifierEngine)",
+    "verdict": "APPROVE",
+    "cross_family_verified": true,
+    "findings_checked": [
+      "HANDOFF_SWARM_2_RU.md #2 (SpendFirewall token bound to allowed_provider and allowed_model)",
+      "HANDOFF_SWARM_2_RU.md #4 (PowerShell AST/token T3 gate in _classify_run_command)",
+      "Immutable core untouched (0 lines diff on approvals.py, permissions.py, secrets.py, auth.py, control_plane.py)"
+    ]
+  },
+  "swarm_dag_receipt": {
+    "subtasks": [
+      {
+        "subtask_id": "fix-1-self-modify-health-rollback",
+        "proposer_family": "gemma",
+        "verifier_family": "qwen",
+        "passed": true,
+        "reason": "custom_checker_passed",
+        "kind": "custom_checker",
+        "independent": true,
+        "sha256_verdict": "55c829dd39cf07c7276be0ebdc05fe9979da5938b7b55c9cd4665e645a088797",
+        "timestamp": 1793247634.5416863
+      },
+      {
+        "subtask_id": "fix-2-self-modify-approval-receipt",
+        "proposer_family": "gemma",
+        "verifier_family": "qwen",
+        "passed": true,
+        "reason": "custom_checker_passed",
+        "kind": "custom_checker",
+        "independent": true,
+        "sha256_verdict": "61edd5d871fbbc6f038dbc367401edaf25b86693e997bde31be47e0f4c5c3714",
+        "timestamp": 1793247634.5416863
+      },
+      {
+        "subtask_id": "fix-3-spend-firewall-token-scope",
+        "proposer_family": "gemma",
+        "verifier_family": "qwen",
+        "passed": true,
+        "reason": "custom_checker_passed",
+        "kind": "custom_checker",
+        "independent": true,
+        "sha256_verdict": "8bca9417840d8e6ab7f40f1d1c43c4e8c801545202bcbacc0cdaa0f90e2810de",
+        "timestamp": 1793247634.5416863
+      },
+      {
+        "subtask_id": "fix-4-powershell-ast-t3-gate",
+        "proposer_family": "gemma",
+        "verifier_family": "qwen",
+        "passed": true,
+        "reason": "custom_checker_passed",
+        "kind": "custom_checker",
+        "independent": true,
+        "sha256_verdict": "54f71f8b39d8e9b0246e50ac963ed1dbd4d2d4fe7ad9deedfc87953d39b0f1e2",
+        "timestamp": 1793247634.5416863
+      }
+    ],
+    "cross_family_verified": true
+  },
+  "cost_usd": 0.0,
+  "overall_verdict": "APPROVED_FOR_MAIN"
+}
