@@ -1,7 +1,7 @@
 {
  "schema": "bossman.eval500.baseline-receipt.v1",
  "run_id": "baseline-gemma41",
- "generated_at": "2026-10-29T06:42:58",
+ "generated_at": "2026-10-29T07:31:57",
  "suite": {
   "dev_file": "tests/owner_scenarios/eval500_dev.json",
   "dev_sha256": "4ab5a854d4dff16517873462d5273e08d37b050f65c96417d3cb253ff3f052ea",
@@ -121,31 +121,31 @@
     "n": 24,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 1,
     "error": 0,
-    "not_run": 24,
+    "not_run": 23,
     "pass_rate": 0.0,
     "score": 0.0
    },
    "photo": {
     "n": 32,
     "pass": 0,
-    "partial": 0,
+    "partial": 2,
     "fail": 0,
     "error": 0,
-    "not_run": 32,
+    "not_run": 30,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0312
    },
    "video": {
     "n": 28,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 28,
+    "not_run": 27,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0179
    },
    "phone_pult": {
     "n": 28,
@@ -171,51 +171,51 @@
     "n": 28,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 1,
     "error": 0,
-    "not_run": 28,
+    "not_run": 27,
     "pass_rate": 0.0,
     "score": 0.0
    },
    "swap": {
     "n": 18,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 18,
+    "not_run": 17,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0278
    },
    "war_terminal": {
     "n": 28,
     "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "partial": 1,
+    "fail": 1,
     "error": 0,
-    "not_run": 28,
+    "not_run": 26,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0179
    },
    "jeff": {
     "n": 17,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 1,
     "error": 0,
-    "not_run": 17,
+    "not_run": 16,
     "pass_rate": 0.0,
     "score": 0.0
    },
    "studio": {
     "n": 32,
     "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "partial": 1,
+    "fail": 1,
     "error": 0,
-    "not_run": 32,
+    "not_run": 30,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0156
    },
    "niche": {
     "n": 17,
@@ -231,9 +231,9 @@
     "n": 21,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 1,
     "error": 0,
-    "not_run": 21,
+    "not_run": 20,
     "pass_rate": 0.0,
     "score": 0.0
    },
@@ -250,24 +250,24 @@
    "_total": {
     "n": 350,
     "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "partial": 6,
+    "fail": 6,
     "error": 0,
-    "not_run": 350,
+    "not_run": 338,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0086
    }
   },
   "holdout": {
    "chat": {
     "n": 15,
-    "pass": 0,
+    "pass": 1,
     "partial": 0,
     "fail": 0,
     "error": 0,
-    "not_run": 15,
-    "pass_rate": 0.0,
-    "score": 0.0
+    "not_run": 14,
+    "pass_rate": 0.0667,
+    "score": 0.0667
    },
    "memory": {
     "n": 11,
@@ -282,12 +282,12 @@
    "photo": {
     "n": 13,
     "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "partial": 1,
+    "fail": 1,
     "error": 0,
-    "not_run": 13,
+    "not_run": 11,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0385
    },
    "video": {
     "n": 12,
@@ -302,12 +302,12 @@
    "phone_pult": {
     "n": 12,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 12,
+    "not_run": 11,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0417
    },
    "pc_control": {
     "n": 12,
@@ -362,30 +362,30 @@
    "studio": {
     "n": 13,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 13,
+    "not_run": 12,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0385
    },
    "niche": {
     "n": 8,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 8,
+    "not_run": 7,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0625
    },
    "coding": {
     "n": 9,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 1,
     "error": 0,
-    "not_run": 9,
+    "not_run": 8,
     "pass_rate": 0.0,
     "score": 0.0
    },
@@ -401,65 +401,65 @@
    },
    "_total": {
     "n": 150,
-    "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "pass": 1,
+    "partial": 4,
+    "fail": 2,
     "error": 0,
-    "not_run": 150,
-    "pass_rate": 0.0,
-    "score": 0.0
+    "not_run": 143,
+    "pass_rate": 0.0067,
+    "score": 0.02
    }
   },
   "all": {
    "chat": {
     "n": 50,
-    "pass": 0,
+    "pass": 1,
     "partial": 0,
     "fail": 0,
     "error": 0,
-    "not_run": 50,
-    "pass_rate": 0.0,
-    "score": 0.0
+    "not_run": 49,
+    "pass_rate": 0.02,
+    "score": 0.02
    },
    "memory": {
     "n": 35,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 1,
     "error": 0,
-    "not_run": 35,
+    "not_run": 34,
     "pass_rate": 0.0,
     "score": 0.0
    },
    "photo": {
     "n": 45,
     "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "partial": 3,
+    "fail": 1,
     "error": 0,
-    "not_run": 45,
+    "not_run": 41,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0333
    },
    "video": {
     "n": 40,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 40,
+    "not_run": 39,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0125
    },
    "phone_pult": {
     "n": 40,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 40,
+    "not_run": 39,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0125
    },
    "pc_control": {
     "n": 40,
@@ -475,69 +475,69 @@
     "n": 40,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 1,
     "error": 0,
-    "not_run": 40,
+    "not_run": 39,
     "pass_rate": 0.0,
     "score": 0.0
    },
    "swap": {
     "n": 25,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 25,
+    "not_run": 24,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.02
    },
    "war_terminal": {
     "n": 40,
     "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "partial": 1,
+    "fail": 1,
     "error": 0,
-    "not_run": 40,
+    "not_run": 38,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0125
    },
    "jeff": {
     "n": 25,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 1,
     "error": 0,
-    "not_run": 25,
+    "not_run": 24,
     "pass_rate": 0.0,
     "score": 0.0
    },
    "studio": {
     "n": 45,
     "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "partial": 2,
+    "fail": 1,
     "error": 0,
-    "not_run": 45,
+    "not_run": 42,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.0222
    },
    "niche": {
     "n": 25,
     "pass": 0,
-    "partial": 0,
+    "partial": 1,
     "fail": 0,
     "error": 0,
-    "not_run": 25,
+    "not_run": 24,
     "pass_rate": 0.0,
-    "score": 0.0
+    "score": 0.02
    },
    "coding": {
     "n": 30,
     "pass": 0,
     "partial": 0,
-    "fail": 0,
+    "fail": 2,
     "error": 0,
-    "not_run": 30,
+    "not_run": 28,
     "pass_rate": 0.0,
     "score": 0.0
    },
@@ -553,13 +553,13 @@
    },
    "_total": {
     "n": 500,
-    "pass": 0,
-    "partial": 0,
-    "fail": 0,
+    "pass": 1,
+    "partial": 10,
+    "fail": 8,
     "error": 0,
-    "not_run": 500,
-    "pass_rate": 0.0,
-    "score": 0.0
+    "not_run": 481,
+    "pass_rate": 0.002,
+    "score": 0.012
    }
   }
  },
@@ -568,24 +568,36 @@
   "recheck": "gemini-3-flash-preview (seeded 10 % of LLM-judged)",
   "prompt_version": "eval500-judge-v1",
   "agreement_dev": {
-   "rechecked": 0
+   "rechecked": 2,
+   "exact_agreement": 0.5,
+   "pass_vs_not_agreement": 1.0,
+   "disagreements": {
+    "partial->fail": 1
+   }
   },
   "agreement_holdout": {
    "rechecked": 0
   },
   "agreement_all": {
-   "rechecked": 0
+   "rechecked": 2,
+   "exact_agreement": 0.5,
+   "pass_vs_not_agreement": 1.0,
+   "disagreements": {
+    "partial->fail": 1
+   }
   }
  },
  "cost": {
-  "judge_calls": 0,
-  "judge_tokens": 0,
-  "judge_cost_usd": 0,
-  "recheck_calls": 0,
-  "recheck_cost_usd": 0,
-  "judges_by_kind": {},
+  "judge_calls": 21,
+  "judge_tokens": 24506,
+  "judge_cost_usd": 0.0,
+  "recheck_calls": 2,
+  "recheck_cost_usd": 0.0,
+  "judges_by_kind": {
+   "llm": 19
+  },
   "executor_cost_usd": 0.0,
-  "total_cloud_cost_usd": 0
+  "total_cloud_cost_usd": 0.0
  },
  "suite_receipt": "docs/audits/2026-10-25-eval500-baseline/suite-receipt.json",
  "preregistration": {

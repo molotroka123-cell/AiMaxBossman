@@ -1,6 +1,6 @@
 {
   "schema": "bossman.m4.transfer-report.v1",
-  "generated_at": "2026-10-29T07:12:15",
+  "generated_at": "2026-10-29T07:32:11",
   "before_run": "baseline-gemma41",
   "after_run": "m4-lessons-candidate",
   "dataset": {
