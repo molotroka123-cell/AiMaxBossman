@@ -1,0 +1,73 @@
+{
+ "verdict": "PASS",
+ "at": "2026-10-29T12:23:10Z",
+ "steps": [
+  {
+   "step": "1 health + build",
+   "verdict": "PASS",
+   "seconds": 0.3,
+   "detail": {
+    "build": "3cc6d1939d54",
+    "version": "2.6.0"
+   }
+  },
+  {
+   "step": "2 chat (local model)",
+   "verdict": "PASS",
+   "seconds": 90.8,
+   "detail": {
+    "thread": "20261029-052014-e0cf47",
+    "task": 737,
+    "status": "completed",
+    "answer": "Я — Gemma 4, твой локальный собеседник, работающий на этом ПК без облака. Я умею полноценно общаться, анализировать данные из твоей памяти и контекста, но не выполняю действий в системе от твоего имени."
+   }
+  },
+  {
+   "step": "3 PC agent task",
+   "verdict": "PASS",
+   "seconds": 11.3,
+   "detail": {
+    "task_id": 738,
+    "status": "completed",
+    "owner_approved": true,
+    "summary": "✅ Задача #738 [Argon PC-Agent] ПРОВЕРЕНО (100%):\n• Записан и проверен файл C:\\Users\\asd\\Bossman\\wt-bossman-20-argon\\command-center\\demo-bossman.txt (29 байт, sha256=e89f7eeaefd2).\n\n🧠 Итог (gemma4-31b-uncensored:latest, 11.05 с):\nФайл `demo-bossman.txt` успешно создан в рабочей папке. Текст записан и"
+   }
+  },
+  {
+   "step": "4 STOP blocks new work",
+   "verdict": "PASS",
+   "seconds": 0.1,
+   "detail": {
+    "new_task_blocked_while_stopped": true,
+    "resumed": true
+   }
+  },
+  {
+   "step": "5 harness receipt",
+   "verdict": "PASS",
+   "seconds": 0.0,
+   "detail": {
+    "postcondition_detail": "file_contains: found",
+    "db_counts": {
+     "facts": 37,
+     "decisions": 27,
+     "procedures": 25,
+     "failures": 32
+    },
+    "sha256_receipt": "6855269a0918e17dad34c264ed8ecde79bab5fe9b068fb8d4c343dc4678f08a5"
+   }
+  },
+  {
+   "step": "6 local image",
+   "verdict": "PASS",
+   "seconds": 73.8,
+   "detail": {
+    "job_id": "f2d2a423c15541ecbc3c4590921e4ba6",
+    "status": "completed",
+    "sha256": "dea7b1e6aa980720d6908a319809830875447d5a841465369baa0015e6462784",
+    "seconds_to_done": 73.7
+   }
+  }
+ ],
+ "total_seconds": 176.3
+}

@@ -1,0 +1,72 @@
+{
+ "verdict": "FAIL",
+ "at": "2026-10-29T12:18:57Z",
+ "steps": [
+  {
+   "step": "1 health + build",
+   "verdict": "FAIL",
+   "seconds": 0.2,
+   "detail": {
+    "build": "fd11affcff53",
+    "version": "2.6.0"
+   }
+  },
+  {
+   "step": "2 chat (local model)",
+   "verdict": "PASS",
+   "seconds": 114.9,
+   "detail": {
+    "thread": "20261029-051539-43bea3",
+    "task": 735,
+    "status": "completed",
+    "answer": "Я — Gemma 4, твой локальный собеседник, работающий на этом ПК без облака. Я умею поддерживать полноценный диалог, анализировать данные из твоих заметок и отвечать по существу на любые вопросы."
+   }
+  },
+  {
+   "step": "3 PC agent task",
+   "verdict": "FAIL",
+   "seconds": 0.1,
+   "detail": {
+    "task_id": 736,
+    "status": "waiting_approval",
+    "summary": ""
+   }
+  },
+  {
+   "step": "4 STOP blocks new work",
+   "verdict": "PASS",
+   "seconds": 0.5,
+   "detail": {
+    "new_task_blocked_while_stopped": true,
+    "resumed": true
+   }
+  },
+  {
+   "step": "5 harness receipt",
+   "verdict": "PASS",
+   "seconds": 0.0,
+   "detail": {
+    "postcondition_detail": "file_contains: found",
+    "db_counts": {
+     "facts": 36,
+     "decisions": 26,
+     "procedures": 24,
+     "failures": 31
+    },
+    "sha256_receipt": "7606de454a8314efa2e812f00919c57c0b0783dc0eaba0382c03fd5dc0443289"
+   }
+  },
+  {
+   "step": "6 local image",
+   "verdict": "PASS",
+   "seconds": 81.8,
+   "detail": {
+    "job_id": "ee573fafe0ea4102aab6f9bee087968e",
+    "status": "completed",
+    "sha256": "dea7b1e6aa980720d6908a319809830875447d5a841465369baa0015e6462784",
+    "seconds_to_done": 81.8
+   }
+  }
+ ],
+ "total_seconds": 197.5
+}
