@@ -5769,7 +5769,15 @@ async def start_pc_task(
     return record
 
 
-async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved_step_index: int | None = None, approval_id: int | None = None) -> dict[str, Any]:
+def _compute_step_payload_sha256(action: str, args: dict[str, Any]) -> str:
+    """SHA-256 of the canonical payload an owner approval covers (trio audit 29.10, Claude Hole #3 / review F1)."""
+    blob = json.dumps({"action": str(action), "args": args}, ensure_ascii=False, sort_keys=True, default=str,
+                      separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved_step_index: int | None = None,
+                         approval_id: int | None = None, approved_payload_sha256: str | None = None) -> dict[str, Any]:
     record = rt.load_task_record(task_id)
     if not record:
         raise RuntimeError(f"Задача PC-Agent #{task_id} не найдена")
@@ -5793,6 +5801,25 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
             tool = str(step.get("tool") or "")
             args = dict(step.get("args") or {})
             record["progress_pct"] = int(round((len(completed) / max(1, len(planned))) * 100))
+
+            # The owner approved THESE arguments: a step whose payload changed after the approval does not run.
+            if approved_step_index == idx and _compute_step_payload_sha256(tool, args) != (approved_payload_sha256 or ""):
+                reason = ("approval_payload_mismatch: аргументы шага изменились после одобрения владельца "
+                          f"#{approval_id}; шаг не выполнен, нужно новое одобрение")
+                rt.journal.append(
+                    actor=actor, task_id=task_id, run_id=run_id, tool=tool, args=args,
+                    tier="T3", decision="deny", result=reason, approval_id=approval_id, verified=False,
+                )
+                record["status"] = "failed"
+                record["error"] = reason
+                record.setdefault("step_results", []).append({
+                    "step": idx + 1, "tool": tool, "tier": "T3", "decision": "deny", "ok": False, "verified": False,
+                    "error": reason, "summary": reason, "code": "approval_payload_mismatch",
+                })
+                record["updated_at"] = time.time()
+                rt.save_task_record(task_id, record)
+                await _finish_db_task(svc, task_id, run_id, status="failed", error_text=reason)
+                return record
 
             if rt.autonomy_level == "L3" and rt.night_mode.get("active"):
                 max_act = int(rt.night_mode.get("max_actions") or 25)
@@ -5853,6 +5880,7 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
                     "category": verdict.category,
                     "reason": verdict.reason,
                     "preview": preview,
+                    "payload_sha256": _compute_step_payload_sha256(tool, args),
                 }
                 rt.journal.append(
                     actor=actor, task_id=task_id, run_id=run_id, tool=tool, args=args,
@@ -6171,7 +6199,8 @@ async def resume_after_approval(
             rec["updated_at"] = time.time()
             rt.save_task_record(task_id, rec)
             job = asyncio.create_task(
-                _drive_pc_task(svc, rt, task_id, approved_step_index=step_idx, approval_id=approval_id),
+                _drive_pc_task(svc, rt, task_id, approved_step_index=step_idx, approval_id=approval_id,
+                               approved_payload_sha256=str(pending.get("payload_sha256") or "")),
                 name=f"argon-pc-task-{task_id}-approved-{approval_id}",
             )
             rt.active_tasks[task_id] = job
@@ -6357,7 +6386,48 @@ async def api_pc_agent_night_mode_report(request: Request):
     return build_night_mode_morning_report(rt)
 
 
-async def _verified_self_modify_approval(svc: Any, rt: Any, approval_id_raw: Any, task_id: int) -> bool:
+async def _self_modify_approval_check(svc: Any, rt: Any, approval_id_raw: Any, task_id: int, *, topic: str = "",
+                                      action: str = "") -> str:
+    """'' when the approval authorises THIS self-modify step, else `approval_scope_mismatch` (trio audit 29.10, Hole #3).
+
+    On top of `_verified_self_modify_approval`: the approved preview must name the same topic and action, and an approval already
+    consumed by any PC-agent path (`rt.consumed_approvals`) cannot be reused."""
+    consumed = getattr(rt, "consumed_approvals", None)
+    try:
+        aid = int(approval_id_raw)
+    except (TypeError, ValueError):
+        return "approval_scope_mismatch"
+    if isinstance(consumed, set) and aid in consumed:
+        return "approval_scope_mismatch"
+    rec = await _approval_row(svc, aid)
+    preview = str((rec or {}).get("preview") or "")
+    real_row = isinstance(rec, dict) and not rec.get("tool")          # approvals table rows carry kind+preview, not tool
+    for key, val in (("topic", topic), ("action", action)):
+        if not val:
+            continue
+        named = f'"{key}":' in preview
+        if (named or real_row) and f'"{key}": {json.dumps(val, ensure_ascii=False)}' not in preview:
+            return "approval_scope_mismatch"                           # another topic/action, or not provable from the row
+    if not await _verified_self_modify_approval(svc, rt, aid, task_id, rec=rec):
+        return "approval_scope_mismatch"
+    if isinstance(consumed, set):
+        consumed.add(aid)
+    return ""
+
+
+async def _approval_row(svc: Any, aid: int) -> dict | None:
+    getter = getattr(getattr(svc, "approvals", None), "get", None)
+    if callable(getter):
+        return await getter(aid)
+    db = getattr(svc, "db", None)
+    if db is None:
+        return None
+    async with db.session() as s:
+        return await fetch_one(s, approvals_t, aid)
+
+
+async def _verified_self_modify_approval(svc: Any, rt: Any, approval_id_raw: Any, task_id: int, *,
+                                         rec: dict | None = None) -> bool:
     """An owner approval authorises ONE self-modify step (audit 28.10 night).
 
     The swarm-2 check called `svc.approvals.get`, which the real Approvals manager does not have, so in production no approval
@@ -6375,15 +6445,8 @@ async def _verified_self_modify_approval(svc: Any, rt: Any, approval_id_raw: Any
         setattr(rt, "self_modify_used_approvals", used)
     if aid in used:
         return False
-    getter = getattr(getattr(svc, "approvals", None), "get", None)
-    if callable(getter):
-        rec = await getter(aid)
-    else:
-        db = getattr(svc, "db", None)
-        if db is None:
-            return False
-        async with db.session() as s:
-            rec = await fetch_one(s, approvals_t, aid)
+    if rec is None:
+        rec = await _approval_row(svc, aid)
     if not isinstance(rec, dict) or rec.get("status") != "approved":
         return False
     tool = str(rec.get("tool") or "")
@@ -6413,10 +6476,15 @@ async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
     requested_approved = bool(payload.get("approved", False))
     approval_id_raw = payload.get("approval_id")
     approval_verified = False
+    approval_error = ""
     if requested_approved and approval_id_raw is not None:
-        with contextlib.suppress(Exception):
-            approval_verified = await _verified_self_modify_approval(
-                svc, rt, approval_id_raw, int(payload.get("task_id") or 0))
+        # no blanket exception suppression in the approval contour (trio audit 29.10): a storage error surfaces
+        approval_error = await _self_modify_approval_check(
+            svc, rt, approval_id_raw, int(payload.get("task_id") or 0),
+            topic=str(payload.get("topic") or ""), action=str(payload.get("action") or ""))
+        approval_verified = approval_error == ""
+    elif requested_approved:
+        approval_error = "approval_scope_mismatch"
     approved = bool(requested_approved and approval_verified)
     payload["approved"] = approved
     res = await execute_pc_step(
@@ -6432,6 +6500,8 @@ async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
     )
     if isinstance(res, dict):
         res["approval_verified"] = approval_verified
+        if approval_error:
+            res["approval_error"] = approval_error
     rt.journal.append(
         actor=actor,
         task_id=int(payload.get("task_id") or 0) or None,
