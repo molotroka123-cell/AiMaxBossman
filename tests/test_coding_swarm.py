@@ -41,7 +41,7 @@ def test_receipt_has_costs_but_no_reasoning_and_dataset_gets_it(monkeypatch, tmp
     receipt = json.loads((tmp_path / "out" / "t-receipt.json").read_text(encoding="utf-8"))
     assert receipt == doc and all("reasoning" not in c for c in receipt["calls"])
     rows = [json.loads(l) for f in (tmp_path / "ds").glob("*.jsonl") for l in f.read_text(encoding="utf-8").splitlines()]
-    assert [r["model_id"] for r in rows] == ["fake"] and rows[0]["training_use"] == "PENDING_TERMS_CHECK"
+    assert [r["model_id"] for r in rows] == ["fake"] and rows[0]["training_use"] == "ALLOWED_BY_TERMS" and rows[0]["terms_ref"].startswith("owner-decision-2026-10-29")
     assert set(cs.M4_FIELDS) <= set(rows[0]) and rows[0]["provider"] == "7api.st" and len(rows[0]["prompt_sha256"]) == 64
     assert list((tmp_path / "ds").glob("*.jsonl"))[0].stem.count("-") == 2          # <YYYY-MM-DD>.jsonl
 
@@ -175,3 +175,25 @@ def test_review_and_task_still_require_ask_and_out():
         cs.main(["task", "--out", "x"])
     with pytest.raises(SystemExit):
         cs.main(["review", "--ask", "x"])
+
+
+
+# ------------------------------------------------------------------ owner terms decision 29.10
+
+def test_apply_terms_upgrades_legacy_rows_and_keeps_personal_rows_pending(tmp_path):
+    ds = tmp_path / "ds"
+    ds.mkdir()
+    legacy = [{"at": "2026-10-25T10:00:00", "label": "t", "model": "kimi", "model_id": "kimi-k3.1-pro", "prompt": "def f(): pass",
+               "reasoning": "think", "answer": "ok", "training_use": "PENDING_TERMS_CHECK"},
+              {"at": "2026-10-25T10:01:00", "label": "t", "model": "qwen", "model_id": "q", "prompt": "mail me a.b@example.com",
+               "reasoning": "r", "answer": "a", "training_use": "PENDING_TERMS_CHECK"}]
+    (ds / "20261025.jsonl").write_text("".join(json.dumps(r) + "\n" for r in legacy), encoding="utf-8")
+    stats = cs.apply_terms_decision(ds)
+    assert stats == {"cleared": 1, "kept_pending": 1, "files": 1}
+    rows = [json.loads(l) for l in (ds / "2026-10-25.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert not (ds / "20261025.jsonl").exists() and set(cs.M4_FIELDS) <= set(rows[0])
+    assert [r["training_use"] for r in rows] == ["ALLOWED_BY_TERMS", "PENDING_TERMS_CHECK"]
+    exported = cs.export_training_rows([r for r in rows if r["training_use"] == "ALLOWED_BY_TERMS"])
+    assert len(exported) == 1
+    with pytest.raises(PermissionError):
+        cs.export_training_rows(rows)                      # the personal-data row never reaches training

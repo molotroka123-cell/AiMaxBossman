@@ -269,6 +269,10 @@ DATASET = Path(r"D:\Bossman\datasets\cloud-reasoning")
 
 
 TRAINING_USE = {"PENDING_TERMS_CHECK", "ALLOWED_BY_TERMS", "FORBIDDEN"}
+# Owner 29.10: «можешь не проверять термс я уже глянул» — the owner reviewed the Moonshot/7API terms himself and allows
+# training on the collected reasoning; LOCAL training only («ГПУ даю … но не арендное»).
+TERMS_DECISION = {"training_use": "ALLOWED_BY_TERMS",
+                  "terms_ref": "owner-decision-2026-10-29: owner reviewed Moonshot/7API terms; local GPU training only"}
 M4_FIELDS = ("id", "ts", "provider", "model_id", "task_id", "source_sha", "prompt_sha256", "prompt", "reasoning", "answer",
              "verifier_outcome", "cost_usd", "training_use", "terms_ref")
 
@@ -309,7 +313,7 @@ def _save_reasoning(prompt: str, results: list[dict], label: str) -> dict:
                "model_id": r["id"], "task_id": label, "source_sha": sha,
                "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(), "prompt": prompt,
                "reasoning": r["reasoning"], "answer": r.get("text", ""), "verifier_outcome": "NOT_RUN",
-               "cost_usd": float(r.get("cost_usd") or 0.0), "training_use": "PENDING_TERMS_CHECK", "terms_ref": ""}
+               "cost_usd": float(r.get("cost_usd") or 0.0), **TERMS_DECISION}
         try:
             validate_row(row)
         except ValueError as exc:
@@ -332,6 +336,49 @@ def export_training_rows(rows: list[dict]) -> list[dict]:
     for r in rows:
         validate_row(r)
     return [{"prompt": r["prompt"], "reasoning": r["reasoning"], "answer": r["answer"], "source_id": r["id"]} for r in rows]
+
+
+_LEGACY_PROVIDER = {"kimi": "7api.st", "glm": "7api.st", "qwen": "openrouter.ai", "nemotron": "openrouter.ai",
+                    "nemotron-nim": "integrate.api.nvidia.com", "gemini": "generativelanguage.googleapis.com"}
+
+
+def apply_terms_decision(dataset: Path | None = None) -> dict:
+    """Bring every row of the dataset to the M4 schema with the owner's terms decision. A row whose prompt/reasoning/
+    answer carries a secret or personal data is NOT cleared: it stays PENDING_TERMS_CHECK (excluded from training).
+    Rewrites files atomically; legacy `YYYYMMDD.jsonl` rows are moved into `YYYY-MM-DD.jsonl`."""
+    root = dataset or DATASET
+    stats = {"cleared": 0, "kept_pending": 0, "files": 0}
+    out_rows: dict[str, list[dict]] = {}
+    for f in sorted(root.glob("*.jsonl")):
+        stats["files"] += 1
+        stem = f.stem if "-" in f.stem else f"{f.stem[:4]}-{f.stem[4:6]}-{f.stem[6:8]}"
+        for line in f.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            if "id" not in r:                                  # legacy row (before 29.10)
+                r = {"id": uuid.uuid4().hex, "ts": r.get("at", ""), "provider": _LEGACY_PROVIDER.get(r.get("model", ""), ""),
+                     "model_id": r.get("model_id", ""), "task_id": r.get("label", ""), "source_sha": "",
+                     "prompt_sha256": hashlib.sha256(str(r.get("prompt", "")).encode("utf-8")).hexdigest(),
+                     "prompt": r.get("prompt", ""), "reasoning": r.get("reasoning", ""), "answer": r.get("answer", ""),
+                     "verifier_outcome": "NOT_RUN", "cost_usd": 0.0, "training_use": "PENDING_TERMS_CHECK", "terms_ref": ""}
+            cand = {**r, **TERMS_DECISION}
+            try:
+                validate_row(cand)
+                r = cand
+                stats["cleared"] += 1
+            except ValueError:
+                r = {**r, "training_use": "PENDING_TERMS_CHECK", "terms_ref": ""}
+                stats["kept_pending"] += 1
+            out_rows.setdefault(stem, []).append(r)
+    for stem, rows in out_rows.items():
+        tmp = root / f"{stem}.jsonl.tmp"
+        tmp.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+        os.replace(tmp, root / f"{stem}.jsonl")
+    for f in root.glob("*.jsonl"):
+        if "-" not in f.stem:
+            f.unlink()                                         # legacy file fully migrated above
+    return stats
 
 
 def run(prompt: str, models: list[str], out: Path, label: str, sanitizer: ContextSanitizer | None = None) -> dict:
@@ -362,7 +409,7 @@ def run(prompt: str, models: list[str], out: Path, label: str, sanitizer: Contex
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("mode", choices=["review", "task", "limits"])
+    ap.add_argument("mode", choices=["review", "task", "limits", "apply-terms"])
     ap.add_argument("--ask")
     ap.add_argument("--doc")
     ap.add_argument("--file", action="append", default=[])
@@ -372,6 +419,9 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     if a.mode == "limits":
         print(json.dumps(limits_report(), ensure_ascii=False))
+        return 0
+    if a.mode == "apply-terms":
+        print(json.dumps(apply_terms_decision(), ensure_ascii=False))
         return 0
     if a.ask is None or a.out is None:
         ap.error("--ask and --out are required for review/task")
