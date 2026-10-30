@@ -1481,11 +1481,116 @@
     b.addEventListener('click', (e) => { e.stopPropagation(); deleteForever(kind, jobId, b); }); return b;
   }
 
-  /* ================= Фото ================= */
+  /* ================= Фото + Freefield Studio Apps (app.json) ================= */
+  S.studioApps = [];
+  S.photoAppId = 'cinema-film-still';
+  S.videoAppId = 'cinema-studio-video';
+
+  async function ensureStudioApps() {
+    if (!S.studioApps.length) {
+      try { S.studioApps = (await api('GET', '/studio/apps')).apps || []; } catch { S.studioApps = []; }
+    }
+    return S.studioApps;
+  }
+
+  function renderStudioAppCard(kind) {
+    const isVideo = kind === 'video';
+    const apps = (S.studioApps || []).filter((a) => a.kind === kind);
+    const pillsBox = $(isVideo ? 'video-app-pills' : 'photo-app-pills');
+    const headEl = $(isVideo ? 'video-app-headline' : 'photo-app-headline');
+    const subEl = $(isVideo ? 'video-app-sub' : 'photo-app-sub');
+    const metaBox = $(isVideo ? 'video-app-meta' : 'photo-app-meta');
+    if (!pillsBox || !apps.length) return;
+    const activeId = isVideo ? S.videoAppId : S.photoAppId;
+    const cur = apps.find((a) => a.id === activeId) || apps[0];
+    if (isVideo) S.videoAppId = cur.id; else S.photoAppId = cur.id;
+
+    pillsBox.replaceChildren();
+    apps.forEach((a) => {
+      const b = el('button', `ff-app-pill${a.id === cur.id ? ' on' : ''}`, a.title_ru || a.title);
+      b.type = 'button';
+      b.dataset.appId = a.id;
+      b.addEventListener('click', () => {
+        tap();
+        if (isVideo) S.videoAppId = a.id; else S.photoAppId = a.id;
+        renderStudioAppCard(kind);
+      });
+      pillsBox.appendChild(b);
+    });
+
+    if (headEl) headEl.textContent = cur.headline_ru || cur.headline || cur.title_ru;
+    if (subEl) subEl.textContent = cur.subtitle_ru || '';
+    if (metaBox) {
+      metaBox.replaceChildren();
+      const ex = cur.lab_example || {};
+      metaBox.appendChild(el('span', 'ff-badge lime', `📁 ${cur.folder || ('studio_apps/' + cur.id + '/app.json')}`));
+      metaBox.appendChild(el('span', 'ff-badge', `Веса: ${cur.resolved_model || cur.model} (${cur.license || 'Apache-2.0'})`));
+      if (ex.peak_vram_gb) metaBox.appendChild(el('span', 'ff-badge', `Пик VRAM: ≈ ${ex.peak_vram_gb} ГБ`));
+      if (ex.run_time_s) {
+        const mLabel = ex.measurement_kind === 'measured' ? 'по замеру ПК' : 'оценка каталога';
+        metaBox.appendChild(el('span', 'ff-badge', `Время примера: ≈ ${fmtDur(ex.run_time_s)} (${mLabel})`));
+      }
+    }
+  }
+
+  async function applyStudioExample(kind) {
+    await ensureStudioApps();
+    const isVideo = kind === 'video';
+    const apps = (S.studioApps || []).filter((a) => a.kind === kind);
+    const activeId = isVideo ? S.videoAppId : S.photoAppId;
+    const cur = apps.find((a) => a.id === activeId) || apps[0];
+    if (!cur || !cur.lab_example) return;
+    const ex = cur.lab_example;
+    if (isVideo) {
+      const sel = $('video-model');
+      const targetModel = cur.resolved_model || cur.model;
+      if (sel && Array.from(sel.options).some((o) => o.value === targetModel && !o.disabled)) {
+        sel.value = targetModel;
+        onVModel();
+      }
+      if ($('video-prompt')) $('video-prompt').value = ex.scene || '';
+      if ($('video-negative')) $('video-negative').value = ex.negative || '';
+      if ($('video-camera-move') && ex.camera_move != null) $('video-camera-move').value = ex.camera_move;
+      if ($('video-tempo') && ex.tempo != null) $('video-tempo').value = ex.tempo;
+      if (ex.aspect) V.aspect = ex.aspect;
+      if (ex.side && V.sides && V.sides.includes(ex.side)) V.side = ex.side;
+      if (V.sides) videoSegs();
+      if (ex.duration_s != null) setVDur(ex.duration_s);
+      if (ex.steps != null && !$('vsteps-block').hidden) setVSteps(ex.steps);
+      if ($('video-seed') && ex.seed != null) $('video-seed').value = String(ex.seed);
+      vTime();
+      toast(`Пример «${ex.title_ru || cur.title_ru}» загружен из ${cur.id}/app.json`);
+    } else {
+      const sel = $('photo-model');
+      const targetModel = cur.resolved_model || cur.model;
+      if (sel && Array.from(sel.options).some((o) => o.value === targetModel && !o.disabled)) {
+        sel.value = targetModel;
+        onModel();
+      }
+      if ($('photo-prompt')) $('photo-prompt').value = ex.scene || '';
+      if ($('photo-negative')) $('photo-negative').value = ex.negative || '';
+      if (ex.aspect) S.aspect = ex.aspect;
+      if (ex.side && S.sides && S.sides.includes(ex.side)) S.side = ex.side;
+      if (S.sides) photoSegs();
+      if (ex.steps != null) setSteps(ex.steps);
+      if ($('photo-seed') && ex.seed != null) $('photo-seed').value = String(ex.seed);
+      showTime();
+      toast(`Пример «${ex.title_ru || cur.title_ru}» загружен из ${cur.id}/app.json`);
+    }
+  }
+
+  if ($('btn-photo-load-example')) {
+    $('btn-photo-load-example').addEventListener('click', () => { tap(); applyStudioExample('photo'); });
+  }
+  if ($('btn-video-load-example')) {
+    $('btn-video-load-example').addEventListener('click', () => { tap(); applyStudioExample('video'); });
+  }
+
   async function ensurePhotoModels() { if (!S.photoModels.length) S.photoModels = (await api('GET', '/photo/models')).models || []; }
   async function openPhoto() {
     try {
-      await ensurePhotoModels();
+      await Promise.all([ensurePhotoModels(), ensureStudioApps()]);
+      renderStudioAppCard('photo');
       const sel = $('photo-model');
       if (!sel.options.length) {
         S.photoModels.forEach((m) => { const o = el('option', '', `${m.label}${m.modes && m.modes.includes('I2I') ? ' · по фото' : ''}${m.available ? '' : ' — недоступна'}`); o.value = m.id; o.disabled = !m.available; sel.appendChild(o); });
@@ -2020,8 +2125,10 @@
 
   async function loadVideoCat() { V.cat = await api('GET', '/video/models'); return V.cat; }
   async function openVideo() {
+    ensureStudioApps().then(() => renderStudioAppCard('video')).catch(() => {});
     try {
       await loadVideoCat();
+      renderStudioAppCard('video');
       const sel = $('video-model');
       if (!sel.options.length) {
         V.cat.models.forEach((m) => { const o = el('option', '', `${m.label}${m.ready ? '' : m.available ? ' — сейчас не запустится' : ' — недоступна'}`); o.value = m.id; o.disabled = !m.available; sel.appendChild(o); });
@@ -2035,9 +2142,9 @@
   }
   function renderMode() {
     const fs = V.cat && V.cat.faceswap;
-    seg('video-mode', [['gen', 'Генерация'], ['swap', 'Замена лица']], V.mode, (v) => { V.mode = v; $('video-form').hidden = v !== 'gen'; $('swap-form').hidden = v !== 'swap'; if (v === 'swap') swapTime(); });
+    seg('video-mode', [['gen', 'Генерация'], ['swap', 'Замена лица']], V.mode, (v) => { V.mode = v; $('video-form').hidden = v !== 'gen'; if ($('video-studio-apps')) $('video-studio-apps').hidden = v !== 'gen'; $('swap-form').hidden = v !== 'swap'; if (v === 'swap') swapTime(); });
     if (!fs) { const b = $('video-mode').querySelectorAll('button')[1]; if (b) { b.disabled = true; b.title = 'Bossman не отдаёт замену лица'; } }
-    $('video-form').hidden = V.mode !== 'gen'; $('swap-form').hidden = V.mode !== 'swap';
+    $('video-form').hidden = V.mode !== 'gen'; if ($('video-studio-apps')) $('video-studio-apps').hidden = V.mode !== 'gen'; $('swap-form').hidden = V.mode !== 'swap';
   }
   const curV = () => ((V.cat && V.cat.models) || []).find((m) => m.id === $('video-model').value);
   function onVModel() {
@@ -2177,6 +2284,9 @@
     const s = vSettings(m); const fd = new FormData();
     fd.append('model', m.id); fd.append('prompt', prompt); fd.append('negative', $('video-negative').value.trim());
     fd.append('duration', String(s.sec)); fd.append('resolution', `${s.w}x${s.h}`);
+    if (S.videoAppId) fd.append('studio_app', S.videoAppId);
+    if ($('video-camera-move') && $('video-camera-move').value) fd.append('camera_move', $('video-camera-move').value);
+    if ($('video-tempo') && $('video-tempo').value) fd.append('tempo', $('video-tempo').value);
     if (m.steps) fd.append('steps', String(s.steps));
     const seed = $('video-seed').value.trim(); if (seed) fd.append('seed', seed);
     if (V.image && m.accepts_image) fd.append('image', V.image, 'start.jpg');

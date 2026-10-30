@@ -1,0 +1,30 @@
+{
+  "id": "qwen-multi-ref-edit",
+  "title": "Multi-Ref Studio (@1, @2, @3)",
+  "title_ru": "Сборка по референсам (@1, @2, @3)",
+  "headline": "HIGGSFIELD-STYLE @-REFERENCES",
+  "headline_ru": "СБОРКА СЦЕНЫ ПО ОТСЫЛКАМ @1 · @2 · @3",
+  "subtitle_ru": "Объединяет персонажа, предмет и свет по тегам @1, @2, @3 на локальном ПК с поддержкой FaceLock.",
+  "kind": "photo",
+  "model": "z-image-turbo",
+  "fallback_models": ["qwen-image-edit-2509", "flux1-schnell"],
+  "open_weights": true,
+  "license": "Apache-2.0",
+  "studio_preset": null,
+  "camera_moves": [],
+  "tempos": [],
+  "lab_example": {
+    "title_ru": "Предметный портрет в тёплом контровом свете",
+    "scene": "Editorial studio portrait on medium format film, warm rim light, crisp natural skin texture, dark slate background, subtle film halation.",
+    "negative": "blurry, watermark, airbrushed, plastic, extra fingers",
+    "camera_move": null,
+    "tempo": null,
+    "aspect": "3:4",
+    "side": 1024,
+    "duration_s": null,
+    "steps": 8,
+    "seed": 20261029,
+    "peak_vram_gb": 8.2,
+    "run_time_s": 32
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-10-30T16:55:25Z",
+  "screenshots": {
+    "00_bossman_studio_showcase_grid.png": {
+      "path": "docs/media/ux-2026-10-30/00_bossman_studio_showcase_grid.png",
+      "bytes": 1132915,
+      "sha256": "2c064097b1f1a14488e89fb0e235a7dfe193b00e7098ad125e8252aab60f82b5"
+    },
+    "01_cinema_studio_video_freefield.png": {
+      "path": "docs/media/ux-2026-10-30/01_cinema_studio_video_freefield.png",
+      "bytes": 479224,
+      "sha256": "2919a1009ac8d25cd1502386fb6be7b47624f04ac15182cbd58ca794b0e181ed"
+    },
+    "02_photo_studio_freefield.png": {
+      "path": "docs/media/ux-2026-10-30/02_photo_studio_freefield.png",
+      "bytes": 448226,
+      "sha256": "42c9ec7755c0e13b0e14087b25729fe0fc5cc69be6a14478f1d4fe041d0608ca"
+    },
+    "03_mobile_chat_opencode.png": {
+      "path": "docs/media/ux-2026-10-30/03_mobile_chat_opencode.png",
+      "bytes": 267810,
+      "sha256": "387836a2ea661326854330805361724641635f7a8c3d5a6fc3c65f50dea7f668"
+    },
+    "04_mobile_status_gateway_studio.png": {
+      "path": "docs/media/ux-2026-10-30/04_mobile_status_gateway_studio.png",
+      "bytes": 339036,
+      "sha256": "2b1964487553dd9e9782eef34c38453b7a93f19f6fbafbc43c84ae67292fb3ff"
+    },
+    "05_command_center_desktop_8801.png": {
+      "path": "docs/media/ux-2026-10-30/05_command_center_desktop_8801.png",
+      "bytes": 80950,
+      "sha256": "832db283f35669ac8b039429a59644a540b3c9bc0a3428d9114e352c3f1a6ebe"
+    }
+  },
+  "ui_checks": {
+    "video_tab": {
+      "studio_card_visible": true,
+      "load_example_populated_prompt": true,
+      "camera_move_selected": "dolly_in",
+      "tempo_selected": "single_shot",
+      "prompt_preview": "A detective in a trench coat stands under a warm streetlamp on a rainy night, looks up as golden headlights sweep across"
+    },
+    "photo_tab": {
+      "studio_card_visible": true,
+      "load_example_populated_prompt": true,
+      "prompt_preview": "Cinematic 35mm film still of a detective in a beige trench coat and fedora standing under a streetlamp on a rainy night,"
+    },
+    "chat_tab": {
+      "workbench_visible": true
+    },
+    "status_tab": {
+      "ai_gateway_card_visible": true,
+      "studio_orders_card_visible": true
+    }
+  },
+  "pult_push": {
+    "mobile_pult_thread_id": "20261030-095541-0a8799",
+    "uploaded_attachment_ids": [
+      "2c064097b1f1a1448001e4",
+      "2919a1009ac8d25c0950df",
+      "42c9ec7755c0e13be184d8"
+    ],
+    "status": "PUSHED_TO_PULT",
+    "gallery_and_to_pult": [
+      {
+        "job_id": "2c064097b1f1a14488e89fb0e235a7df",
+        "file": "00_bossman_studio_showcase_grid.png",
+        "gallery_url": "/m/api/photo/jobs/2c064097b1f1a14488e89fb0e235a7df/file",
+        "to_pult_status": 200,
+        "to_pult_response": {
+          "ok": true,
+          "sent": true
+        }
+      },
+      {
+        "job_id": "2919a1009ac8d25cd1502386fb6be7b4",
+        "file": "01_cinema_studio_video_freefield.png",
+        "gallery_url": "/m/api/photo/jobs/2919a1009ac8d25cd1502386fb6be7b4/file",
+        "to_pult_status": 200,
+        "to_pult_response": {
+          "ok": true,
+          "sent": true
+        }
+      },
+      {
+        "job_id": "42c9ec7755c0e13b0e14087b25729fe0",
+        "file": "02_photo_studio_freefield.png",
+        "gallery_url": "/m/api/photo/jobs/42c9ec7755c0e13b0e14087b25729fe0/file",
+        "to_pult_status": 200,
+        "to_pult_response": {
+          "ok": true,
+          "sent": true
+        }
+      }
+    ]
+  }
+}

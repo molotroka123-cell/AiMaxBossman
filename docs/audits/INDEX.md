@@ -48,6 +48,18 @@
 | 2026-10-25 | [2026-10-25-pult-agent-self-edit](2026-10-25-pult-agent-self-edit/) | Живое доказательство самоправки Bossman через режим AGENT в пульте (:8840 → :8801 → агент 48) + 6 дефектов | `PASS_WITH_DEFECTS` |
 | 2026-10-26 | [2026-10-26-argon-pc-agent-master](2026-10-26-argon-pc-agent-master/) | Мастер-промпт Аргона (P0–P5): закрытие 6 дефектов пульта/агента, уровни автономии L0–L3, инструменты ОС 1–7, `/browser`, контур самоизменения с откатом и 8 правок ядра по турниру | `PASS` |
 | 2026-10-26 | [2026-10-26-integrator-stop-unification](2026-10-26-integrator-stop-unification/) | Интеграторский цикл (Приоритет A): унификация глобального STOP и Resume между Command Center, Mobile Pult, Telegram и PC-Agent | `PASS` |
+| 2026-10-28 | [2026-10-28-live-proofs](2026-10-28-live-proofs/) | Живые доказательства 28.10 (Topbar health split, ACE-Step on-demand, Push-to-Talk Chrome, `browser.active_tab_info`, Freeze Audit) | `PASS` |
+| 2026-10-28 | [2026-10-28-swarm2-synthesis](2026-10-28-swarm2-synthesis/) | Сведение Роя №2 и надстройка Bossman 2.0 (`/api/v20/*`, Obsidian Memory 2.0) | `PASS` |
+| 2026-10-29 | [2026-10-29-ai-gateway](2026-10-29-ai-gateway/) | Локальный AI Privacy Gateway (`PUBLIC / INTERNAL / CONFIDENTIAL`), локальная очистка PII/секретов и защита терминала от EIP-7702 | `PASS` |
+| 2026-10-29 | [2026-10-29-studio-t1-t2](2026-10-29-studio-t1-t2/) | T1/T2 Studio: сходимость контуров фото/видеостудии и STOP | `PASS` |
+| 2026-10-29 | [2026-10-29-studio-t2-live-acceptance](2026-10-29-studio-t2-live-acceptance/) | T2: Живая приёмка локальной студии | `PASS` |
+| 2026-10-29 | [2026-10-29-t3-governor](2026-10-29-t3-governor/) | T3 Governor: замер и управление ресурсами | `PASS` |
+| 2026-10-29 | [2026-10-29-full-emulator-buttons-proof](2026-10-29-full-emulator-buttons-proof/) | T4: Полная проверка всех кнопок и 8 вкладок мобильного пульта (`:8840`) и связки с `:8801` в эмуляторе | `PASS` |
+| 2026-10-29 | [2026-10-29-t5-swarm](2026-10-29-t5-swarm/) | T5: Песочница роя и самоулучшения (автономный локальный патч D-036 — `NOT_PROVEN`) | `PASS` |
+| 2026-10-29 | [2026-10-29-north-star-long-horizon-claude](2026-10-29-north-star-long-horizon-claude/) | Long-Horizon прогон 15 веток дерева Bossman в бюджете ≤$1.00 с записью уроков в память | `PASS` |
+| 2026-10-30 | [2026-10-30-long-horizon-run-g](2026-10-30-long-horizon-run-g/) | Long-Horizon прогон `lh-20261030-g` | `PASS` |
+| 2026-10-30 | [2026-10-30-weekly-research-benchmarks](2026-10-30-weekly-research-benchmarks/) | Защитные гейты по 4 исследованиям недели (AgentProofBench, CUA-Recovery, TimlMemBench, Data Minimization): юнит-гейты `PASS_UNIT`, живой агентный бенчмарк `NOT_RUN` | `PASS_UNIT` / `NOT_RUN` |
+| 2026-10-30 | [2026-10-30-full-project-audit-and-ux](2026-10-30-full-project-audit-and-ux/) | Полный аудит проекта на 30.10.2026, интеграция Freefield Studio Apps (`app.json`), живые UX-скриншоты и отправка в пульт | `PASS` |
 | — | [astra-7b1377a](astra-7b1377a/) | Astra forensic audit | в JSON нет поля verdict — см. отчёт |
 
 ## Отдельные файлы

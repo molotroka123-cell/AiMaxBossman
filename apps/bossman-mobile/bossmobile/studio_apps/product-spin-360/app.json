@@ -1,0 +1,37 @@
+{
+  "id": "product-spin-360",
+  "title": "Product Spin 360",
+  "title_ru": "Облёт товара 360° (Product Spin)",
+  "headline": "COMMERCIAL TURNTABLE STUDIO",
+  "headline_ru": "КОММЕРЧЕСКИЙ ОБЛЁТ НА ПОДИУМЕ",
+  "subtitle_ru": "Предметная видеосъёмка для карточек товаров и рекламы. Совместимо с конвейером заказов Studio (пресет product_spin + авто-QC).",
+  "kind": "video",
+  "model": "wan2.2-ti2v-5b",
+  "fallback_models": ["wan2.1-t2v-1.3b"],
+  "open_weights": true,
+  "license": "Apache-2.0",
+  "studio_preset": "product_spin",
+  "camera_moves": [
+    {"id": "orbit_360", "label": "Orbit 360° · Вращение вокруг подиума", "prompt_clause": "Smooth 360-degree studio turntable orbit around the centerpiece"},
+    {"id": "dolly_in", "label": "Dolly in · Макро-наезд", "prompt_clause": "Slow macro dolly-in toward the product details"},
+    {"id": "pan_left", "label": "Pan left · Боковой проезд", "prompt_clause": "Clean studio slider pan left with rim lighting"}
+  ],
+  "tempos": [
+    {"id": "single_shot", "label": "Single shot · Плавное вращение", "prompt_clause": "smooth continuous studio motion, 24fps commercial look"},
+    {"id": "slow_burn", "label": "Slow burn · Люкс-замедление", "prompt_clause": "slow luxury commercial cadence, soft specular highlights"}
+  ],
+  "lab_example": {
+    "title_ru": "Флакон селективного парфюма на чёрном базальте",
+    "scene": "Studio 360 product spin of a minimal smoked-glass perfume bottle on a wet black basalt podium, warm amber rim lighting, crisp reflections, macro commercial cinematography.",
+    "negative": "blurry, watermark, third-party logo, text errors, hands, person",
+    "camera_move": "orbit_360",
+    "tempo": "single_shot",
+    "aspect": "9:16",
+    "side": 480,
+    "duration_s": 3,
+    "steps": 20,
+    "seed": 42001,
+    "peak_vram_gb": 11.2,
+    "run_time_s": 160
+  }
+}

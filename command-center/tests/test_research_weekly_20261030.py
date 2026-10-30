@@ -26,7 +26,9 @@ async def test_1_agent_proof_bench_50_tasks(env, tmp_path: Path):
     assert res["agent_false_claims_caught"] == 14
     assert res["defective_rules_caught"] == 2
     assert res["all_have_rule_version_snapshot_and_evidence"] is True
-    assert res["passed_target"] is True
+    assert res["unit_guard_passed"] is True
+    assert res["live_agent_status"] == "NOT_RUN"
+    assert res["passed_target"] == "NOT_RUN"
 
 
 def test_2_cua_recovery_mid_trajectory_faults():
@@ -37,11 +39,14 @@ def test_2_cua_recovery_mid_trajectory_faults():
         "closed_dialog": 10,
         "failed_save": 10,
     }
+    assert res["baseline"]["status"] == "NOT_RUN"
     gb = res["guarded_bossman"]
     assert gb["detection_rate"] >= 0.80
-    assert gb["cascade_failure_reduction"] >= 0.50
+    assert gb["cascade_failure_reduction"] == "NOT_RUN"
     assert gb["cascading_failures"] == 0
-    assert res["passed_target"] is True
+    assert res["unit_guard_passed"] is True
+    assert res["live_agent_status"] == "NOT_RUN"
+    assert res["passed_target"] == "NOT_RUN"
 
 
 def test_3_self_improve_safety_reset_and_rollback(tmp_path: Path):
@@ -55,7 +60,9 @@ def test_3_self_improve_safety_reset_and_rollback(tmp_path: Path):
     assert res["unvalidated_active_versions"] == 0
     assert res["post_rollback_pass_rate"] == 1.0
     assert res["journal_chain_verified"] is True
-    assert res["passed_target"] is True
+    assert res["unit_guard_passed"] is True
+    assert res["live_agent_status"] == "NOT_RUN"
+    assert res["passed_target"] == "NOT_RUN"
 
 
 async def test_4_timl_mem_bench_lifecycle_and_scope(env):
@@ -66,7 +73,9 @@ async def test_4_timl_mem_bench_lifecycle_and_scope(env):
     assert res["leaked_out_of_scope_facts"] == 0
     assert res["total_revoked_or_scoped_leaks"] == 0
     assert res["all_facts_store_source_date_scope_status"] is True
-    assert res["passed_target"] is True
+    assert res["unit_guard_passed"] is True
+    assert res["live_agent_status"] == "NOT_RUN"
+    assert res["passed_target"] == "NOT_RUN"
 
 
 async def test_http_research_weekly_endpoints(env):
@@ -77,5 +86,7 @@ async def test_http_research_weekly_endpoints(env):
     run_resp = await env.client.post("/api/research-weekly/run")
     assert run_resp.status_code == 200, run_resp.text
     data = run_resp.json()
-    assert data["all_targets_met"] is True
+    assert data["unit_guards_status"] == "PASS_UNIT"
+    assert data["live_agent_status"] == "NOT_RUN"
+    assert data["all_targets_met"] == "NOT_RUN"
     assert len(data["receipt_sha256"]) == 64

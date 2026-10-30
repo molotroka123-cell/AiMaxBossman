@@ -9,13 +9,26 @@
 > контролем, живой прогон на ПК владельца через тот же путь, которым он пользуется, и квитанция в
 > [`docs/audits/`](docs/audits/INDEX.md). Без квитанции — `NOT_PROVEN`, даже если код есть.
 
-## Что умеет (срез 28.10.2026)
+## Витрина интерфейса (Bossman Studio & Мобильный пульт, 30.10.2026)
+
+![Bossman Studio & Mobile Pult UX](docs/media/ux-2026-10-30/00_bossman_studio_showcase_grid.png)
+
+Студия открытых моделей по образцу Freefield / Higgsfield: каждое студийное приложение — одна папка с [`app.json`](apps/bossman-mobile/bossmobile/studio_apps/cinema-studio-video/app.json), открытые веса (`wan2.2-ti2v-5b`, `z-image-turbo`, `qwen-image-edit-2511`), выбор движения камеры (`Dolly in`, `Pan left`, `Orbit 360°`, `Tracking`, `Static 35mm`) и темпа (`Single shot`, `Slow burn`, `Dynamic cut`), кнопка **«⚡ Загрузить пример (Load this example)»** с заполнением проверенного лабораторного сценария и честными метриками пикового VRAM и времени (`measured` / `estimate`).
+
+Отдельные экраны: [Cinema Studio Video](docs/media/ux-2026-10-30/01_cinema_studio_video_freefield.png) · [Фотостудия Freefield](docs/media/ux-2026-10-30/02_photo_studio_freefield.png) · [Чат и Агент OpenCode](docs/media/ux-2026-10-30/03_mobile_chat_opencode.png) · [Статус, AI Gateway и Заказы](docs/media/ux-2026-10-30/04_mobile_status_gateway_studio.png) · [Command Center `:8801`](docs/media/ux-2026-10-30/05_command_center_desktop_8801.png) · [Полный аудит 30.10](docs/audits/2026-10-30-full-project-audit-and-ux/REPORT_RU.md).
+
+## Что умеет (срез 30.10.2026)
 
 Статусы: **PROVEN** — живая квитанция с вердиктом PASS; **BETA** — способность доказана на синтетике или
 эмуляторе, реального клиента/денег ещё не было; **OFF** — выключено решением владельца.
 
 | Возможность | Статус | Квитанция |
 |---|---|---|
+| Каталог студийных приложений Freefield-стиля (`app.json` в одной папке на приложение, открытые модели, `Load this example`, выбор движения камеры и темпа, честный `Peak VRAM` / время, отправка в пульт) | PROVEN | [2026-10-30-full-project-audit-and-ux](docs/audits/2026-10-30-full-project-audit-and-ux/receipt.json), [REPORT_RU.md](docs/audits/2026-10-30-full-project-audit-and-ux/REPORT_RU.md), [ux_verification_receipt](docs/audits/2026-10-30-full-project-audit-and-ux/ux_verification_receipt.json) |
+| Локальный AI Privacy Gateway: классификация чувствительности (`PUBLIC` / `INTERNAL` / `CONFIDENTIAL`), локальная очистка ключей/паролей/seed-фраз/PII/счетов с заменой на `[КЛИЕНТ_1]`, минимальный пакет контекста, запрет прямых вызовов провайдеров и блок транзакций `EIP-7702 (type 0x04)` в терминале | PROVEN | [2026-10-29-ai-gateway](docs/audits/2026-10-29-ai-gateway/receipt.json), [README_RU.md](docs/audits/2026-10-29-ai-gateway/README_RU.md) |
+| Сквозная сходимость контуров T1–T5 (T1/T2 Studio, T3 Governor, полная проверка всех кнопок и 8 вкладок мобильного пульта `:8840` в эмуляторе, T5 Swarm) | PROVEN (D-036 остаётся `NOT_PROVEN`) | [T1/T2 Studio](docs/audits/2026-10-29-studio-t1-t2/receipt.json), [T2 Live](docs/audits/2026-10-29-studio-t2-live-acceptance/receipt.json), [T3 Governor](docs/audits/2026-10-29-t3-governor/receipt.json), [T4 Mobile Emulator](docs/audits/2026-10-29-full-emulator-buttons-proof/receipt.json), [T5 Swarm](docs/audits/2026-10-29-t5-swarm/receipt.json) |
+| Long-Horizon оркестратор 15 веток дерева Bossman в жёстком бюджете ≤\$1.00 с записью критических ошибок и правил восстановления в память Bossman | PROVEN | [2026-10-29-north-star-long-horizon-claude](docs/audits/2026-10-29-north-star-long-horizon-claude/receipt.json), [2026-10-30-long-horizon-run-g](docs/audits/2026-10-30-long-horizon-run-g/truth.json) |
+| Защитные гейты по исследованиям недели (AgentProofBench `v2/verification.py`, CUA-Recovery `v2/recovery.py`, TimlMemBench `v2/memory/facts.py`, минимизация контекста): 23 реальных юнит-теста гейтов проходят; живой 50-задачный агентный бенчмарк через `/api/tasks` ещё не запускался | PASS_UNIT (живой агентный бенчмарк — `NOT_RUN`) | [2026-10-30-weekly-research-benchmarks](docs/audits/2026-10-30-weekly-research-benchmarks/receipt.json) |
 | Локальный агент-оператор ПК (Argon PC-Agent P0–P5): уровни автономии `L0`–`L3`, файлы с корзиной, процессы/службы, песочница Shell, окна и UI Automation без ловушки `Alt`, `/browser`, отправка в пульт (≤10 файлов / ≤40 МБ), безопасный контур самоизменения с откатом и 5-минутным health-guard | PROVEN | [2026-10-26-argon-pc-agent-master](docs/audits/2026-10-26-argon-pc-agent-master/receipt.json), [REPORT_RU.md](docs/audits/2026-10-26-argon-pc-agent-master/REPORT_RU.md) |
 | Самоправка кода Bossman через режим `AGENT` в мобильном пульте (`code.read`, `code.write`, `code.patch`, закрыты все 6 дефектов пульта/агента) | PROVEN | [2026-10-25-pult-agent-self-edit](docs/audits/2026-10-25-pult-agent-self-edit/receipt.json), [2026-10-26-argon-pc-agent-master](docs/audits/2026-10-26-argon-pc-agent-master/receipt.json) |
 | Чат с локальной моделью: контекст между ходами, вложения (png, скан/текстовый pdf, docx, xlsx, pptx) доходят до модели как содержимое через локальное зрение | PROVEN | [2026-10-23-chat-attachments](docs/audits/2026-10-23-chat-attachments/README.md), [2026-10-24-functions](docs/audits/2026-10-24-functions/summary.json) |

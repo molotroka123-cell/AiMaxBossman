@@ -1,0 +1,30 @@
+{
+  "id": "cinema-film-still",
+  "title": "Cinema Film Still 35mm",
+  "title_ru": "Кинокадр 35мм · Фотостудия",
+  "headline": "FIRST FRAME FOR CINEMA STUDIO",
+  "headline_ru": "ПЕРВЫЙ КАДР ДЛЯ КИНОСТУДИИ",
+  "subtitle_ru": "Создаёт базовый плёночный стоп-кадр на открытых весах (Z-Image Turbo / Flux), который затем можно оживить в Cinema Studio Video (@1).",
+  "kind": "photo",
+  "model": "z-image-turbo",
+  "fallback_models": ["flux1-schnell", "sdxl-base"],
+  "open_weights": true,
+  "license": "Apache-2.0",
+  "studio_preset": null,
+  "camera_moves": [],
+  "tempos": [],
+  "lab_example": {
+    "title_ru": "Кинокадр: детектив под дождём в свете фар",
+    "scene": "Cinematic 35mm film still of a detective in a beige trench coat and fedora standing under a streetlamp on a rainy night, warm golden headlights reflecting on wet asphalt, Kodak Vision3 500T grain, shallow depth of field.",
+    "negative": "cartoon, 3d render, oversaturated, plastic skin, watermark",
+    "camera_move": null,
+    "tempo": null,
+    "aspect": "16:9",
+    "side": 1024,
+    "duration_s": null,
+    "steps": 8,
+    "seed": 20261030,
+    "peak_vram_gb": 7.8,
+    "run_time_s": 28
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "cinema-studio-video",
+  "title": "Cinema Studio Video",
+  "title_ru": "Киностудия · Кадр в движении",
+  "headline": "THE SAME FILM LOOK, NOW MOVING",
+  "headline_ru": "ТОТ ЖЕ КИНОКАДР — ТЕПЕРЬ В ДВИЖЕНИИ",
+  "subtitle_ru": "Кинематографическое движение камеры, темп и свет на открытых весах (ComfyUI / Direct Gen). Каждое приложение — одна папка с app.json.",
+  "kind": "video",
+  "model": "wan2.2-ti2v-5b",
+  "fallback_models": ["wan2.1-t2v-1.3b", "ltx-video-2b"],
+  "open_weights": true,
+  "license": "Apache-2.0",
+  "studio_preset": null,
+  "camera_moves": [
+    {"id": "dolly_in", "label": "Dolly in · Наезд на героя", "prompt_clause": "Slow cinematic dolly-in camera movement toward the subject, 35mm anamorphic lens"},
+    {"id": "pan_left", "label": "Pan left · Панорама влево", "prompt_clause": "Smooth tripod pan left across the scene with natural motion blur"},
+    {"id": "orbit_360", "label": "Orbit · Облёт по дуге", "prompt_clause": "Smooth orbital camera tracking around the subject keeping focus locked"},
+    {"id": "tracking", "label": "Tracking shot · Слежение", "prompt_clause": "Steadicam tracking shot following the subject at eye level"},
+    {"id": "static_film", "label": "Static lock · Статичный кинокадр", "prompt_clause": "Locked-off 35mm cinema camera, subtle atmospheric movement in frame"}
+  ],
+  "tempos": [
+    {"id": "single_shot", "label": "Single shot · Одним кадром", "prompt_clause": "continuous single-take shot, natural pacing"},
+    {"id": "slow_burn", "label": "Slow burn · Медленный нуар", "prompt_clause": "slow deliberate atmospheric pacing, lingering shadows"},
+    {"id": "dynamic_cut", "label": "Dynamic · Энергичный темп", "prompt_clause": "crisp dynamic pacing with expressive subject motion"}
+  ],
+  "lab_example": {
+    "title_ru": "Детектив под уличным фонарём (35мм нуар)",
+    "scene": "A detective in a trench coat stands under a warm streetlamp on a rainy night, looks up as golden headlights sweep across his face, wet pavement reflections, 35mm film grain.",
+    "negative": "blurry, watermark, distorted face, extra limbs, oversaturated, cartoon",
+    "camera_move": "dolly_in",
+    "tempo": "single_shot",
+    "aspect": "16:9",
+    "side": 480,
+    "duration_s": 2,
+    "steps": 20,
+    "seed": 20261030,
+    "peak_vram_gb": 11.4,
+    "run_time_s": 145
+  }
+}

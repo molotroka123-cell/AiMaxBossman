@@ -662,3 +662,104 @@ body { background:
   .topbar, .tabbar, .card, .model-chip, .composer { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) { .tab-glow { transition: none; } }
+
+/* Freefield-style Studio Apps (app.json one-folder open-weights showcase) */
+.ff-studio-card {
+  background: linear-gradient(145deg, rgba(22, 24, 18, 0.94), rgba(14, 15, 19, 0.96));
+  border: 1px solid rgba(212, 255, 51, 0.28);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+}
+.ff-studio-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ff-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #d4ff33;
+}
+.ff-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ff-app-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ff-app-pill.on {
+  background: #d4ff33;
+  border-color: #d4ff33;
+  color: #0b0c0e;
+}
+.ff-headline {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0 0 6px;
+  color: #f7f8f2;
+}
+.ff-sub {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.ff-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 11px;
+}
+.ff-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--fg);
+}
+.ff-badge.lime {
+  background: rgba(212, 255, 51, 0.14);
+  border-color: rgba(212, 255, 51, 0.38);
+  color: #e4ff7a;
+}
+.ff-load-btn {
+  background: #d4ff33;
+  color: #0b0c0e;
+  border: 1px solid #d4ff33;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.ff-load-btn:hover {
+  filter: brightness(1.06);
+}
+.ff-cam-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 6px 0 4px;
+}
+

@@ -1,0 +1,37 @@
+{
+  "id": "hand-reveal-macro",
+  "title": "Hand Reveal Macro",
+  "title_ru": "Макро-раскрытие (Hand Reveal)",
+  "headline": "STUDIO MACRO REVEAL",
+  "headline_ru": "МАКРО-ПРЕЗЕНТАЦИЯ В ЛУЧАХ СВЕТА",
+  "subtitle_ru": "Драматическое появление предмета из мягкой тени в контровом студийном свете. Пресет Studio hand_reveal.",
+  "kind": "video",
+  "model": "wan2.2-ti2v-5b",
+  "fallback_models": ["wan2.1-t2v-1.3b"],
+  "open_weights": true,
+  "license": "Apache-2.0",
+  "studio_preset": "hand_reveal",
+  "camera_moves": [
+    {"id": "dolly_in", "label": "Dolly in · Наезд в фокус", "prompt_clause": "Macro cinema lens dolly-in with shallow depth of field"},
+    {"id": "tracking", "label": "Tracking · Выход из тени", "prompt_clause": "Smooth reveal tracking shot as key light sweeps across the surface"},
+    {"id": "static_film", "label": "Static · Фиксированный макро-план", "prompt_clause": "Locked macro tripod frame with moving studio key light"}
+  ],
+  "tempos": [
+    {"id": "slow_burn", "label": "Slow burn · Плавное раскрытие", "prompt_clause": "slow dramatic reveal, volumetric light rays"},
+    {"id": "single_shot", "label": "Single shot · Чистый дубль", "prompt_clause": "single continuous commercial take"}
+  ],
+  "lab_example": {
+    "title_ru": "Механический хронограф с сапфировым стеклом",
+    "scene": "Studio macro commercial reveal on pedestal, cinematic studio lighting: brushed titanium mechanical chronograph emerging from deep shadow as a warm golden light beam sweeps across the sapphire dial.",
+    "negative": "blurry, watermark, third-party logo, deformed gears, low contrast",
+    "camera_move": "dolly_in",
+    "tempo": "slow_burn",
+    "aspect": "9:16",
+    "side": 480,
+    "duration_s": 3,
+    "steps": 20,
+    "seed": 77021,
+    "peak_vram_gb": 11.2,
+    "run_time_s": 155
+  }
+}

@@ -34,7 +34,7 @@ from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, loopback_url, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
-from . import niche, reftags, slash, speech as speech_mod, video, video_timing
+from . import niche, reftags, slash, speech as speech_mod, studio_apps_loader, video, video_timing
 from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for, warm_models
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -1005,6 +1005,38 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                        json={"reason": reason})
         return order_view(o if isinstance(o, dict) else {})
 
+    # ------------------------------------------------------------------ Freefield-style Studio Apps (one folder = one app.json)
+    async def studio_apps_view() -> list[dict[str, Any]]:
+        raw = await asyncio.to_thread(studio_apps_loader.load_raw_apps)
+        try:
+            p_cat, v_cat, hist = await asyncio.gather(photo_models(), video_catalog(), history_all())
+            v_models = v_cat.get("models") if isinstance(v_cat, dict) else []
+        except Exception:  # noqa: BLE001 - app manifests still load if Bossman is starting up
+            p_cat, v_models, hist = [], [], {}
+        return studio_apps_loader.enrich_apps(raw, photo_catalog=p_cat, video_catalog=v_models, history=hist)
+
+    @app.get("/m/api/studio/apps")
+    async def studio_apps_list(kind: str | None = None, _=Depends(session)):
+        apps = await studio_apps_view()
+        if kind in ("video", "photo"):
+            apps = [a for a in apps if a.get("kind") == kind]
+        return {
+            "apps": apps,
+            "total": len(apps),
+            "layout": "one-folder-app-json",
+            "open_weights_only": True,
+        }
+
+    @app.get("/m/api/studio/apps/{app_id}")
+    async def studio_app_get(app_id: str, _=Depends(session)):
+        if not studio_apps_loader.APP_ID_RE.match(app_id):
+            raise fail(404, "студийное приложение не найдено", "BM_STUDIO_APP_NOT_FOUND")
+        apps = await studio_apps_view()
+        found = next((a for a in apps if a["id"] == app_id), None)
+        if found is None:
+            raise fail(404, "студийное приложение не найдено", "BM_STUDIO_APP_NOT_FOUND")
+        return found
+
     # ------------------------------------------------------------------ niche research run (read-only counters)
     @app.get("/m/api/niche/status")
     async def niche_status(_=Depends(session)):
@@ -1455,6 +1487,15 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         model_id = str(form.get("model") or "")
         prompt = str(form.get("prompt") or "").strip()
         negative = str(form.get("negative") or "")
+        studio_app_id = str(form.get("studio_app") or "").strip()
+        camera_move = str(form.get("camera_move") or "").strip() or None
+        tempo = str(form.get("tempo") or "").strip() or None
+        if studio_app_id or camera_move or tempo:
+            raw_apps = await asyncio.to_thread(studio_apps_loader.load_raw_apps)
+            app_spec = next((a for a in raw_apps if a["id"] == studio_app_id), None) or next(
+                (a for a in raw_apps if a["id"] == "cinema-studio-video"), None
+            )
+            prompt = studio_apps_loader.compose_scene_prompt(prompt, camera_move=camera_move, tempo=tempo, app_spec=app_spec)
         if not 1 <= len(prompt) <= 8000 or len(negative) > 8000:
             raise fail(422, "промпт: от 1 до 8000 символов", "BM_BAD_PROMPT")
         cache.pop("video_catalog", None)               # decide on fresh availability (ComfyUI may have started)

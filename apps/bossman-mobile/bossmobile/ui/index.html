@@ -188,6 +188,22 @@
   <section class="view" id="view-photo" data-view="photo" hidden>
     <header class="topbar plain"><h1 class="serif title">Фото</h1><span class="pill" id="photo-queue"></span></header>
     <div class="scroll" id="photo-scroll">
+      <div class="ff-studio-card" id="photo-studio-apps" aria-label="Студийные приложения (app.json)">
+        <div class="ff-studio-top">
+          <span class="ff-kicker">STUDIO APPS · ONE FOLDER (app.json) · OPEN WEIGHTS</span>
+          <div class="ff-tabs" id="photo-app-pills" role="tablist" aria-label="Фото-приложения"></div>
+        </div>
+        <div class="ff-hero">
+          <div class="ff-hero-copy">
+            <h2 class="ff-headline" id="photo-app-headline">ПЕРВЫЙ КАДР ДЛЯ КИНОСТУДИИ</h2>
+            <p class="ff-sub" id="photo-app-sub">Создаёт базовый плёночный стоп-кадр 35мм на открытых весах, который затем можно оживить в Cinema Studio Video (@1).</p>
+            <div class="ff-meta-row" id="photo-app-meta"></div>
+            <div class="ff-actions">
+              <button type="button" class="btn ff-load-btn" id="btn-photo-load-example">⚡ Загрузить пример (Load this example)</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <form id="photo-form" class="card form">
         <label class="lbl" for="photo-model">Модель</label>
         <div class="select-wrap"><select id="photo-model" class="field"></select><svg class="chev"><use href="#i-chev"/></svg></div>
@@ -246,13 +262,58 @@
       <div class="warn-card" id="video-warn" role="note"><b>Видео занимает видеокарту ПК целиком</b> на всё время генерации — от нескольких минут до часа и дольше. Фото, другие видео и замена лица в это время ждут в общей очереди.</div>
       <div class="seg mode-seg" id="video-mode" role="radiogroup" aria-label="Режим видео"></div>
 
+      <div class="ff-studio-card" id="video-studio-apps" aria-label="Киностудия и приложения (app.json)">
+        <div class="ff-studio-top">
+          <span class="ff-kicker">CINEMA STUDIO VIDEO · ONE FOLDER (app.json) · OPEN WEIGHTS</span>
+          <div class="ff-tabs" id="video-app-pills" role="tablist" aria-label="Видео-приложения"></div>
+        </div>
+        <div class="ff-hero">
+          <div class="ff-hero-copy">
+            <h2 class="ff-headline" id="video-app-headline">ТОТ ЖЕ КИНОКАДР — ТЕПЕРЬ В ДВИЖЕНИИ</h2>
+            <p class="ff-sub" id="video-app-sub">Кинематографическое движение камеры, темп и свет на открытых весах (ComfyUI / Direct Gen). Каждое приложение — одна папка с app.json.</p>
+            <div class="ff-meta-row" id="video-app-meta"></div>
+            <div class="ff-actions">
+              <button type="button" class="btn ff-load-btn" id="btn-video-load-example">⚡ Загрузить пример (Load this example)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <form id="video-form" class="card form" autocomplete="off">
         <label class="lbl" for="video-model">Модель</label>
         <div class="select-wrap"><select id="video-model" class="field"></select><svg class="chev"><use href="#i-chev"/></svg></div>
         <div class="model-flags" id="video-flags"></div>
         <p class="reason-text" id="video-reason" role="alert" hidden></p>
         <p class="hint" id="video-notes" hidden></p>
-        <label class="lbl" for="video-prompt">Промпт</label>
+        <div class="ff-cam-grid" id="video-cinema-controls">
+          <div>
+            <label class="lbl" for="video-camera-move">Движение камеры (Camera move)</label>
+            <div class="select-wrap">
+              <select id="video-camera-move" class="field">
+                <option value="">Без доп. движения (как в промпте)</option>
+                <option value="dolly_in">Dolly in · Наезд на героя</option>
+                <option value="pan_left">Pan left · Панорама влево</option>
+                <option value="orbit_360">Orbit 360° · Облёт по дуге</option>
+                <option value="tracking">Tracking shot · Слежение</option>
+                <option value="static_film">Static lock · Статичный кинокадр</option>
+              </select>
+              <svg class="chev"><use href="#i-chev"/></svg>
+            </div>
+          </div>
+          <div>
+            <label class="lbl" for="video-tempo">Темп (Tempo)</label>
+            <div class="select-wrap">
+              <select id="video-tempo" class="field">
+                <option value="">По умолчанию</option>
+                <option value="single_shot">Single shot · Одним кадром</option>
+                <option value="slow_burn">Slow burn · Медленный нуар</option>
+                <option value="dynamic_cut">Dynamic · Энергичный темп</option>
+              </select>
+              <svg class="chev"><use href="#i-chev"/></svg>
+            </div>
+          </div>
+        </div>
+        <label class="lbl" for="video-prompt">Сцена / Промпт</label>
         <textarea id="video-prompt" class="field area" rows="4" placeholder="Опишите сцену и движение — текст уйдёт в модель как написано" required></textarea>
         <div class="tag-suggest" id="video-tags" role="listbox" aria-label="Отсылка к картинке" hidden></div>
         <div id="vimg-block" hidden>

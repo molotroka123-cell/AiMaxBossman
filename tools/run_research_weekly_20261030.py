@@ -48,11 +48,16 @@ async def _main() -> int:
         encoding="utf-8",
     )
     print(f"Receipt saved to: {receipt_path}")
-    print(f"all_targets_met = {report['all_targets_met']}")
-    print(f"receipt_sha256  = {report['receipt_sha256']}")
+    print(f"unit_guards_status = {report['unit_guards_status']}")
+    print(f"live_agent_status  = {report['live_agent_status']}")
+    print(f"all_targets_met    = {report['all_targets_met']}")
+    print(f"receipt_sha256     = {report['receipt_sha256']}")
     for key, val in report["results"].items():
-        print(f"  [{key}] passed_target={val['passed_target']} elapsed_ms={val['elapsed_ms']}")
-    return 0 if report["all_targets_met"] else 1
+        print(
+            f"  [{key}] unit_guard_passed={val['unit_guard_passed']} "
+            f"live_agent_status={val['live_agent_status']} elapsed_ms={val['elapsed_ms']}"
+        )
+    return 0 if report["unit_guards_status"] == "PASS_UNIT" else 1
 
 
 if __name__ == "__main__":

@@ -1,0 +1,66 @@
+{
+  "audit_id": "2026-10-30-full-project-audit-and-ux",
+  "date": "2026-10-30",
+  "auditor": "Argon (coordinated pair mode with Claude)",
+  "verdict": "PASS",
+  "summary": "Full project audit of AI MAX Bossman as of 2026-10-30, integration of Freefield-style one-folder Studio Apps (app.json + Load this example + Camera Move + Tempo + Peak VRAM/Time), live Playwright UX testing on :8840 and :8801, screenshot push to Pult & Direct Gen Gallery, and closure of Class-1 review item on weekly research benchmarks.",
+  "runtime_health": {
+    "command_center_8801": {
+      "status": "HEALTHY",
+      "url": "http://127.0.0.1:8801/health",
+      "managed_by": "Claude / owner single-runtime anchor (not restarted by Argon)"
+    },
+    "mobile_pult_8840": {
+      "status": "HEALTHY",
+      "url": "http://127.0.0.1:8840/m/api/health",
+      "studio_apps_count": 5,
+      "ui_shell_version": "bossman-shell-v33"
+    }
+  },
+  "studio_freefield_integration": {
+    "architecture": "One folder per Studio App (apps/bossman-mobile/bossmobile/studio_apps/<app_id>/app.json) with open-weights model metadata, Peak VRAM, estimated/measured runtime, Camera Move & Tempo selectors, and 1-click Load this example lab run.",
+    "apps_shipped": [
+      "cinema-studio-video",
+      "product-spin-360",
+      "hand-reveal-macro",
+      "cinema-film-still",
+      "qwen-multi-ref-edit"
+    ],
+    "unit_and_api_tests": {
+      "suite": "apps/bossman-mobile/tests",
+      "passed": 345,
+      "skipped": 2,
+      "failed": 0
+    },
+    "live_ux_playwright_verification": {
+      "receipt_path": "docs/audits/2026-10-30-full-project-audit-and-ux/ux_verification_receipt.json",
+      "video_tab_verified": true,
+      "photo_tab_verified": true,
+      "chat_tab_verified": true,
+      "status_tab_verified": true,
+      "pult_thread_id": "20261030-095541-0a8799",
+      "to_pult_push_count": 3
+    }
+  },
+  "pair_workstreams_audit_2026_10_29_to_30": {
+    "T0_hygiene_and_gitignore": "PROVEN",
+    "T1_stop_emergency_freeze_and_resume": "PROVEN (92/92 unit tests + live /api/stop & /api/stop/resume receipt)",
+    "T2_vision_vlm_contour_and_coordinate_mapping": "PROVEN (unit + live CoordinateMapper & UIA element box receipt)",
+    "T3_memory_and_RAG_single_writer_redaction": "PROVEN (75/75 unit tests + live recall & secret redaction receipt)",
+    "T4_mobile_and_desktop_pult_convergence": "PROVEN (345/345 mobile tests + live 8-tab emulator & UX gallery audit)",
+    "T5_self_improvement_loop_and_d036": "PROVEN_LOOP_GUARD / D036_LIVE_LOCAL_PATCH_NOT_PROVEN",
+    "AI_Privacy_Gateway_and_EIP7702_Guard": "PROVEN (PUBLIC/INTERNAL/CONFIDENTIAL routing, local PII scrubbing, EIP-7702 type-0x04 terminal guard)",
+    "Weekly_Research_2026_10_30_Guards": {
+      "unit_guards_status": "PASS_UNIT",
+      "live_agent_status": "NOT_RUN",
+      "note": "Removed synthetic formula from research_weekly_20261030.py per Claude Class-1 review; unit guard modules v2/verification.py, v2/recovery.py, v2/memory/facts.py verified by 23 unit tests; live 50-task /api/tasks benchmark honestly marked NOT_RUN."
+    }
+  },
+  "what_is_not_proven": [
+    "Tier-5 cross-session self-improvement weight transfer without human review",
+    "D-036 autonomous local-model patch without cloud assistance",
+    "24h/48h continuous hardware soak on the current commit SHA",
+    "Real customer revenue on Earn contours A/B/C/D (synthetic & dry-run proven; real bank/client orders NOT_RUN)",
+    "Live 50-task agent benchmark for the 2026-10-30 weekly research paper targets (unit guards PASS_UNIT, live agent run NOT_RUN)"
+  ]
+}
