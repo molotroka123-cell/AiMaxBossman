@@ -12,7 +12,7 @@ import json
 import sqlalchemy as sa
 from fastapi import APIRouter, Request
 
-from ..db import (models as models_t, resource_reservations as res_t, settings_kv,
+from ..db import (models as models_t, resource_reservations as res_t, tasks as tasks_t, settings_kv,
                   system_metrics as metrics_t, utcnow)
 from ..v2.resource_brain import Reservation, ResourcePlan, ResourceSnapshot, plan_memory
 from . import Feature
@@ -245,12 +245,31 @@ async def _after_run(svc):
                 runs_t.c.id == run_id))).first()
         if row and row._mapping["reservation_id"]:
             await _release(svc, row._mapping["reservation_id"])
+        await _release_task_holds(svc, task_id)       # copies the run row no longer points at (long-horizon 30.10)
     return after_run
 
 
+async def _release_task_holds(svc, task_id: int) -> int:
+    async with svc.db.session() as s:
+        ids = [int(r[0]) for r in (await s.execute(sa.select(res_t.c.id).where(
+            res_t.c.holder_kind == "task", res_t.c.holder_id == task_id, res_t.c.status == "held"))).fetchall()]
+    for rid in ids:
+        await _release(svc, rid)
+    return len(ids)
+
+
 async def _tick(svc):
-    """Просроченные held-резервы → expired + release (crash-страховка)."""
+    """Просроченные held-резервы → expired + release (crash-страховка).
+    Плюс: резерв задачи, которая уже stopped/failed/completed, снимается сразу — STOP не вызывает after_run, и память
+    остановленной задачи держала следующую в очереди до истечения 15 минут (long-horizon run 30.10)."""
     now = utcnow()
+    async with svc.db.session() as s:
+        done = [int(r[0]) for r in (await s.execute(sa.select(res_t.c.holder_id).join(
+            tasks_t, tasks_t.c.id == res_t.c.holder_id).where(
+            res_t.c.holder_kind == "task", res_t.c.status == "held",
+            tasks_t.c.status.in_(("stopped", "failed", "completed", "cancelled"))))).fetchall()]
+    for task_id in set(done):
+        await _release_task_holds(svc, task_id)
     async with svc.db.session() as s:
         stale = (await s.execute(sa.select(res_t.c.id).where(
             res_t.c.status == "held", res_t.c.expires_at.isnot(None),

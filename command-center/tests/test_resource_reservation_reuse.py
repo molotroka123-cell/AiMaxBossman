@@ -41,3 +41,23 @@ async def test_a_task_without_its_own_reservation_is_not_waved_through(tmp_path)
         assert snap.reserved_mb == 16000                         # other holders still count
     finally:
         await svc.stop()
+
+
+@pytest.mark.anyio
+async def test_a_stopped_tasks_reservation_is_released_by_the_tick(tmp_path):
+    from bcc.db import tasks as tasks_t
+    app, svc = await start_app(make_settings(tmp_path), start_workers=False)
+    try:
+        async with svc.db.session() as s:
+            res1 = await s.execute(sa.insert(tasks_t).values(prompt="x", title="t", status="stopped"))
+            res2 = await s.execute(sa.insert(tasks_t).values(prompt="y", title="u", status="running"))
+            stopped, running = int(res1.inserted_primary_key[0]), int(res2.inserted_primary_key[0])
+            await s.commit()
+        await res._reserve(svc, "task", stopped, 16000)
+        await res._reserve(svc, "task", stopped, 16000)
+        await res._reserve(svc, "task", running, 16000)
+        await res._tick(svc)
+        assert all(st != "held" for _, st in await _held(svc, stopped))      # both copies freed
+        assert [st for _, st in await _held(svc, running)] == ["held"]       # a live task keeps its memory
+    finally:
+        await svc.stop()
