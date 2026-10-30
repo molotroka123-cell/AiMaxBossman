@@ -424,6 +424,42 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         except (OSError, ValueError, TypeError):
             return False
 
+    async def _grechka_intake(self, message: dict, update_id: int) -> bool:
+        """`/grechka` window: owner's photos/videos (sent or forwarded by the owner) go DPAPI-encrypted into the
+        Гречка folder, sorted first. Never stored in the inbox, never shown to a model. True = update consumed."""
+        from . import grechka_intake as gi
+        if not hasattr(self, "_grechka"):
+            self._grechka = gi.GrechkaIntake()
+        person = self.authorized(gi.without_forward(message))      # the owner who sent / forwarded it to us
+        if person is None or person.role != "owner":
+            return False
+        command = message.get("text") if isinstance(message.get("text"), str) else None
+        if command is not None and not any(k in message for k in gi.FORWARD_KEYS):
+            m = gi.COMMAND.match(command.strip())
+            if m:
+                self.store.acknowledge_without_body(update_id)
+                if m.group(1):
+                    n = self._grechka.disarm(person.key)
+                    await self.telegram.send(person, f"🥣 Гречка: приём закрыт, сохранено {n} (зашифровано).")
+                else:
+                    self._grechka.arm(person.key)
+                    await self.telegram.send(person, "🥣 Гречка: присылайте или пересылайте фото/видео — 30 минут. "
+                                                     "Они не открываются, шифруются и встают первыми. Конец: /grechka stop")
+                return True
+        if not self._grechka.active(person.key):
+            return False
+        file_id = gi.media_file_id(message)
+        if file_id is None:
+            return False
+        self.store.acknowledge_without_body(update_id)
+        try:
+            data = bytes(await self.telegram.fetch_file(file_id, max_bytes=gi.MAX_BYTES))
+            n = self._grechka.store(person.key, data)
+            await self.telegram.send(person, f"🥣 ✓ {n}")
+        except Exception as exc:  # noqa: BLE001 - the owner gets the reason class, never content
+            await self.telegram.send(person, f"🥣 не сохранено ({type(exc).__name__}): файл больше 20 МБ или Telegram недоступен")
+        return True
+
     def authorized(self, message) -> Person | None:
         # Re-read authorization from local config; removed users lose access even
         # if their old message was already queued. Invalid config fails closed.
@@ -695,6 +731,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             self.store.ingest(update["update_id"], None, None)
             return
         message = update.get("message")
+        if isinstance(message, dict) and await self._grechka_intake(message, update["update_id"]):
+            return
         person = self.authorized(message)
         # A22-04 / A18 §5.7: only the configured owner is ever processed. A guest, a stranger, a group chat
         # or a forward is acknowledged (offset advances) and dropped HERE, before key/secret/manual intake,
