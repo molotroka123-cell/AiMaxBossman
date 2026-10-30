@@ -55,6 +55,12 @@ HARD_DENY = [
      "доступ к учётным данным"),
     (re.compile(r"(?i)\b(?:wallet|keystore|seed[_-]?phrase|private[_-]?key)\b"),
      "доступ к кошельку/ключам"),
+    # Binance 29.10.2026: ~$3B ушло с горячих кошельков через EIP-7702 — украденным ключом подписали делегирование
+    # кода кошелька контракту-«пылесосу», и он вывел всё одной транзакцией. Агент не подписывает делегирования,
+    # не работает с мнемониками и не собирает «дрейнеры/свиперы» — это T3, подтверждением не открывается.
+    (re.compile(r"(?i)(?:\bmnemonic\b|\beip[-_ ]?7702\b|\bsign_?authorization\b|\bauthorization_?list\b|"
+                r"(?<![a-z])setcode(?:tx|transaction)?(?![a-z])|(?<![a-z])(?:drainer|sweeper)(?![a-z]))"),
+     "подпись делегирования кошелька / вывод средств (EIP-7702, T3)"),
     (re.compile(r"(?i)\b(?:setenforce\s+0|ufw\s+disable|systemctl\s+stop\s+(?:firewalld|apparmor))\b"),
      "отключение защиты ОС"),
     (re.compile(
