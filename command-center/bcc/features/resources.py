@@ -97,6 +97,28 @@ async def _reserve(svc, owner_kind: str, owner_id: int, memory_mb: int) -> int:
     return rid
 
 
+async def _renew_own(svc, task_id: int, run_id: int) -> bool:
+    """Reuse the task's own held reservation (newest one), extend its expiry, release any extra copies. True = reused."""
+    from datetime import timedelta
+    from ..db import task_runs as runs_t
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(res_t.c.id).where(
+            res_t.c.holder_kind == "task", res_t.c.holder_id == task_id, res_t.c.status == "held")
+            .order_by(res_t.c.id.desc()))).fetchall()
+        if not rows:
+            return False
+        keep, extra = int(rows[0][0]), [int(r[0]) for r in rows[1:]]
+        await s.execute(sa.update(res_t).where(res_t.c.id == keep).values(
+            expires_at=utcnow() + timedelta(minutes=15)))
+        if extra:
+            await s.execute(sa.update(res_t).where(res_t.c.id.in_(extra)).values(
+                status="released", released_at=utcnow()))
+        await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(reservation_id=keep))
+        await s.commit()
+    await svc.bus.emit("resource.renewed", reservation_id=keep, holder=f"task:{task_id}", released_duplicates=len(extra))
+    return True
+
+
 async def _release(svc, reservation_id: int) -> None:
     async with svc.db.session() as s:
         await s.execute(sa.update(res_t).where(res_t.c.id == reservation_id).values(
@@ -184,6 +206,11 @@ async def _before_run(svc):
         need = await _estimate_mb(svc, model_id)
         if need <= 0:
             return None                       # облако/нет модели — ресурс не резервируем
+        # Long-horizon run 30.10: a task resumed after an approval re-entered before_run and took ANOTHER 16 GB on top of
+        # its own still-held reservation (3 x 16 GB for one task) — it then deferred itself with 66 GB actually free.
+        # The task's own held reservation is renewed and reused; it never counts against the task itself.
+        if await _renew_own(svc, task["id"], run["id"]):
+            return None
         snap = await _snapshot(svc, policy)
         if not snap.measured:
             # Fail-closed: без замера памяти нет запаса, от которого можно
