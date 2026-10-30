@@ -54,3 +54,13 @@ def test_failed_attempt_is_decided_by_the_declared_post_state():
              "result_preview": "exit_code=0"}
     # no contract: a failed mutation still fails the task (unchanged)
     assert _effect_problem([failed, fixed], []) == "effectful terminal outcome is failed or still unobserved"
+
+
+def test_an_arrow_names_the_output():
+    exp = _terminal_evidence(r"Данные: C:\w\run\orders.csv. Выручка по месяцам -> C:\w\run\out\monthly_region.csv")
+    assert exp is not None and exp.target == r"C:\w\run\out\monthly_region.csv"
+
+
+def test_without_an_output_marker_the_first_file_stays():
+    exp = _terminal_evidence(r"Прочитай C:\w\run\orders.csv и посчитай строки")
+    assert exp is not None and exp.target == r"C:\w\run\orders.csv"

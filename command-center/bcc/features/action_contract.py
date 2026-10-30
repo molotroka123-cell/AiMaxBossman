@@ -389,8 +389,11 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
 
 
 _WRITE_VERB_BEFORE_RE = re.compile(
-    r"(?:\b(?:запиши|сохрани|создай|сформируй|напиши|выгрузи|write|save|create|output)\w*)"
-    r"(?:\s+(?:в|во|файл|to|into|file|as))*\s+(?:[A-Za-z]:[\\/]|\\\\|/)?[^\s]*$", re.I | re.U)
+    r"(?:(?:\b(?:запиши|сохрани|создай|сформируй|напиши|выгрузи|write|save|create|output)\w*)"
+    r"(?:\s+(?:в|во|файл|to|into|file|as))*\s+"
+    # long-horizon run f, step 2: «маржа по продуктам -> out\product_margin.csv» — an arrow names the output too
+    r"|(?:->|→|=>)\s*|\bв\s+файл\s+)"
+    r"(?:[A-Za-z]:[\\/]|\\\\|/)?[^\s]*$", re.I | re.U)
 
 _ABS_HEAD_RE = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\|/)[^\s\"'«»<>|*?]*$")
 
