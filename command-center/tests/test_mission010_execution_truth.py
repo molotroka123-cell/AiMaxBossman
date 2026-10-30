@@ -172,3 +172,39 @@ async def test_all_successful_children_complete_parent(env):
         await s.commit()
     await mission_feature._tick(env.svc)
     assert (await mission_feature._mission(env.svc, mid))["status"] == "completed"
+
+
+async def test_failed_attempt_then_verified_post_state_finalizes(env, tmp_path):
+    """Long-horizon run 30.10: a first script attempt exited 1, the agent fixed it and the owed file exists with
+    the right content. The declared post-state decides — the task completes; the earlier attempt is not a veto."""
+    stack = await make_stack(env.client, prompt="Please perform the requested operation")
+    tid = stack["task"]["id"]
+    run = await env.svc.engine.claim()
+    await _allow_root(env, tmp_path)
+    await _set_meta(env, tid, {"required_effects": [{"kind": "file", "target": str(tmp_path / "owed.txt"),
+                                                    "expect": {"exists": True}}]})
+    await _call(env, run, tid, status="executed", preview="exit_code=1\nTraceback")
+    import os
+    import time
+    (tmp_path / "owed.txt").write_text("ok", encoding="utf-8")          # produced AFTER the failed attempt
+    later = time.time() + 5
+    os.utime(tmp_path / "owed.txt", (later, later))
+    decision = await finalize_task(env.svc.engine, run, tid, answer="done", usage={})
+    assert decision.ok, decision.reason
+
+
+async def test_failed_attempt_with_a_pre_existing_file_still_refuses(env, tmp_path):
+    """Security audit 30.10: a file that was already there (an input, a stale output) must not let a crashed
+    attempt complete the task."""
+    import os
+    stack = await make_stack(env.client, prompt="Please perform the requested operation")
+    tid = stack["task"]["id"]
+    run = await env.svc.engine.claim()
+    await _allow_root(env, tmp_path)
+    (tmp_path / "owed.txt").write_text("stale", encoding="utf-8")
+    os.utime(tmp_path / "owed.txt", (1_000_000_000, 1_000_000_000))        # long before the attempt
+    await _set_meta(env, tid, {"required_effects": [{"kind": "file", "target": str(tmp_path / "owed.txt"),
+                                                    "expect": {"exists": True}}]})
+    await _call(env, run, tid, status="executed", preview="exit_code=1\nTraceback")
+    decision = await finalize_task(env.svc.engine, run, tid, answer="done", usage={})
+    assert not decision.ok

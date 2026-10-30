@@ -50,10 +50,29 @@ HARD_DENY = [
     (re.compile(r"(?i)\bgit\s+push\b.*(?:--force|-f\b)"), "force push"),
     (re.compile(r"(?i)\bgit\s+reset\s+--hard\b"), "деструктивный reset"),
     (re.compile(r"(?i)\b(?:mkfs|fdisk|diskpart|format)\b"), "форматирование диска"),
-    (re.compile(r"(?i)\brm\s+-rf\s+/(?:\s|$)"), "удаление корня"),
-    (re.compile(r"(?i)(?:/etc/shadow|id_rsa|\.ssh/id_|\.aws/credentials|\.env\b)"),
+    # Fuzz 30.10: `(rm -rf /)`, `rm -rf /*`, `rm -fr \` slipped past the old `rm\s+-rf\s+/(?:\s|$)`.
+    (re.compile(r"""(?i)\brm\s+-\w*r\w*\s+["']?[/\\]\*?["']?(?=\s|$|[)"';&|])"""), "удаление корня"),
+    # Fuzz 30.10: Windows paths use `\` — `type %USERPROFILE%\.aws\credentials`, `.ssh\id_ed25519` slipped through.
+    (re.compile(r"(?i)(?:/etc/shadow|id_rsa|\.ssh[\\/]id_|\.aws[\\/]credentials|\.env\b)"),
      "доступ к учётным данным"),
-    (re.compile(r"(?i)\b(?:wallet|keystore|seed[_-]?phrase|private[_-]?key)\b"),
+    # Security audit 30.10: the agent shell could read the owner's token / DB / vault / pult pairing store, and one
+    # stolen owner token approves everything. Bossman's own credential stores are never agent-readable.
+    (re.compile(r"(?i)(?:Bossman[\\/]+CommandCenter|\.bossman-mobile|\bbcc\.db\b|provider-keys|companion\.env|"
+                r"[\\/]secrets?[\\/]|[\\/]vault[\\/]|\bvault\.(?:json|db|enc)\b|credentials\.enc|secret\.key)"),
+     "хранилище учётных данных Bossman (токен/БД/ключи)"),
+    # Security audit 30.10: git accepts unique option prefixes and refspec forms the old patterns missed.
+    (re.compile(r"(?i)\bgit\s+reset\s+--ha?r?d?\b"), "деструктивный reset"),
+    (re.compile(r"(?i)\bgit\s+push\b.*(?:\s\+\S|\s:\S|--delete\b|--mirror\b|--force-with-lease\b)"),
+     "переписывание/удаление удалённой ветки"),
+    (re.compile(r"\b[Gg][Ii][Tt]\s+(?:branch\s+(?:-D|--delete\s+--force|-d\s+--force)\b|clean\s+-\w*f\w*\s*-?\w*[dx])"),
+     "необратимое удаление в git"),
+    # Security audit 30.10: Windows-native recursive deletes of the profile or a drive root.
+    (re.compile(r"""(?i)\b(?:rd|rmdir|del|erase|Remove-Item|ri)\b[^;&|\n]*(?:%USERPROFILE%|\$HOME|\$env:USERPROFILE|~[\\/]?(?=\s|$|["'])|[A-Za-z]:[\\/]+(?:Users(?:[\\/]+[^\\/\s"']+)?)?[\\/]*\*?(?=\s|$|["']))"""),
+     "удаление профиля или корня диска"),
+    (re.compile(r"""(?i)\brm\s+-\w*r\w*\s+["']?(?:[A-Za-z]:|/[a-z])[\\/]+Users(?:[\\/]+[^\\/\s"']+)?[\\/]*["']?(?=\s|$)"""),
+     "удаление профиля"),
+    # Fuzz 30.10: `\b` sees no boundary after `_`, so `dump_private_key.py`, `wallet_export.js` slipped through.
+    (re.compile(r"(?i)(?<![a-z])(?:wallet|keystore|seed[_-]?phrase|private[_-]?key)(?![a-z])"),
      "доступ к кошельку/ключам"),
     # Binance 29.10.2026: ~$3B ушло с горячих кошельков через EIP-7702 — украденным ключом подписали делегирование
     # кода кошелька контракту-«пылесосу», и он вывел всё одной транзакцией. Агент не подписывает делегирования,

@@ -367,7 +367,12 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
     }
     text = current_request(prompt)
     urlish = _urlish_spans(text)
-    for match in _FILENAME_RE.finditer(text):
+    # The file the task asks to PRODUCE is the obligation, not the first file it mentions: «Данные: orders.csv …
+    # Запиши out\profile.json» made the input orders.csv the proof (long-horizon run 30.10). Names right after a
+    # write verb come first; the rest keeps the old order as a fallback.
+    matches = list(_FILENAME_RE.finditer(text))
+    produced = [m for m in matches if _WRITE_VERB_BEFORE_RE.search(text[max(0, m.start() - 120):m.start()])]
+    for match in produced + [m for m in matches if m not in produced]:
         target = match.group(0)
         if target in tool_names:
             continue
@@ -382,6 +387,10 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
         return ExpectedState(kind="file", target=full or target, expect={"exists": True})
     return None
 
+
+_WRITE_VERB_BEFORE_RE = re.compile(
+    r"(?:\b(?:запиши|сохрани|создай|сформируй|напиши|выгрузи|write|save|create|output)\w*)"
+    r"(?:\s+(?:в|во|файл|to|into|file|as))*\s+(?:[A-Za-z]:[\\/]|\\\\|/)?[^\s]*$", re.I | re.U)
 
 _ABS_HEAD_RE = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\|/)[^\s\"'«»<>|*?]*$")
 
@@ -464,7 +473,11 @@ def _looks_like_mutation(command: str) -> bool:
         return False
     if _WRITE_REDIRECT_RE.search(cmd) or _PWSH_MUTATION_RE.search(cmd):
         return True
-    for segment in re.split(r"&&|\|\||;|\||\n", cmd):
+    # Security audit 30.10: `ls & rm -rf build` and `ls <(rm -rf build)` were one «read» segment headed by `ls`, so a
+    # read lease covered the delete. A single `&` (not `2>&1`/`&>`) separates commands; process substitution runs one.
+    if re.search(r"[<>]\(", cmd):
+        return True
+    for segment in re.split(r"&&|\|\||;|\||(?<![<>&])&(?![>&])|\n|\r", cmd):
         tokens = segment.strip().split()
         while tokens and (_ENV_PREFIX_RE.match(tokens[0])
                           or tokens[0] in ("sudo", "env", "nohup", "time", "command")):

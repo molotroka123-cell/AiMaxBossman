@@ -197,3 +197,26 @@ def test_apply_terms_upgrades_legacy_rows_and_keeps_personal_rows_pending(tmp_pa
     assert len(exported) == 1
     with pytest.raises(PermissionError):
         cs.export_training_rows(rows)                      # the personal-data row never reaches training
+
+
+@pytest.mark.parametrize("text", ["key sk-" + "ant-api03-" + "a" * 24, "sk-" + "proj-" + "b" * 24, "AKIA" + "ABCDEFGHIJKLMNOP",
+                                  "Authorization: Bearer " + "c" * 30, "eyJ" + "a" * 12 + "." + "b" * 12 + "." + "c" * 12,
+                                  'password = "hunter2"', "password=Sup3rS3cret!", '{"api_key": "' + "d" * 10 + '"}',
+                                  "github_pat_" + "e" * 24, "glpat-" + "f" * 22])
+def test_security_audit_secret_formats_are_refused(monkeypatch, tmp_path, text):
+    """Security audit 30.10: these key formats reached sanitize() unchanged before."""
+    import coding_swarm as cs
+    assert cs._SECRET_EXTRA.search(text)
+
+
+@pytest.mark.parametrize("text", ["def get_token_count(text):", "password_field = form.field", "tokens = 3"])
+def test_ordinary_code_is_not_flagged_as_a_secret(text):
+    import coding_swarm as cs
+    assert not cs._SECRET_EXTRA.search(text)
+
+
+@pytest.mark.parametrize("text", ['token = request.headers.get("X-Token")', "password = form.cleaned_data['pw']",
+                                  'api_key = os.environ["KEY"]'])
+def test_code_that_reads_a_secret_is_not_itself_a_secret(text):
+    import coding_swarm as cs
+    assert not cs._SECRET_EXTRA.search(text)

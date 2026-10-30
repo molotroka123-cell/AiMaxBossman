@@ -39,3 +39,18 @@ def test_same_name_in_two_roots_is_ambiguous_not_verified(tmp_path):
 def test_missing_file_still_fails(tmp_path):
     obs, _ = asyncio.run(_observe_file(ExpectedState("file", "nope.txt", {"exists": True}), roots=[tmp_path]))
     assert obs.observed.get("exists") is False
+
+
+def test_the_produced_file_is_the_obligation_not_the_input():
+    exp = _terminal_evidence(r"Данные: C:\w\run\orders.csv (есть дубли). Запиши C:\w\run\out\profile.json с ключами rows")
+    assert exp is not None and exp.target == r"C:\w\run\out\profile.json"
+
+
+def test_failed_attempt_is_decided_by_the_declared_post_state():
+    from bcc.finalize import _effect_problem
+    failed = {"tool": "terminal.run", "args": {"command": "python a.py > out.json"}, "status": "executed",
+              "result_preview": "exit_code=1\nTraceback"}
+    fixed = {"tool": "terminal.run", "args": {"command": "python b.py > out.json"}, "status": "executed",
+             "result_preview": "exit_code=0"}
+    # no contract: a failed mutation still fails the task (unchanged)
+    assert _effect_problem([failed, fixed], []) == "effectful terminal outcome is failed or still unobserved"

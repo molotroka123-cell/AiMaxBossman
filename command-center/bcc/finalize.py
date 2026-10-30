@@ -67,6 +67,28 @@ def _required_expectations(task: dict) -> list:
     return expected
 
 
+def _produced_after(expected: list, row: dict) -> bool:
+    """Every expectation is a file at an ABSOLUTE path that exists and was modified after `row` was recorded."""
+    from datetime import datetime, timezone
+    from pathlib import Path
+    when = row.get("created_at")
+    if isinstance(when, str):
+        try:
+            when = datetime.fromisoformat(when.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if not isinstance(when, datetime):
+        return False
+    started = (when if when.tzinfo else when.replace(tzinfo=timezone.utc)).timestamp()
+    for e in expected:
+        target = Path(str(getattr(e, "target", "") or ""))
+        if getattr(e, "kind", "") != "file" or not target.is_absolute() or not target.is_file():
+            return False
+        if target.stat().st_mtime <= started:
+            return False
+    return bool(expected)
+
+
 def _effectful(row: dict) -> bool:
     """Use the executor capability, not model wording, as the safety backstop."""
     from .tools import REGISTRY
@@ -137,6 +159,13 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
         if row.get("tool") == "terminal.run":
             match = re.match(r"exit_code=(-?\d+)\b", str(row.get("result_preview") or ""))
             if match is None or int(match[1]) != 0:
+                if expected and _produced_after(expected, row):
+                    # Long-horizon run 30.10: an agent's first script attempt failed (exit 1), it rewrote the
+                    # command and the declared output verified against the planted truth — and the task still
+                    # failed here. Forgiven ONLY when every declared output is an absolute file path written AFTER
+                    # the failed attempt (security audit 30.10: a pre-existing input file must not let a crashed
+                    # run pass). `verify_all` below still reads the world. Otherwise strict as before.
+                    continue
                 return "effectful terminal outcome is failed or still unobserved"
     if not expected:
         return ""

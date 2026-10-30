@@ -50,7 +50,12 @@ MAX_PROMPT_CHARS = 120_000
 # ------------------------------------------------------------------ TZ 2.5 M3: ContextSanitizer (before every cloud call)
 
 _SECRET_EXTRA = re.compile(r"(sk-or-v1-[A-Za-z0-9]{20,}|nvapi-[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}"
-                           r"|(?i:(?:api[_-]?key|token|secret|password)\s*[=:]\s*['\"][A-Za-z0-9_\-]{20,}['\"]))")
+                           # security audit 30.10: Anthropic/OpenAI project/Stripe keys, AWS ids, GitHub/GitLab PATs,
+                           # JWTs, bearer headers, unquoted or short passwords and JSON-quoted key names got through
+                           r"|sk-(?:ant|proj|live)[-_][A-Za-z0-9_-]{16,}|sk_(?:live|test)_\w{16,}|AKIA[0-9A-Z]{16}"
+                           r"|github_pat_\w{20,}|glpat-[\w-]{20,}|eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}"
+                           r"|(?i:bearer\s+)[\w.~+/-]{20,}"
+                           r"|(?i:[\"']?(?:api[_-]?key|token|secret|password|passwd)[\"']?\s*[=:]\s*(?:[\"'][^\"'\s]{6,}[\"']|[^\s\"',}()\[\].]{6,}(?=[\s,;}]|$))))")
 # Repository files that never leave the PC even though git tracks them (or could): keys, vault, env, tailnet, databases.
 _DENY_PATH = re.compile(r"(^|/)(\.env[^/]*|[^/]*vault[^/]*|[^/]*secret[^/]*|[^/]*\.pem|[^/]*\.key|provider-keys[^/]*|"
                         r"[^/]*tailscale[^/]*|[^/]*tailnet[^/]*|[^/]*\.db|[^/]*\.sqlite[^/]*|keys)(/|$)", re.I)
