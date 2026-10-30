@@ -40,7 +40,7 @@ import prove_chat_attachments as p  # noqa: E402  (token + api helper)
 AGENT_ROOT = Path(r"C:\Users\asd\Bossman\wt-agent-proof-20261025")      # already an allowed terminal root
 RUNS = AGENT_ROOT / "lh-runs"
 TRUTH_ROOT = Path(r"D:\Bossman\long-horizon")                           # outside every agent root
-DONE = ("completed", "ok", "success", "done")
+DONE = ("executed", "ok", "completed", "success", "done")   # tool_calls.status of a call that ran
 
 REGIONS = ["Север", "Юг", "Запад", "Восток", "Центр"]
 PRODUCTS = [f"P-{i:02d}" for i in range(1, 13)]
