@@ -61,3 +61,51 @@ async def test_a_stopped_tasks_reservation_is_released_by_the_tick(tmp_path):
         assert [st for _, st in await _held(svc, running)] == ["held"]       # a live task keeps its memory
     finally:
         await svc.stop()
+
+
+import httpx as _httpx
+
+_REAL_ASYNC_CLIENT = _httpx.AsyncClient
+
+
+def _fake_ollama(monkeypatch, loaded, tags, fail=False):
+    import httpx
+
+    def handler(request):
+        if fail:
+            raise httpx.ConnectError("down")
+        if request.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": loaded})
+        return httpx.Response(200, json={"models": tags})
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: _REAL_ASYNC_CLIENT(transport=httpx.MockTransport(handler)))
+
+
+async def _model(svc, name, base_url):
+    from bcc.db import models as models_t, providers as providers_t
+    async with svc.db.session() as s:
+        pid = int((await s.execute(sa.insert(providers_t).values(name=f"p-{name}-{base_url[-14:]}", kind="openai_compat",
+                                                                   base_url=base_url))).inserted_primary_key[0])
+        mid = int((await s.execute(sa.insert(models_t).values(provider_id=pid, name=name, alias=f"a-{name}-{base_url[-14:]}",
+                                                                kind="local", context_window=32768))).inserted_primary_key[0])
+        await s.commit()
+    return mid
+
+
+@pytest.mark.anyio
+async def test_exact_resident_model_needs_no_second_reservation(tmp_path, monkeypatch):
+    app, svc = await start_app(make_settings(tmp_path), start_workers=False)
+    try:
+        ctx32 = await _model(svc, "gemma-ctx32k:latest", "http://127.0.0.1:11434/v1")
+        ctx8 = await _model(svc, "gemma:latest", "http://127.0.0.1:11434/v1")
+        remote = await _model(svc, "gemma-ctx32k:latest", "https://api.example.com/v1")
+        loaded = [{"name": "gemma-ctx32k:latest", "model": "gemma-ctx32k:latest", "digest": "d32"}]
+        tags = [{"name": "gemma-ctx32k:latest", "digest": "d32"}, {"name": "gemma:latest", "digest": "d8"}]
+        _fake_ollama(monkeypatch, loaded, tags)
+        assert await res._already_resident(svc, ctx32) is True
+        assert await res._already_resident(svc, ctx8) is False      # same weights, other num_ctx = another runner
+        assert await res._already_resident(svc, remote) is False    # only a local Ollama is trusted
+        _fake_ollama(monkeypatch, loaded, tags, fail=True)
+        assert await res._already_resident(svc, ctx32) is False     # unreachable -> reserve as before
+    finally:
+        await svc.stop()

@@ -97,6 +97,35 @@ async def _reserve(svc, owner_kind: str, owner_id: int, memory_mb: int) -> int:
     return rid
 
 
+async def _already_resident(svc, model_id: int | None) -> bool:
+    """True only when a LOCAL Ollama reports this exact model (name or manifest digest) as loaded. Any doubt -> False,
+    i.e. the normal reservation path (the safe direction)."""
+    if not model_id:
+        return False
+    from urllib.parse import urlsplit
+    import httpx
+    from ..db import providers as providers_t
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(models_t.c.name, providers_t.c.base_url).join(
+            providers_t, providers_t.c.id == models_t.c.provider_id).where(models_t.c.id == model_id))).first()
+    if row is None or not row[0] or not row[1]:
+        return False
+    parts = urlsplit(str(row[1]))
+    if parts.hostname not in ("127.0.0.1", "localhost", "::1"):
+        return False
+    base = f"{parts.scheme}://{parts.netloc}"
+    try:
+        async with httpx.AsyncClient(timeout=2.0, trust_env=False) as client:
+            loaded = (await client.get(f"{base}/api/ps")).json().get("models") or []
+            if any(m.get("name") == row[0] or m.get("model") == row[0] for m in loaded):
+                return True
+            tags = (await client.get(f"{base}/api/tags")).json().get("models") or []
+    except Exception:  # noqa: BLE001 - not an Ollama, or not reachable: reserve as before
+        return False
+    digest = next((t.get("digest") for t in tags if t.get("name") == row[0]), None)
+    return bool(digest) and any(m.get("digest") == digest for m in loaded)
+
+
 async def _renew_own(svc, task_id: int, run_id: int) -> bool:
     """Reuse the task's own held reservation (newest one), extend its expiry, release any extra copies. True = reused."""
     from datetime import timedelta
@@ -210,6 +239,12 @@ async def _before_run(svc):
         # its own still-held reservation (3 x 16 GB for one task) — it then deferred itself with 66 GB actually free.
         # The task's own held reservation is renewed and reused; it never counts against the task itself.
         if await _renew_own(svc, task["id"], run["id"]):
+            return None
+        # The exact model (same name / digest, so the same num_ctx runner) is already loaded: its memory is already in
+        # «used», a second reservation would count it twice and the task would wait forever behind its own model
+        # (long-horizon run 30.10: keep_alive=-1 models, 97.7 of 122.5 GB «used», agent deferred indefinitely).
+        if await _already_resident(svc, model_id):
+            await svc.bus.emit("resource.resident", holder=f"task:{task['id']}", model_id=model_id)
             return None
         snap = await _snapshot(svc, policy)
         if not snap.measured:
