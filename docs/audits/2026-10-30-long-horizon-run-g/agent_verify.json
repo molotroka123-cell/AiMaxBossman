@@ -1,0 +1,17 @@
+{
+    "P-07_margin": {
+        "claimed": -207530.4,
+        "recomputed": -207530.4,
+        "ok": true
+    },
+    "C-0042_revenue": {
+        "claimed": 5625493.21,
+        "recomputed": 5625493.21,
+        "ok": true
+    },
+    "C-0042_pct": {
+        "claimed": 15.9,
+        "recomputed": 15.9,
+        "ok": true
+    }
+}

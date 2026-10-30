@@ -1,0 +1,14 @@
+{
+ "unique_orders": 60000,
+ "duplicate_rows": 1157,
+ "total_revenue": 35384777.62,
+ "worst_margin_product": "P-07",
+ "north_drop_pct": 32.1,
+ "top_customer": "C-0042",
+ "top_customer_share_pct": 15.9,
+ "planted": {
+  "negative_margin_product": "P-07",
+  "declining_region": "Север",
+  "top_customer": "C-0042"
+ }
+}
