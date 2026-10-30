@@ -294,17 +294,55 @@ async def _fetch(session, fact_id: int) -> dict | None:
 
 
 async def _close_fact(session, old_id: int, *, invalid_at: datetime,
-                      superseded_by: int, at: datetime) -> None:
+                      superseded_by: int | None, at: datetime) -> None:
     """ЕДИНСТВЕННЫЙ UPDATE в модуле — и только по трём служебным колонкам.
 
     Содержимое (subject/predicate/object/statement/valid_at/created_at)
     не трогается никогда: история решений не переписывается задним числом.
+    Если `superseded_by is None`, факт отозван (`revoked` / `отозванный`) без замены.
     """
     await session.execute(
         sa.update(facts_t).where(facts_t.c.id == int(old_id)).values(
-            invalid_at=invalid_at,       # ← valid_at НОВОГО факта, не «сейчас»
+            invalid_at=invalid_at,       # ← valid_at НОВОГО факта или момент отзыва
             expired_at=at,
-            superseded_by=int(superseded_by)))
+            superseded_by=int(superseded_by) if superseded_by is not None else None))
+
+
+async def revoke_fact(session, *, fact_id: int | None = None,
+                      subject: str | None = None, predicate: str | None = None,
+                      invalid_at: Any = None, commit: bool = True) -> list[dict]:
+    """Отозвать действующий факт («старое предпочтение больше не действует», TimlMemBench).
+
+    Закрывает факт через `_close_fact(..., superseded_by=None)`, поэтому у строки
+    проставляются `invalid_at` и `expired_at`, а `superseded_by` остаётся `None`
+    (статус `revoked` / `отозванный`).
+    """
+    now = utcnow()
+    inv = to_naive_utc(invalid_at) if invalid_at is not None else now
+    targets: list[dict] = []
+    if fact_id is not None:
+        row = await _fetch(session, int(fact_id))
+        if row is None:
+            raise FactWriteError(f"нечего отзывать: факта {fact_id} нет")
+        if row.get("invalid_at") is None and row.get("expired_at") is None:
+            targets.append(row)
+    elif subject and predicate:
+        rows = await query_facts(session, subject=subject, predicate=predicate,
+                                 include_superseded=False, limit=50)
+        targets.extend(rows)
+    else:
+        raise FactWriteError("для отзыва факта укажите fact_id или пару (subject, predicate)")
+
+    closed: list[dict] = []
+    for t in targets:
+        tid = int(t["id"])
+        await _close_fact(session, tid, invalid_at=inv, superseded_by=None, at=now)
+        fresh = await _fetch(session, tid)
+        if fresh is not None:
+            closed.append(fresh)
+    if commit and closed:
+        await session.commit()
+    return closed
 
 
 async def write_fact(session, *, subject: str, predicate: str, statement: str,
@@ -312,6 +350,7 @@ async def write_fact(session, *, subject: str, predicate: str, statement: str,
                      conflicts_with: Iterable[int] | None = None,
                      source_kind: str = "human", source_run_id: int | None = None,
                      source_note: str = "", confidence: float = 1.0,
+                     scope: str | None = None,
                      meta: dict | None = None, observed_at: Any = None,
                      commit: bool = True, strict_form: bool = True) -> dict:
     """Записать факт. Additive: существующие строки не переписываются.
@@ -365,6 +404,10 @@ async def write_fact(session, *, subject: str, predicate: str, statement: str,
     payload = dict(meta or {})
     payload.setdefault("hash", digest)
     payload.setdefault("observed_at", observed.isoformat())
+    if scope is not None:
+        payload["scope"] = _canon(scope).lower() or "general"
+    else:
+        payload.setdefault("scope", "general")
     if supersedes is not None:
         payload["supersedes"] = int(supersedes)
     links = [int(x) for x in (conflicts_with or [])]
@@ -672,7 +715,7 @@ __all__ = [
     "MIN_WORDS", "MAX_WORDS", "PRONOUNS", "TRANSITION_MARKERS", "FACT_LINE_RE",
     "anchor_relative_dates", "validate_statement", "proper_tokens",
     "fact_hash", "row_hash", "to_naive_utc",
-    "write_fact", "query_facts", "decision_timeline",
+    "write_fact", "revoke_fact", "query_facts", "decision_timeline",
     "render_for_model", "resolve_model_ids",
     "extract_fact_candidates", "run_messages", "already_harvested", "harvest",
 ]
@@ -691,7 +734,7 @@ __all__ = [
 def parse_time(value: Any, *, default: datetime | None = None) -> datetime:
     """Время из строки/числа/datetime в наивный UTC."""
     if value in (None, ""):
-        return to_naive_utc(default if default is not None else datetime.utcnow())
+        return to_naive_utc(default if default is not None else utcnow())
     return to_naive_utc(value)
 
 
@@ -702,6 +745,57 @@ _FILTER_POOL = 200
 
 def _fold(text: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", text or "").casefold().replace("ё", "е").split())
+
+
+def _row_scope(row: dict) -> str:
+    if row.get("scope"):
+        return _canon(str(row["scope"])).lower()
+    meta = row.get("meta")
+    if isinstance(meta, dict) and meta.get("scope"):
+        return _canon(str(meta["scope"])).lower()
+    return "general"
+
+
+def _filter_scope(
+    rows: list[dict],
+    *,
+    scope: str | None = None,
+    caller_scope: str | None = None,
+    allowed_scopes: Iterable[str] | None = None,
+) -> list[dict]:
+    """Фильтр области видимости фактов (TimlMemBench: EMNLP 2026 Findings 507).
+
+    * `scope` — точное совпадение области видимости факта;
+    * `allowed_scopes` — явный белый список допустимых областей видимости;
+    * `caller_scope` — контекст вызывающего: факты с `scope="personal"` (или иной
+      приватной областью) НИКОГДА не выдаются в контекст `work`/`public` и наоборот.
+    """
+    if not scope and not caller_scope and allowed_scopes is None:
+        return rows
+    exact = _canon(scope).lower() if scope else None
+    allowed: set[str] | None = None
+    if allowed_scopes is not None:
+        allowed = {_canon(s).lower() for s in allowed_scopes if str(s).strip()}
+    elif caller_scope:
+        c = _canon(caller_scope).lower()
+        if c == "public":
+            allowed = {"public", "general"}
+        elif c == "work":
+            allowed = {"work", "public", "general"}
+        elif c == "personal":
+            allowed = {"personal", "general", "public"}
+        else:
+            allowed = {c, "general", "public"}
+
+    out: list[dict] = []
+    for r in rows:
+        rs = _row_scope(r)
+        if exact is not None and rs != exact:
+            continue
+        if allowed is not None and rs not in allowed:
+            continue
+        out.append(r)
+    return out
 
 
 def _filter_query(rows: list[dict], query: str | None, limit: int | None = None) -> list[dict]:
@@ -718,15 +812,29 @@ def _filter_query(rows: list[dict], query: str | None, limit: int | None = None)
     return out if limit is None else out[:max(1, int(limit))]
 
 
-def _pool_limit(limit: int, query: str | None) -> int:
-    """LIMIT для SQL. С текстовым фильтром LIMIT раньше резал выборку ДО
-    фильтра: `search(query=X, limit=5)` смотрел на 5 старейших фактов и
-    отвечал «ничего», хотя X лежал шестым. Фильтр получает весь пул."""
-    return _FILTER_POOL if _fold(str(query or "")) else limit
+def _pool_limit(limit: int, query: str | None, scoped: bool = False) -> int:
+    """LIMIT для SQL. С текстовым или контекстным фильтром LIMIT раньше резал выборку ДО
+    фильтра: фильтр получает весь пул."""
+    return _FILTER_POOL if (_fold(str(query or "")) or scoped) else limit
+
+
+def _lifecycle_status(row: dict) -> tuple[str, str]:
+    """Статус жизненного цикла факта (TimlMemBench):
+    - active / действующий
+    - superseded / заменённый
+    - revoked / отозванный
+    """
+    is_cur = row.get("invalid_at") is None and row.get("expired_at") is None
+    if is_cur:
+        return "active", "действующий"
+    if row.get("superseded_by") is not None:
+        return "superseded", "заменённый"
+    return "revoked", "отозванный"
 
 
 def public_fact(row: dict) -> dict:
     """Строка факта наружу: только поля, безопасные для модели и UI."""
+    status, status_ru = _lifecycle_status(row)
     return {
         "id": row.get("id"),
         "subject": row.get("subject"),
@@ -740,8 +848,12 @@ def public_fact(row: dict) -> dict:
         "superseded_by": row.get("superseded_by"),
         "source_kind": row.get("source_kind"),
         "source_run_id": row.get("source_run_id"),
+        "source_note": row.get("source_note") or "",
         "confidence": row.get("confidence"),
-        "current": row.get("invalid_at") is None and row.get("expired_at") is None,
+        "scope": _row_scope(row),
+        "status": status,
+        "status_ru": status_ru,
+        "current": status == "active",
     }
 
 
@@ -756,6 +868,7 @@ class FactStore:
                   replace_current: bool = False,
                   source_kind: str = "human", source_run_id: int | None = None,
                   source_note: str = "", confidence: float = 1.0,
+                  scope: str | None = None,
                   meta: dict | None = None) -> dict:
         """Добавить факт.
 
@@ -776,30 +889,48 @@ class FactStore:
                 session, subject=subject, predicate=predicate, statement=statement,
                 object=object, valid_at=valid, supersedes=supersedes,
                 source_kind=source_kind, source_run_id=source_run_id,
-                source_note=source_note, confidence=confidence, meta=meta,
+                source_note=source_note, confidence=confidence,
+                scope=scope, meta=meta,
                 strict_form=False)
         return public_fact(result["fact"])
 
+    async def revoke(self, *, fact_id: int | None = None,
+                     subject: str | None = None, predicate: str | None = None,
+                     invalid_at: Any = None) -> list[dict]:
+        """Отозвать факт («старое предпочтение больше не действует», TimlMemBench)."""
+        async with self.svc.db.session() as session:
+            closed = await revoke_fact(
+                session, fact_id=fact_id, subject=subject, predicate=predicate,
+                invalid_at=parse_time(invalid_at) if invalid_at else None)
+        return [public_fact(r) for r in closed]
+
     async def search(self, *, subject: str | None = None, predicate: str | None = None,
                      include_superseded: bool = False, limit: int = 50,
-                     query: str | None = None, current_only: bool | None = None) -> list[dict]:
+                     query: str | None = None, current_only: bool | None = None,
+                     scope: str | None = None, caller_scope: str | None = None,
+                     allowed_scopes: Iterable[str] | None = None) -> list[dict]:
         """Поиск фактов.
 
         `query` — подстрочный фильтр по subject/predicate/object/statement;
-        `current_only=False` — включить перекрытые/истёкшие.
+        `current_only=False` — включить перекрытые/истёкшие;
+        `scope` / `caller_scope` / `allowed_scopes` — изоляция контекста памяти.
         """
         if current_only is not None:
             include_superseded = not current_only
+        scoped = bool(scope or caller_scope or allowed_scopes is not None)
         async with self.svc.db.session() as session:
             rows = await query_facts(session, subject=subject, predicate=predicate,
                                      include_superseded=include_superseded,
-                                     limit=_pool_limit(limit, query))
+                                     limit=_pool_limit(limit, query, scoped=scoped))
+        rows = _filter_scope(rows, scope=scope, caller_scope=caller_scope, allowed_scopes=allowed_scopes)
         return [public_fact(r) for r in _filter_query(rows, query, limit)]
 
     async def as_of(self, *, world_at: Any = None, when: Any = None,
                     subject: str | None = None, predicate: str | None = None,
                     limit: int = 50, known_at: Any = None,
-                    query: str | None = None) -> list[dict]:
+                    query: str | None = None,
+                    scope: str | None = None, caller_scope: str | None = None,
+                    allowed_scopes: Iterable[str] | None = None) -> list[dict]:
         """Ось МИРА: что было правдой на дату (`world_at`; `when` — синоним).
 
         `known_at` — ось ЗНАНИЯ: что было известно на дату (`known_as_of`).
@@ -807,11 +938,13 @@ class FactStore:
         """
         moment = world_at if world_at is not None else when
         known = known_at if known_at is not None else None
+        scoped = bool(scope or caller_scope or allowed_scopes is not None)
         async with self.svc.db.session() as session:
             rows = await query_facts(session, subject=subject, predicate=predicate,
                                      as_of=parse_time(moment),
                                      known_as_of=parse_time(known) if known else None,
-                                     limit=_pool_limit(limit, query))
+                                     limit=_pool_limit(limit, query, scoped=scoped))
+        rows = _filter_scope(rows, scope=scope, caller_scope=caller_scope, allowed_scopes=allowed_scopes)
         return [public_fact(r) for r in _filter_query(rows, query, limit)]
 
     async def history(self, *, subject: str, predicate: str | None = None,

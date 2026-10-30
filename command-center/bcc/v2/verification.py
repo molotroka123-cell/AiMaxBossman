@@ -566,3 +566,166 @@ async def verify_all(expected: list[ExpectedState], *, svc, task: dict,
         r = next(r for r in results if r.status == "UNVERIFIED")
         return "UNVERIFIED", f"{r.expected.kind}:{r.expected.target}: {r.reason}", results
     return "VERIFIED", "; ".join(f"{r.expected.kind}:{r.expected.target} ✓" for r in results), results
+
+
+# ------------------------------------------------------------- AgentProofBench (arXiv:2610.34634)
+# Версионированные правила приёмки, снимок исходного состояния и итоговое доказательство
+# со сверкой текстового заявления агента против реального конечного состояния приложения.
+
+_SUCCESS_CLAIM_TOKENS = (
+    "готово", "выполнено", "сохранено", "отправлено", "успешно", "создан", "создана", "обновлено",
+    "включено", "запущено", "удалено", "применено", "done", "completed", "saved", "submitted",
+    "success", "verified", "applied", "created",
+)
+_FAILURE_CLAIM_TOKENS = (
+    "ошибка", "не удалось", "отказ", "невозможно", "заблокировано", "failed", "error",
+    "blocked", "cannot", "unable", "отменено",
+)
+
+
+def agent_claims_success(text: str) -> bool:
+    """Распознаёт, утверждает ли текстовый ответ агента об успешном выполнении задачи."""
+    low = (text or "").strip().lower()
+    if not low:
+        return False
+    if any(tok in low for tok in _FAILURE_CLAIM_TOKENS):
+        return False
+    return any(tok in low for tok in _SUCCESS_CLAIM_TOKENS)
+
+
+def validate_acceptance_rule(expected: ExpectedState) -> tuple[bool, str]:
+    """Проверяет само правило приёмки на полноту и детерминированность (AgentProofBench).
+
+    Ошибки в самих правилах приёмки (пустые свойства, обращение к таблицам учёта исполнителя,
+    терминал без проверяемого побочного эффекта файла) возвращают (False, reason).
+    """
+    if expected.kind not in KINDS:
+        return False, f"unknown rule kind: {expected.kind!r}"
+    if not str(expected.target or "").strip():
+        return False, "empty rule target"
+    e = expected.expect or {}
+    if expected.kind == "file":
+        if not any(k in e for k in ("sha256", "contains", "min_bytes", "exists")):
+            return False, "file rule specifies no verifiable property (sha256/contains/min_bytes/exists)"
+    elif expected.kind == "db":
+        if expected.target in _DB_BOOKKEEPING:
+            return False, f"db rule targets executor bookkeeping table {expected.target!r}"
+        if expected.target not in _DB_ALLOWLIST:
+            return False, f"db rule targets non-allowlisted table {expected.target!r}"
+        if not e.get("where") or not e.get("equals"):
+            return False, "db rule requires both 'where' and 'equals' predicates"
+    elif expected.kind == "browser":
+        if not (e.get("title_contains") or e.get("url_contains")):
+            return False, "browser rule specifies neither title_contains nor url_contains"
+    elif expected.kind == "terminal":
+        if not e.get("path"):
+            return False, "terminal rule has no post-state file path (exit_code alone is not post-state)"
+    elif expected.kind == "schedule":
+        if not any(k in e for k in ("enabled", "kind", "interval_minutes", "daily_time", "payload_digest", "exists")):
+            return False, "schedule rule specifies no verifiable field"
+    return True, "valid"
+
+
+def rule_digest(expected: ExpectedState, *, rule_id: str = "default", rule_version: str = "apb-v1.0") -> str:
+    return payload_digest({
+        "rule_id": rule_id,
+        "rule_version": rule_version,
+        "kind": expected.kind,
+        "target": expected.target,
+        "expect": expected.expect,
+    })
+
+
+@dataclass(frozen=True, slots=True)
+class CriterionProofReceipt:
+    rule_id: str
+    rule_version: str
+    rule_digest: str
+    rule_valid: bool
+    rule_validation_reason: str
+    initial_snapshot: dict[str, Any]
+    final_evidence: dict[str, Any]
+    verifier_status: Status
+    agent_claim_text: str
+    agent_claimed_success: bool
+    false_claim_caught: bool
+    proof_sha256: str
+
+
+async def capture_initial_snapshot(
+    expected: ExpectedState, *, svc=None, task: dict | None = None, roots: list[Path] | None = None
+) -> dict[str, Any]:
+    """Снимает исходное состояние приложения ДО выполнения действий агента."""
+    res = await verify(expected, svc=svc, task=task or {}, roots=roots)
+    obs_dict = dict(res.observed.observed) if res.observed is not None else {}
+    obs_at = float(res.observed.observed_at) if res.observed is not None else time.time()
+    snap = {
+        "kind": expected.kind,
+        "target": expected.target,
+        "observed": obs_dict,
+        "observed_at": obs_at,
+        "pre_status": res.status,
+    }
+    snap["snapshot_sha256"] = payload_digest(snap)
+    return snap
+
+
+async def verify_criterion_with_proof(
+    expected: ExpectedState,
+    *,
+    rule_id: str = "default",
+    rule_version: str = "apb-v1.0",
+    initial_snapshot: dict[str, Any] | None = None,
+    agent_claim_text: str = "",
+    svc=None,
+    task: dict | None = None,
+    roots: list[Path] | None = None,
+) -> CriterionProofReceipt:
+    """Независимая сверка конечного состояния приложения с фиксацией версии правила,
+    исходного снимка и итогового доказательства (AgentProofBench)."""
+    r_valid, r_reason = validate_acceptance_rule(expected)
+    r_dig = rule_digest(expected, rule_id=rule_id, rule_version=rule_version)
+    init_snap = initial_snapshot or {
+        "kind": expected.kind,
+        "target": expected.target,
+        "observed": {},
+        "observed_at": 0.0,
+        "pre_status": "UNVERIFIED",
+        "snapshot_sha256": payload_digest({"empty": True, "target": expected.target}),
+    }
+    res = await verify(expected, svc=svc, task=task or {}, roots=roots)
+    final_status: Status = res.status if r_valid else "UNVERIFIED"
+    final_ev = {
+        "status": final_status,
+        "reason": res.reason if r_valid else f"defective acceptance rule: {r_reason}",
+        "observed": dict(res.observed.observed) if res.observed is not None else {},
+        "observed_at": float(res.observed.observed_at) if res.observed is not None else time.time(),
+        "evidence": [{"source": e.source, "detail": e.detail, "hash": e.hash} for e in res.evidence],
+    }
+    final_ev["evidence_sha256"] = payload_digest(final_ev)
+    claimed_ok = agent_claims_success(agent_claim_text)
+    false_claim = bool(claimed_ok and final_status != "VERIFIED")
+    proof_hash = payload_digest({
+        "rule_id": rule_id,
+        "rule_version": rule_version,
+        "rule_digest": r_dig,
+        "initial_snapshot_sha256": init_snap.get("snapshot_sha256", ""),
+        "final_evidence_sha256": final_ev["evidence_sha256"],
+        "verifier_status": final_status,
+        "false_claim_caught": false_claim,
+    })
+    return CriterionProofReceipt(
+        rule_id=rule_id,
+        rule_version=rule_version,
+        rule_digest=r_dig,
+        rule_valid=r_valid,
+        rule_validation_reason=r_reason,
+        initial_snapshot=init_snap,
+        final_evidence=final_ev,
+        verifier_status=final_status,
+        agent_claim_text=agent_claim_text,
+        agent_claimed_success=claimed_ok,
+        false_claim_caught=false_claim,
+        proof_sha256=proof_hash,
+    )
+

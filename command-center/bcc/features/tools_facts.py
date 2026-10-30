@@ -22,7 +22,15 @@ class FactIn(BaseModel):
     source_kind: str = "human"
     source_note: str = ""
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    scope: str | None = None
     meta: dict = Field(default_factory=dict)
+
+
+class FactRevokeIn(BaseModel):
+    fact_id: int | None = None
+    subject: str | None = None
+    predicate: str | None = None
+    invalid_at: str | None = None
 
 
 def _render(rows: list[dict]) -> str:
@@ -36,8 +44,10 @@ def _render(rows: list[dict]) -> str:
     for row in rows:
         item = public_fact(row)
         source = str(item.get("source_kind") or "unknown").replace("]", "")
+        scope = str(item.get("scope") or "general").replace("]", "")
+        status = str(item.get("status_ru") or "действующий")
         lines.append(
-            f"fact#{item['id']} | {item['subject']} :: {item['predicate']} [source={source}]\n"
+            f"fact#{item['id']} | {item['subject']} :: {item['predicate']} [source={source}] [scope={scope}] [status={status}]\n"
             f"{item['statement']}\n"
             f"world=[{item.get('valid_at')} .. {item.get('invalid_at') or '∞'}] "
             f"knowledge=[{item.get('created_at')} .. {item.get('expired_at') or '∞'}] "
@@ -54,20 +64,38 @@ async def http_add_fact(body: FactIn, request: Request):
             object=body.object,
             valid_at=parse_time(body.valid_at) if body.valid_at else None,
             mode=body.mode, source_kind=body.source_kind,
-            source_note=body.source_note, confidence=body.confidence, meta=body.meta,
+            source_note=body.source_note, confidence=body.confidence,
+            scope=body.scope, meta=body.meta,
         )
     except ValueError as exc:
         raise HTTPException(422, {"message": str(exc)})
     return public_fact(row)
 
 
+@router.post("/memory/facts/revoke")
+async def http_revoke_fact(body: FactRevokeIn, request: Request):
+    try:
+        rows = await FactStore(request.app.state.svc).revoke(
+            fact_id=body.fact_id,
+            subject=body.subject,
+            predicate=body.predicate,
+            invalid_at=parse_time(body.invalid_at) if body.invalid_at else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, {"message": str(exc)})
+    return {"revoked": [public_fact(x) for x in rows], "total": len(rows)}
+
+
 @router.get("/memory/facts")
 async def http_search_facts(request: Request, query: str = "", subject: str = "",
                             predicate: str = "", current_only: bool = True,
+                            scope: str = "", caller_scope: str = "",
                             limit: int = 50):
     rows = await FactStore(request.app.state.svc).search(
         query=query, subject=subject, predicate=predicate,
-        current_only=current_only, limit=limit)
+        current_only=current_only,
+        scope=scope or None, caller_scope=caller_scope or None,
+        limit=limit)
     return {"items": [public_fact(x) for x in rows], "total": len(rows)}
 
 
