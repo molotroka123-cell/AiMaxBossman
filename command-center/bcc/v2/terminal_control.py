@@ -111,6 +111,9 @@ def auto_patterns() -> list[re.Pattern[str]]:
     return AUTO_PATTERNS
 
 
+_CMD_SWITCH_RE = re.compile(r"(?i)(\bcmd(?:\.exe)?\s+)/([ck])(?=\s|\")")
+
+
 def host_shell() -> list[str] | None:
     """Как запускать команду НА ХОСТЕ (режимы project_host / system_admin).
 
@@ -434,6 +437,10 @@ class TerminalManager:
                     stderr=asyncio.subprocess.STDOUT,
                 )
             else:
+                # Long-horizon run 30.10: Git-bash rewrites the switch in `cmd /C "…"` into a path (`C:/`), so cmd.exe
+                # started INTERACTIVE, printed its banner and waited on stdin forever — the agent's command never
+                # finished. `//C` is MSYS's own escape for a literal `/C`; nothing else in the command is touched.
+                cmd = _CMD_SWITCH_RE.sub(lambda m: m.group(1) + "//" + m.group(2), cmd)
                 proc = await asyncio.create_subprocess_exec(
                     *shell, cmd, cwd=str(cwd),
                     **spawn_kw,
