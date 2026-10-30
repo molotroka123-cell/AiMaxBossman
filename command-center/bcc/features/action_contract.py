@@ -376,8 +376,22 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
         start, end = match.span()
         if any(s <= start and end <= e for s, e in urlish):
             continue                      # part of a URL/email, not a filesystem outcome
-        return ExpectedState(kind="file", target=target, expect={"exists": True})
+        # The task named the full path (`C:\work\run\orders.csv`): the regex only sees the tail after the last
+        # backslash, and a bare name was then looked up in the wrong folder (long-horizon run 30.10). Keep the path.
+        full = _absolute_path_ending_at(text, start, end)
+        return ExpectedState(kind="file", target=full or target, expect={"exists": True})
     return None
+
+
+_ABS_HEAD_RE = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\|/)[^\s\"'«»<>|*?]*$")
+
+
+def _absolute_path_ending_at(text: str, start: int, end: int) -> str | None:
+    """`C:\\dir\\sub\\` + `name.ext` when the name at text[start:end] is the tail of an absolute path, else None."""
+    if start == 0 or text[start - 1] not in "\\/":
+        return None
+    m = _ABS_HEAD_RE.search(text[max(0, start - 400):start])
+    return (m.group(0) + text[start:end]) if m else None
 
 
 _GIT_MUTATION_CMD_RE = re.compile(r"\bgit\s+(push|commit)\b", re.I)

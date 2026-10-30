@@ -138,7 +138,15 @@ async def _observe_file(exp: ExpectedState, *, roots: list[Path]) -> tuple[Obser
         return (ObservedState("file", str(p), {"error": "no authorized file roots"}, time.time()),
                 Evidence("file:reopen", "refused: no authorized roots"))
     if not p.is_absolute():
-        p = (roots[0] / p) if roots else p
+        # Long-horizon run 30.10: a relative name was resolved against roots[0] only — on the owner PC that is
+        # Python312\Lib — so a file the agent really wrote in its work folder read as «отсутствует», review failed
+        # 3 times and the task deadlocked (task.finalize_refused -> task.failed -> review.deadlock_failed).
+        # Now: the one root that holds it; several roots holding a same-named file is ambiguous, never a guess.
+        hits = [r / p for r in roots if (r / p).is_file()]
+        if len(hits) > 1:
+            return (ObservedState("file", str(p), {"error": f"ambiguous relative path: found in {len(hits)} roots"},
+                                  time.time()), Evidence("file:reopen", "refused: ambiguous relative path"))
+        p = hits[0] if hits else roots[0] / p
     p = p.resolve()
     if roots and not _contained(p, roots):
         obs = {"error": "path outside allowed roots", "exists": False}
