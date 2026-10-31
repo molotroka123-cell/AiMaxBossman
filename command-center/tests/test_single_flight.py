@@ -120,9 +120,13 @@ def test_asyncio_shield_is_the_thing_that_was_wrong():
     """
     async def run():
         messages = await _orphaned_failure(asyncio.shield)
-        expected = ("OSError exception in shielded future" if sys.version_info >= (3, 14)
-                    else "Task exception was never retrieved")
-        assert messages == [expected], (
+        # Measured 31.10: 3.11.16 / 3.12.10 -> "never retrieved"; 3.14.7 -> "in shielded
+        # future"; CI 3.14.9 (run on 3f18ff47) -> "never retrieved" again. Which of the two
+        # reports a 3.14.x patch release emits is CPython's business; the control is that
+        # shield is NEVER silent here, and exactly one orphan report is produced.
+        expected = ([["OSError exception in shielded future"], ["Task exception was never retrieved"]]
+                    if sys.version_info >= (3, 14) else [["Task exception was never retrieved"]])
+        assert messages in expected, (
             "поведение asyncio.shield изменилось; bcc/single_flight.py объясняет, "
             f"почему он здесь не используется — перечитайте: {messages}")
     asyncio.run(run())
