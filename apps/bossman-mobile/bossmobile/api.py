@@ -15,6 +15,7 @@ import contextlib
 import io
 import json
 import mimetypes
+import os
 import re
 import secrets
 import time
@@ -2082,6 +2083,192 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     @app.post("/m/api/coding-tasks/{task_id}/cancel")
     async def m_coding_cancel(task_id: str, _=Depends(session)):
         return await call("POST", f"/api/coding-tasks/{task_id}/cancel")
+
+    # ------------------------------------------------------------------ BossBlock · Game World Capture (Aleph)
+    BOSSBLOCK_PRESETS = [
+        {
+            "id": "dnipro-center",
+            "label": "🇺🇦 Днепр · Центр (Европейская пл. / пр. Яворницкого)",
+            "title": "BOSSBLOCK · ДНЕПР, УКРАИНА (ЦЕНТР · ЕВРОПЕЙСКАЯ ПЛ. / ПР. ЯВОРНИЦКОГО · 48.4648°N, 35.0464°E)",
+            "bbox": [48.4638, 35.0448, 48.4658, 35.0480],
+        },
+        {
+            "id": "dnipro-most-city",
+            "label": "🇺🇦 Днепр · Мост-Сити и Набережная",
+            "title": "BOSSBLOCK · ДНЕПР, УКРАИНА (МОСТ-СИТИ · 48.4665°N, 35.0508°E)",
+            "bbox": [48.4655, 35.0492, 48.4675, 35.0524],
+        },
+    ]
+
+    def _bossblock_dir() -> Path:
+        base = os.environ.get("BCC_DATA_DIR") or os.environ.get("BOSSMAN_DATA_DIR")
+        if not base:
+            base = str(Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Bossman" / "CommandCenter")
+        p = Path(base) / "bossblock-captures"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def _bossblock_list() -> list[dict[str, Any]]:
+        root = _bossblock_dir()
+        items: list[dict[str, Any]] = []
+        for child in sorted(root.iterdir(), key=lambda x: x.stat().st_mtime if x.exists() else 0, reverse=True):
+            if not child.is_dir():
+                continue
+            gm_path = child / "game_manifest.json"
+            mf_path = child / "manifest.json"
+            if not gm_path.is_file() and mf_path.is_file():
+                try:
+                    from bossblock import game_export
+                    game_export.build_game_showcase(child)
+                except Exception:
+                    pass
+            if gm_path.is_file():
+                try:
+                    gm = json.loads(gm_path.read_text(encoding="utf-8"))
+                    cid = child.name
+                    items.append({
+                        "id": cid,
+                        "title": gm.get("title") or cid,
+                        "center": gm.get("center"),
+                        "bounds": gm.get("bounds"),
+                        "dimensions_m": gm.get("dimensions_m"),
+                        "osm_stats": gm.get("osm_stats"),
+                        "terrain_stats": gm.get("terrain_stats"),
+                        "streetview_stats": gm.get("streetview_stats"),
+                        "mesh_stats": gm.get("mesh_stats"),
+                        "showcase_url": f"/m/api/bossblock/captures/{cid}/showcase.png",
+                        "satellite_url": f"/m/api/bossblock/captures/{cid}/satellite.png",
+                        "glb_url": f"/m/api/bossblock/captures/{cid}/mesh.glb",
+                        "manifest_url": f"/m/api/bossblock/captures/{cid}/game_manifest.json",
+                    })
+                except Exception:
+                    continue
+        return items
+
+    @app.get("/m/api/bossblock/status")
+    async def m_bossblock_status(_=Depends(session)):
+        captures = await asyncio.to_thread(_bossblock_list)
+        return {
+            "ok": True,
+            "engine": "bossblock-aleph-0.2.0",
+            "dashboard_url": "http://127.0.0.1:8845",
+            "presets": BOSSBLOCK_PRESETS,
+            "total": len(captures),
+            "captures": captures[:10],
+        }
+
+    @app.get("/m/api/bossblock/captures/{capture_id}/{artifact}")
+    async def m_bossblock_artifact(capture_id: str, artifact: str, _=Depends(session)):
+        if not re.match(r"^[A-Za-z0-9_.-]{3,80}$", capture_id):
+            raise fail(404, "захват не найден", "BM_NOT_FOUND")
+        mapping = {
+            "showcase.png": ("bossblock_showcase.png", "image/png"),
+            "satellite.png": ("satellite.png", "image/png"),
+            "mesh.glb": ("mesh.glb", "model/gltf-binary"),
+            "game_manifest.json": ("game_manifest.json", "application/json"),
+        }
+        if artifact not in mapping:
+            raise fail(404, "файл не найден", "BM_NOT_FOUND")
+        fname, media_type = mapping[artifact]
+        target = (_bossblock_dir() / capture_id / fname).resolve()
+        if not target.is_relative_to(_bossblock_dir().resolve()) or not target.is_file():
+            raise fail(404, "файл ещё не готов", "BM_NOT_FOUND")
+        return Response(content=target.read_bytes(), media_type=media_type)
+
+    @app.post("/m/api/bossblock/capture")
+    async def m_bossblock_capture(request: Request, _=Depends(session)):
+        body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+        preset_id = str(body.get("preset") or "dnipro-center").strip()
+        preset = next((p for p in BOSSBLOCK_PRESETS if p["id"] == preset_id), BOSSBLOCK_PRESETS[0])
+        bbox = body.get("bbox") if isinstance(body.get("bbox"), list) and len(body["bbox"]) == 4 else preset["bbox"]
+        south, west, north, east = [float(x) for x in bbox]
+        title = str(body.get("title") or preset["title"])
+
+        def _run_capture() -> dict[str, Any]:
+            from bossblock import capture as bb_capture, common as bb_common, game_export, geo as bb_geo
+            out_dir = _bossblock_dir()
+            # Reuse existing completed capture if identical bbox already exists and force is not set
+            if not body.get("force"):
+                for existing in _bossblock_list():
+                    b = existing.get("bounds") or {}
+                    if (
+                        abs(float(b.get("south", 0)) - south) < 1e-4
+                        and abs(float(b.get("west", 0)) - west) < 1e-4
+                        and abs(float(b.get("north", 0)) - north) < 1e-4
+                        and abs(float(b.get("east", 0)) - east) < 1e-4
+                    ):
+                        return existing
+            client = bb_common.Client()
+            poly = bb_geo.corners((south, west, north, east))
+            opts = {
+                "include": ["streetview", "satellite", "osm", "terrain", "mesh"],
+                "step": 60,
+                "satellite_zoom": 18,
+                "terrain_zoom": 14,
+                "mesh_level": 19,
+            }
+            run = bb_capture.plan(client, poly, opts, lambda *a: None)
+            folder = bb_capture.create_folder(run, out_dir)
+            bb_capture.save_preview(run, folder)
+            bb_capture.download(run, folder, client, lambda *a: None)
+            game_export.build_game_showcase(folder, run, title_override=title)
+            return _bossblock_list()[0]
+
+        item = await asyncio.to_thread(_run_capture)
+        return {"ok": True, "capture": item}
+
+    @app.post("/m/api/bossblock/captures/{capture_id}/send-pult")
+    async def m_bossblock_send_pult(capture_id: str, _=Depends(session)):
+        if not re.match(r"^[A-Za-z0-9_.-]{3,80}$", capture_id):
+            raise fail(404, "захват не найден", "BM_NOT_FOUND")
+        folder = (_bossblock_dir() / capture_id).resolve()
+        if not folder.is_relative_to(_bossblock_dir().resolve()) or not folder.is_dir():
+            raise fail(404, "захват не найден", "BM_NOT_FOUND")
+        gm_path = folder / "game_manifest.json"
+        gm = json.loads(gm_path.read_text(encoding="utf-8")) if gm_path.is_file() else {}
+        files = []
+        for fn in ("bossblock_showcase.png", "satellite.png"):
+            fp = folder / fn
+            if fp.is_file():
+                files.append(fp)
+        dims = gm.get("dimensions_m") or {}
+        osm = gm.get("osm_stats") or {}
+        sv = gm.get("streetview_stats") or {}
+        ms = gm.get("mesh_stats") or {}
+        caption = (
+            f"🌍 {gm.get('title') or capture_id}\n"
+            f"• Размер блока: {dims.get('width_m', 0):.0f} × {dims.get('height_m', 0):.0f} м\n"
+            f"• OSM: зданий {osm.get('buildings', 0)}, дорог {osm.get('roads', 0)}\n"
+            f"• Street View: {sv.get('saved_photos', 0)} панорам\n"
+            f"• 3D Mesh (mesh.glb): {(ms.get('glb_bytes', 0) / 1024):.0f} КБ ({ms.get('nodes_saved', 0)} узлов)"
+        )
+
+        def _send_tg() -> list[int]:
+            from bcc.direct_gen.pult import load_target
+            alt_cfg = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) / "Bossman" / "telegram-companion" / "config.json"
+            token, chat_id, proxy = load_target(alt_cfg if alt_cfg.is_file() else None)
+            media_payload = []
+            mp_files = {}
+            for idx, fp in enumerate(files):
+                aname = f"photo{idx}"
+                mp_files[aname] = (fp.name, fp.read_bytes(), "image/png")
+                item: dict[str, Any] = {"type": "photo", "media": f"attach://{aname}"}
+                if idx == 0:
+                    item["caption"] = caption
+                media_payload.append(item)
+            with httpx.Client(timeout=60.0, proxy=proxy or None, trust_env=False) as client:
+                r = client.post(
+                    f"https://api.telegram.org/bot{token}/sendMediaGroup",
+                    data={"chat_id": str(chat_id), "media": json.dumps(media_payload, ensure_ascii=False)},
+                    files=mp_files,
+                )
+                body = r.json()
+                if not isinstance(body, dict) or not body.get("ok"):
+                    raise RuntimeError(f"Telegram error: {body}")
+                return [int(m["message_id"]) for m in body.get("result", []) if "message_id" in m]
+
+        msg_ids = await asyncio.to_thread(_send_tg)
+        return {"ok": True, "message_ids": msg_ids}
 
     @app.websocket("/m/api/agent/sessions/{session_id}/stream")
     async def m_agent_ws(ws: WebSocket, session_id: str):

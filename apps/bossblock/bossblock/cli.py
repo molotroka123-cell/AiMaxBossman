@@ -1,0 +1,201 @@
+"""Command-line arguments, grouped by command and scope."""
+
+import argparse
+import os
+from pathlib import Path
+
+from . import capture, places
+from .common import DEFAULT_CACHE, WORKERS, RequestError
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise RequestError("invalid_arguments", message)
+
+
+def tile_coordinates(value):
+    try:
+        values = tuple(int(part) for part in value.split("/"))
+        if len(values) == 3:
+            return values
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError("use Z/X/Y, for example 19/280337/194891")
+
+
+def parser():
+    root = Parser(prog="alephgeo", description="Download chunks of the earth with 'capture', get specific data with 'streetview' and 'satellite', search for places with 'resolve'.")
+    commands = root.add_subparsers(dest="command", required=True)
+    _resolve_command(commands)
+    _streetview_command(commands)
+    _satellite_command(commands)
+    _capture_command(commands)
+    _dashboard_command(commands)
+    return root
+
+
+def _json_option(command):
+    command.add_argument("--json", action="store_true", help="one JSON result on stdout; progress on stderr")
+
+
+def _output_options(command):
+    command.add_argument("-o", "--output", type=Path, default=Path("."), help="parent output directory")
+    _json_option(command)
+
+
+def _cache_options(command):
+    command.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE, help="data cache directory (default: %(default)s)")
+    command.add_argument("--refresh", action="store_true", help="refresh responses and Geofabrik regional files")
+
+
+def _network_options(command):
+    command.add_argument("--geocoder", default=os.environ.get("ALEPH_GEOCODER_URL", places.GEOCODER), metavar="URL", help="Photon server URL (or ALEPH_GEOCODER_URL)")
+    command.add_argument("--delay", type=float, default=0, help="pause between requests in seconds (default: 0)")
+    _cache_options(command)
+
+
+def _workers_option(command, flag, requests):
+    command.add_argument(flag, type=int, metavar="N", help=f"{requests}, 1–64 (default: {WORKERS}); --delay makes them sequential")
+
+
+def _sphere_options(command):
+    command.add_argument("--full-sphere", action="store_true", help="save one full 360° panorama per stop; camera direction and fov do not apply")
+    command.add_argument("--sphere-zoom", type=int, choices=range(6), default=3,
+                         help="panorama resolution level, 0–5 (default: 3); capped at the highest available")
+
+
+def _locations(command):
+    group = command.add_mutually_exclusive_group(required=True)
+    group.add_argument("--at", nargs=2, type=float, metavar=("LAT", "LON"), help="coordinates")
+    group.add_argument("--place", help="place name, including city or country")
+
+    selection = command.add_mutually_exclusive_group()
+    selection.add_argument("--match", metavar="TYPE/ID", help="choose an OSM ID returned for an ambiguous name")
+    selection.add_argument("--best-match", action="store_true", help="automatically select the geocoder's highest-ranked place")
+    return group
+
+
+def _resolve_command(commands):
+    resolve = commands.add_parser("resolve", help="Find places, reverse geocode, or list nearby POIs")
+    source = resolve.add_mutually_exclusive_group(required=True)
+    source.add_argument("query", nargs="?", help="place name, including city or country")
+    source.add_argument("--at", nargs=2, type=float, metavar=("LAT", "LON"))
+
+    # Search filters and result limits.
+    resolve.add_argument("--streets", action="store_true", help="restrict a name search to streets")
+    resolve.add_argument("--nearby", action="store_true", help="list nearby POIs instead of reverse geocoding")
+    resolve.add_argument("--radius", type=float, help="nearby POI radius in meters (default: 100; max: 5000)")
+    resolve.add_argument("--limit", type=int, default=10, help="maximum results (default: 10; max: 50)")
+
+    _network_options(resolve)
+    _json_option(resolve)
+
+
+def _streetview_command(commands):
+    street = commands.add_parser("streetview", help="Get one view or an ordered street sequence")
+    source = _locations(street)
+    source.add_argument("--pano-id", help="exact panorama ID")
+    source.add_argument("--street", help="named street to follow from end to end")
+
+    # Single-view search and orientation.
+    street.add_argument("--radius", type=float, help="maximum panorama search distance in meters (default: 50)")
+    angle = street.add_mutually_exclusive_group()
+    angle.add_argument("--heading", type=float, help="single-view heading clockwise from north, any finite float32 degrees (default: 0)")
+    angle.add_argument("--look-at", nargs=2, type=float, metavar=("LAT", "LON"), help="turn a single view toward this point")
+
+    # Street route, sampling, and orientation.
+    street.add_argument("--route", type=int, help="capture only this numbered street section (default: all sections)")
+    street.add_argument("--reverse", action="store_true", help="reverse traversal within each street section")
+    sampling = street.add_mutually_exclusive_group()
+    sampling.add_argument("--stops", type=int, help="total number of positions across the selected street sections")
+    sampling.add_argument("--step", type=float, help="target spacing between street positions in meters")
+    street.add_argument("--view", choices=("forward", "backward", "left", "right", "both"), help="street orientation; both saves left and right (default: forward)")
+
+    # Camera settings shared by single views and street sequences.
+    street.add_argument("--pitch", type=float, default=0, help="vertical angle, positive up and negative down; any finite float32 degrees (default: 0)")
+    street.add_argument("--fov", type=int, default=75, help="horizontal field of view, 5–175 whole degrees (default: 75)")
+    _sphere_options(street)
+
+    _network_options(street)
+    _workers_option(street, "--workers", "parallel coverage and sphere tile requests")
+    street.add_argument("--streetview-format", choices=("jpg", "png"), default="jpg")
+    _output_options(street)
+
+
+def _satellite_command(commands):
+    satellite = commands.add_parser("satellite", help="Get a satellite patch or an exact tile")
+    source = _locations(satellite)
+    source.add_argument("--bbox", nargs=4, type=float, metavar=("S", "W", "N", "E"))
+    source.add_argument("--tile", type=tile_coordinates, metavar="Z/X/Y")
+
+    # Image coverage and resolution.
+    satellite.add_argument("--size", type=float, help="square width in meters around a point (default: 200)")
+    satellite.add_argument("--zoom", type=int, help="satellite zoom, 1–21 (default: 19)")
+
+    _network_options(satellite)
+    _workers_option(satellite, "--workers", "parallel tile requests")
+    satellite.add_argument("--tile-format", dest="satellite_format", choices=("jpg", "png"), default="jpg", help="saved tile format; merged PNG and COG are always produced (default: jpg)")
+    _output_options(satellite)
+
+
+def _capture_command(commands):
+    captures = commands.add_parser("capture", help="Create, resume, or export an area capture")
+    actions = captures.add_subparsers(dest="action", required=True)
+    area = actions.add_parser("create", help="Plan and download an area with multiple sources")
+    shape = area.add_mutually_exclusive_group(required=True)
+    shape.add_argument("--bbox", nargs=4, type=float, metavar=("S", "W", "N", "E"))
+    shape.add_argument("--polygon", nargs="+", type=float, metavar="LAT LON", help="polygon corners in order, at least three")
+    area.add_argument("--sources", dest="include", nargs="+", choices=capture.SOURCES, help="sources to download (default: streetview satellite osm terrain)")
+
+    # Planning and confirmation.
+    planning = area.add_mutually_exclusive_group()
+    planning.add_argument("--plan", action="store_true", help="save a plan without downloading imagery")
+    yes_help = "start without the confirmation prompt"
+    planning.add_argument("--yes", action="store_true", help=yes_help)
+
+    # Street View coverage, camera, and photo format.
+    area.add_argument("--depth", choices=("main", "roads", "all"), help="road/path selection (default: roads)")
+    area.add_argument("--step", type=float, help="target Street View spacing in meters (default: 30)")
+    area.add_argument("--fov", type=int, help="horizontal field of view, 5–175 whole degrees (default: 75)")
+    area.add_argument("--streetview-format", choices=("jpg", "png"), help="Street View photo format (default: jpg)")
+    _sphere_options(area)
+
+    # Satellite imagery.
+    area.add_argument("--satellite-zoom", type=int, help="satellite zoom, 1–21 (default: 18)")
+    area.add_argument("--tile-format", dest="satellite_format", choices=("jpg", "png"), help="saved satellite tile format; merged PNG and COG are always produced (default: jpg)")
+
+    # Terrain resolution.
+    area.add_argument("--terrain-zoom", type=int, help="terrain zoom, 1–14 (default: 14)")
+
+    # Google Earth 3D mesh detail.
+    area.add_argument("--mesh-level", type=int, help="3D mesh detail level, 1–22 (default: 21); each level halves the texel size")
+
+    # Requests, cache, and output shared by all capture sources.
+    area.add_argument("--delay", type=float, help="pause between requests in seconds (default: 0)")
+    _workers_option(area, "--streetview-workers", "parallel Street View coverage and sphere tile requests")
+    _workers_option(area, "--satellite-workers", "parallel satellite tile requests")
+    _workers_option(area, "--terrain-workers", "parallel terrain tile requests")
+    _workers_option(area, "--mesh-workers", "parallel 3D mesh requests")
+    _cache_options(area)
+    _output_options(area)
+    area.set_defaults(**capture.DEFAULT_OPTIONS)
+
+    resume_help = "Continue a saved or planned run"
+    resume = actions.add_parser("resume", help=resume_help, description=resume_help)
+    resume.add_argument("folder", type=Path, help="timestamped run directory containing manifest.json")
+    resume.add_argument("--yes", action="store_true", help=yes_help)
+    _cache_options(resume)
+    _json_option(resume)
+
+    export_help = "Rebuild images and metadata from saved files, offline"
+    export = actions.add_parser("export", help=export_help, description=export_help)
+    export.add_argument("folder", type=Path, help="timestamped run directory containing manifest.json")
+    _json_option(export)
+
+
+def _dashboard_command(commands):
+    dashboard = commands.add_parser("dashboard", help="Draw, capture, and explore areas in the browser")
+    dashboard.add_argument("-o", "--output", type=Path, default=Path("."), help="folder holding captures (default: current directory)")
+    dashboard.add_argument("--port", type=int, default=8100, help="local port (default: %(default)s)")
+    dashboard.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
+    _cache_options(dashboard)

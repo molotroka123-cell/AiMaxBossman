@@ -62,6 +62,7 @@
 | 2026-10-30 | [2026-10-30-full-project-audit-and-ux](2026-10-30-full-project-audit-and-ux/) | Полный аудит проекта на 30.10.2026, интеграция Freefield Studio Apps (`app.json`), живые UX-скриншоты и отправка в пульт | `PASS` |
 | 2026-10-31 | [2026-10-31-security-autofull-long-horizon](2026-10-31-security-autofull-long-horizon/) | Закрытие 4 дыр безопасности (`1a–1d`), режим «Авто полный» с карточкой владельца, автостарт с `main`, сверка 4-ходового диалога Outrun, Long-Horizon `lh-20261031-autofull-v2` с памятью и отчётом 3/3 | `PASS` |
 | 2026-10-31 | [2026-10-31-main-bugfix-pass](2026-10-31-main-bugfix-pass/) | Закрытие багов `main` по ТЗ `B1–B4` без новых функций (`D-036` `ungrounded_screen_claim` 32/32 holdout, `owner_one_bossman.py find/status` для `uvicorn`/`:8801`/`:8840`, очистка устаревших моделей и `waiting_approval` в `bcc.db`) | `PASS` |
+| 2026-10-31 | [2026-10-31-bossblock-dnipro-gamedev](2026-10-31-bossblock-dnipro-gamedev/) | Интеграция BossBlock (`apps/bossblock`, Aleph Game-Dev 5-Layer World Capture) в `main` и мобильный пульт `:8840` + реальный захват центра г. Днепр, Украина (`mesh.glb`, `satellite.tif`, `osm_buildings_roads.geojson`, `terrain.tif`, `52` фото Street View) | `PASS` |
 | — | [astra-7b1377a](astra-7b1377a/) | Astra forensic audit | в JSON нет поля verdict — см. отчёт |
 
 ## Отдельные файлы

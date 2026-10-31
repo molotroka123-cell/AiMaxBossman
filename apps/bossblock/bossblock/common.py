@@ -1,0 +1,311 @@
+"""Small shared pieces: paced HTTP, progress, and atomic writes."""
+
+import hashlib
+import json
+import math
+import os
+import shutil
+import ssl
+import sys
+import tempfile
+import threading
+import time
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from functools import cached_property
+from io import BytesIO
+from pathlib import Path
+from urllib.error import HTTPError
+from urllib.parse import urlencode, urlsplit
+from urllib.request import Request, urlopen
+
+import truststore
+from PIL import Image
+
+DEFAULT_CACHE = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "aleph"
+APP_AGENT = "Aleph/0.1"
+WORKERS = 8
+BROWSER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15"
+
+
+class MissingImagery(Exception):
+    pass
+
+
+class RequestError(Exception):
+    """An operation failed with a code and optional details."""
+
+    def __init__(self, code, message, **details):
+        super().__init__(message)
+        self.code = code
+        self.details = details
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def url(base, **params):
+    return base + "?" + urlencode(params)
+
+
+def number(value, name, low=-math.inf, high=math.inf, *, whole=False):
+    """Check a number from JSON or the command line; whole numbers come back as int."""
+    if (type(value) not in (int, float) or not math.isfinite(value) or not low <= value <= high
+            or (whole and value != int(value))):
+        kind = "a whole number" if whole else "a number"
+        if math.isfinite(high):
+            kind += f" from {low:g} to {high:g}"
+        elif math.isfinite(low):
+            kind += f" of at least {low:g}"
+        raise ValueError(f"{name}: use {kind}.")
+    return int(value) if whole else value
+
+
+def positive(value, name):
+    if number(value, name) <= 0:
+        raise ValueError(f"{name}: use a positive number.")
+    return value
+
+
+def open_image(data, size):
+    """Decode a provider JPEG or PNG, rejecting anything of an unexpected size."""
+    image = Image.open(BytesIO(data))
+    try:
+        if image.format not in ("JPEG", "PNG") or image.size != size:
+            raise ValueError(f"Expected a JPEG or PNG image of {size[0]} × {size[1]} pixels.")
+        image.load()
+        return image
+    except BaseException:
+        image.close()
+        raise
+
+
+def save_image(image, path, quality):
+    """Save atomically, choosing PNG or JPEG from the file extension."""
+    with atomic_path(path) as temporary:
+        image.save(temporary, format="PNG" if Path(path).suffix == ".png" else "JPEG", quality=quality)
+
+
+def contained(parent, name):
+    """Resolve a relative filename without allowing it to escape its directory."""
+    if (not isinstance(name, str) or not name or "\\" in name or "\0" in name
+            or Path(name).is_absolute() or ".." in Path(name).parts):
+        raise FileNotFoundError("File not found.")
+    parent = Path(parent).resolve()
+    path = (parent / name).resolve()
+    if not path.is_relative_to(parent) or path == parent:
+        raise FileNotFoundError("File not found.")
+    return path
+
+
+class Client:
+    def __init__(self, delay=0, cancel=None, request_log=None, *, cache_dir=DEFAULT_CACHE, refresh=False):
+        self.delay = delay
+        self.cancel = cancel
+        self.request_log = request_log
+        self.finished = float("-inf")
+        self.cache_dir = Path(cache_dir).expanduser()
+        self.refresh = refresh
+
+    @cached_property
+    def maps(self):
+        from .osm import Source
+
+        return Source(self)
+
+    def check_cancel(self):
+        if self.cancel:
+            self.cancel()
+
+    def get(self, address, *, missing_ok=False, timeout=60, user_agent=BROWSER_AGENT,
+            destination=None, progress=None, check=None):
+        """Retry failed requests; check raises ValueError on a malformed response to retry it too."""
+        for attempt in range(4):
+            backoff = 2 ** (attempt - 1) if attempt else 0
+            until = time.monotonic() + max(backoff, self.delay - (time.monotonic() - self.finished))
+            self.check_cancel()
+            while (remaining := until - time.monotonic()) > 0:
+                time.sleep(min(remaining, 0.2) if self.cancel else remaining)
+                self.check_cancel()
+            if self.request_log:
+                self.request_log("GET", address, attempt)
+            try:
+                # Trust the OS certificate store: python.org builds for macOS ship with none of their own.
+                # One context per request: truststore locks a context for the whole handshake.
+                with urlopen(Request(address, headers={"User-Agent": user_agent}), timeout=timeout,
+                             context=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)) as response:
+                    if destination is None:
+                        result = response.read()
+                    else:
+                        expected = int(response.headers.get("Content-Length", 0))
+                        downloaded = 0
+                        with atomic_path(destination) as temporary, temporary.open("wb") as stream:
+                            while chunk := response.read(1024 * 1024):
+                                self.check_cancel()
+                                stream.write(chunk)
+                                downloaded += len(chunk)
+                                if progress:
+                                    progress(downloaded, expected or None)
+                            if expected and downloaded != expected:
+                                raise OSError("Incomplete download; retrying.")
+                            self.check_cancel()
+                        result = Path(destination)
+                if check:
+                    check(result)
+                self.check_cancel()
+                return result
+            except MissingImagery:
+                raise
+            except Exception as error:
+                if self.request_log:
+                    self.request_log("GET", address, attempt, error)
+                if isinstance(error, HTTPError):
+                    error.close()
+                    if missing_ok and error.code == 404:
+                        raise MissingImagery("The requested image is not available.") from error
+                if attempt < 3:
+                    continue
+                if isinstance(error, HTTPError):
+                    raise OSError(f"{urlsplit(address).hostname}: HTTP {error.code}. Resume to retry.") from error
+                raise
+            finally:
+                self.finished = time.monotonic()
+
+
+class CachedClient(Client):
+    """Cache successful quick-query responses for one week."""
+
+    hits = misses = 0
+    lock = threading.Lock()
+
+    def get(self, address, **kwargs):
+        if kwargs.get("destination") is not None:
+            return super().get(address, **kwargs)
+        key = hashlib.sha256(address.encode()).hexdigest()
+        path = self.cache_dir / key
+        if not self.refresh and path.is_file() and time.time() - path.stat().st_mtime < 7 * 24 * 60 * 60:
+            with self.lock:
+                self.hits += 1
+            return path.read_bytes()
+        result = super().get(address, **kwargs)
+        write_bytes(path, result)
+        with self.lock:
+            self.misses += 1
+        return result
+
+
+def fetch(client, addresses, workers, *, missing_ok=False, check=None):
+    """Yield responses in order with up to workers requests in flight; with missing_ok, None marks missing data."""
+    def get(address):
+        try:
+            return client.get(address, missing_ok=missing_ok, check=check)
+        except MissingImagery:
+            return None
+
+    # Keep requests sequential when the user asks for pauses between them.
+    if client.delay or workers == 1:
+        yield from map(get, addresses)
+        return
+    pending = deque()
+    with ThreadPoolExecutor(workers) as pool:
+        try:
+            for address in addresses:
+                pending.append(pool.submit(get, address))
+                if len(pending) > 2 * workers:
+                    yield pending.popleft().result()
+            while pending:
+                yield pending.popleft().result()
+        finally:
+            for future in pending:
+                future.cancel()
+
+
+class Progress:
+    def __init__(self):
+        self.stream = sys.stderr
+        self.terminal = self.stream.isatty()
+        self.phase = None
+        self.printed = float("-inf")
+        self.line = ""
+        self.width = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def close(self):
+        if self.line:
+            print("" if self.terminal else self.line, file=self.stream, flush=True)
+            self.line = ""
+            self.width = 0
+
+    def __call__(self, phase, done=0, total=None, unit=None):
+        current = time.monotonic()
+        if self.phase != phase:
+            if not self.terminal:
+                self.close()
+            self.phase, self.started, self.initial = phase, current, done
+            self.printed = float("-inf")
+        if self.terminal and current - self.printed < 0.1 and done != total:
+            return
+
+        eta = "--:--"
+        fraction = 0
+        steps = f"{done:,}/?" if total is None else f"{done:,}/{total:,}"
+        if unit == "bytes":
+            target = "?" if total is None else f"{total / 1_000_000:.1f}"
+            steps = f"{done / 1_000_000:.1f} MB / {target} MB"
+        if total is not None:
+            fraction = min(1, done / total) if total else 1
+            if done >= total:
+                eta = "00:00"
+            elif done > self.initial:
+                seconds = math.ceil((current - self.started) / (done - self.initial) * (total - done))
+                minutes, seconds = divmod(seconds, 60)
+                hours, minutes = divmod(minutes, 60)
+                eta = f"{hours}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes:02d}:{seconds:02d}"
+
+        percent = f"{math.floor(fraction * 100)}%" if total is not None else "—%"
+        prefix = f"{phase} ["
+        suffix = f"] {percent}  {steps}" + ("" if unit == "bytes" else f"  - {eta}")
+        columns = shutil.get_terminal_size().columns - 1
+        width = min(24, max(1, columns - len(prefix) - len(suffix)))
+        full, part = divmod(int(fraction * width * 8), 8)
+        bar = ("█" * full + (" ▏▎▍▌▋▊▉"[part] if part else "")).ljust(width)
+        self.line = prefix + bar + suffix
+        if self.terminal:
+            self.line = self.line[:columns]
+            print("\r" + self.line.ljust(min(self.width, columns)), end="", file=self.stream, flush=True)
+            self.width = len(self.line)
+        self.printed = current
+
+
+@contextmanager
+def atomic_path(path):
+    """Leave the previous file intact if writing or replacement fails."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=f".{path.name}-", dir=path.parent)
+    os.close(fd)
+    temporary = Path(name)
+    try:
+        yield temporary
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def write_bytes(path, data):
+    with atomic_path(path) as temporary:
+        temporary.write_bytes(data)
+
+
+def write_json(path, data):
+    with atomic_path(path) as temporary, temporary.open("w", encoding="utf-8") as stream:
+        json.dump(data, stream, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        stream.write("\n")

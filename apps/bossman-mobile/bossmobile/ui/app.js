@@ -2621,6 +2621,75 @@
       } catch (err) { failed(stopCard, err); }
     };
     renderStopCard();
+    const bossblockSlot = slot('BossBlock — 3D Мир для Игр (Aleph)', 'bossblock');
+    const renderBossblockCard = async () => {
+      try {
+        const bb = await api('GET', '/bossblock/status');
+        const caps = bb.captures || [];
+        const rows = [
+          kv('Движок', bb.engine || 'bossblock-aleph-0.2.0'),
+          kv('3D Dashboard', bb.dashboard_url || 'http://127.0.0.1:8845'),
+          kv('Сохранено блоков мира', bb.total || 0),
+        ];
+        const actRow = el('div', 'row');
+        actRow.appendChild(btn('🇺🇦 Днепр · Центр (5 слоёв)', 'primary', async (b) => {
+          b.disabled = true;
+          try {
+            toast('Захват центра Днепра (Спутник + OSM + Рельеф + 3D Mesh + Street View)…');
+            await api('POST', '/bossblock/capture', { preset: 'dnipro-center' });
+            toast('Блок мира «Днепр · Центр» готов!');
+            renderBossblockCard();
+          } catch (err) { b.disabled = false; toast('Ошибка захвата: ' + err.message); }
+        }));
+        rows.push(actRow);
+        if (caps.length) {
+          const latest = caps[0];
+          const dims = latest.dimensions_m || {};
+          const osm = latest.osm_stats || {};
+          const sv = latest.streetview_stats || {};
+          const ms = latest.mesh_stats || {};
+          const tr = latest.terrain_stats || {};
+          rows.push(
+            kv('Последний захват', latest.title || latest.id),
+            kv('Размеры и площадь', `${Math.round(dims.width_m || 0)} × ${Math.round(dims.height_m || 0)} м (${((dims.area_m2 || 0) / 10000).toFixed(2)} га)`),
+            kv('OSM (здания / дороги)', `${osm.buildings || 0} зданий · ${osm.roads || 0} дорог`),
+            kv('Рельеф и 3D-меш (.glb)', `${tr.min_elevation_m || 0}..${tr.max_elevation_m || 0} м · mesh.glb: ${Math.round((ms.glb_bytes || 0) / 1024)} КБ (${ms.nodes_saved || 0} узлов)`),
+            kv('Уличные панорамы', `${sv.saved_photos || 0} фото`),
+          );
+          if (latest.showcase_url) {
+            const imgWrap = el('div', 'bossblock-preview-wrap');
+            imgWrap.style.marginTop = '8px';
+            const img = el('img', '');
+            img.src = latest.showcase_url + '?t=' + Date.now();
+            img.alt = latest.title || 'BossBlock Showcase';
+            img.style.width = '100%';
+            img.style.borderRadius = '10px';
+            img.style.border = '1px solid rgba(56,189,248,0.35)';
+            imgWrap.appendChild(img);
+            rows.push(imgWrap);
+          }
+          const dlRow = el('div', 'row');
+          dlRow.style.marginTop = '8px';
+          dlRow.appendChild(btn('📤 Отправить в пульт', 'primary', async (b) => {
+            b.disabled = true;
+            try {
+              await api('POST', `/bossblock/captures/${encodeURIComponent(latest.id)}/send-pult`, {});
+              toast('Отправлено в Telegram-пульт!');
+            } catch (err) { toast('Ошибка отправки: ' + err.message); }
+            finally { b.disabled = false; }
+          }));
+          if (latest.glb_url) {
+            const aGlb = el('a', 'btn small', '📦 Скачать mesh.glb');
+            aGlb.href = latest.glb_url;
+            aGlb.download = `${latest.id}_mesh.glb`;
+            dlRow.appendChild(aGlb);
+          }
+          rows.push(dlRow);
+        }
+        fill(bossblockSlot, rows);
+      } catch (err) { failed(bossblockSlot, err); }
+    };
+    renderBossblockCard();
     const studio = slot('Studio — заказы', 'studio');
     const renderStudioCard = () => {
       api('GET', '/studio/orders').then((r) => {

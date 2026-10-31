@@ -1,0 +1,143 @@
+"""Join named OSM ways into ordered, unbranched street routes."""
+
+import math
+from collections import defaultdict
+from itertools import pairwise
+
+from . import streetview
+from .common import RequestError
+from .geo import Line, RoadIndex, distance
+
+
+def chains(ways):
+    """Split at real OSM junctions; never join roads merely because they cross."""
+    points, edges, neighbors = {}, {}, defaultdict(set)
+    for way in sorted(ways, key=lambda item: item["id"]):
+        nodes = way["nodes"]
+        points.update(zip(nodes, way["points"]))
+        for a, b in pairwise(nodes):
+            if a == b or distance(points[a], points[b]) < 0.01:
+                continue
+            edge = tuple(sorted((a, b)))
+            edges.setdefault(edge, set()).add(way["id"])
+            neighbors[a].add(b)
+            neighbors[b].add(a)
+    remaining = set(edges)
+    routes = []
+
+    def walk(start, following):
+        nodes, ids = [start], set()
+        previous, current = start, following
+        while True:
+            edge = tuple(sorted((previous, current)))
+            if edge not in remaining:
+                break
+            remaining.remove(edge)
+            ids.update(edges[edge])
+            nodes.append(current)
+            if current == start or len(neighbors[current]) != 2:
+                break
+            following = next(node for node in neighbors[current] if node != previous)
+            previous, current = current, following
+        coordinates = [points[node] for node in nodes]
+        if coordinates[-1] < coordinates[0]:
+            coordinates.reverse()
+        routes.append(dict(points=coordinates, way_ids=sorted(ids), length_m=Line(coordinates).length))
+
+    for start in sorted(neighbors, key=lambda node: (points[node], node)):
+        if len(neighbors[start]) != 2:
+            for following in sorted(neighbors[start]):
+                if tuple(sorted((start, following))) in remaining:
+                    walk(start, following)
+    while remaining:  # Closed loops have no endpoints.
+        a, b = min(remaining, key=lambda edge: (points[edge[0]], points[edge[1]]))
+        walk(a, b)
+    routes.sort(key=lambda route: (route["points"][0], route["points"][-1], route["way_ids"]))
+    return routes
+
+
+def allocate_stops(sections, stops):
+    """Divide a total stop count by section length, rounding largest remainders up."""
+    lengths = [Line(section["points"]).length for section in sections]
+    total = sum(lengths)
+    quotas = [stops * length / total for length in lengths]
+    counts = [math.floor(quota) for quota in quotas]
+    order = sorted(range(len(sections)), key=lambda i: quotas[i] - counts[i], reverse=True)
+    for index in order[:stops - sum(counts)]:
+        counts[index] += 1
+    return counts
+
+
+def sampling(route, *, step=None, stops=None):
+    """Normalize a sampling request to meter spacing and target distances."""
+    line = Line(route["points"])
+    closed = line.points[0] == line.points[-1]
+    if stops == 1:
+        return line.length, [line.length / 2]
+    if stops is not None:
+        intervals = stops if closed else stops - 1
+    else:
+        # Fit complete intervals without exceeding the requested step.
+        intervals = max(1, math.ceil(line.length / step))
+    step = line.length / intervals
+    targets = [(i + 0.5) * step for i in range(intervals)] if closed else [
+        i * step for i in range(intervals)] + [line.length]
+    return step, targets
+
+
+def resolve(client, place, *, route=None, reverse=False, progress=lambda *args: None):
+    """Return every section by default, or one explicitly selected section."""
+    if not place["id"].startswith("way/"):
+        raise RequestError("place_not_found", "Choose a street represented by an OSM way.")
+    name, ways = client.maps.street(place, progress)
+    ways = [way for way in ways if way["tags"].get("area") != "yes"
+            and not streetview.EXCLUDED.fullmatch(way["tags"]["highway"])]
+    options = chains(ways)
+    if not options:
+        raise RequestError("place_not_found", "No usable street geometry was found.")
+    if route is not None and not 1 <= route <= len(options):
+        raise ValueError(f"--route must be from 1 to {len(options)}.")
+    selected = []
+    for index, section in enumerate(options, 1):
+        if route is not None and index != route:
+            continue
+        points = section["points"]
+        if reverse:
+            points.reverse()
+        section.update(route=index, start=list(points[0]), end=list(points[-1]),
+                       length_m=round(section["length_m"], 2), closed=points[0] == points[-1],
+                       name=name, scope="connected_same_name_ways")
+        selected.append(section)
+    return selected
+
+
+def match_views(views, route, context, step, targets):
+    """Keep distinct panoramas on the selected street, in target-distance order."""
+    line = Line(route["points"])
+    lines = [Line(part["points"]) for part in context]
+    index = RoadIndex(lines)
+    candidates = []
+    for view in views:
+        location = (view["lat"], view["lon"])
+        road = streetview.match_road(context, lines, index, location, step)
+        if road is None or context[road["path_index"]]["osm_id"] not in route["way_ids"]:
+            continue
+        meters, separation = line.project(location)
+        if separation <= 30:
+            candidates.append(dict(view, path_meters=meters, road_distance=separation,
+                                   heading=line.heading(meters, step)))
+    unique = streetview.distinct(candidates)
+    selected, gaps, used = [], [], set()
+    for stop, target in enumerate(targets, 1):
+        eligible = [view for view in unique if view["pano_id"] not in used
+                    and abs(view["path_meters"] - target) <= step / 2 + 0.01]
+        if eligible:
+            chosen = min(eligible, key=lambda view: (abs(view["path_meters"] - target),
+                                                    view["road_distance"], view["pano_id"]))
+            used.add(chosen["pano_id"])
+            selected.append(dict(chosen, stop=stop, target_meters=target,
+                                 requested_location=list(line.at(target))))
+        else:
+            gaps.append(dict(stop=stop, target_meters=target, reason="no_coverage"))
+    selected.sort(key=lambda view: view["path_meters"])
+    return selected, gaps

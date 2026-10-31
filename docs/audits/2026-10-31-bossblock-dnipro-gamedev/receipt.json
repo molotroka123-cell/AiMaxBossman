@@ -1,0 +1,41 @@
+{
+  "audit_id": "2026-10-31-bossblock-dnipro-gamedev",
+  "date": "2026-10-31T14:52:00Z",
+  "author": "Argon",
+  "scope": "BossBlock (Aleph Game-Dev 5-Layer World Capture) integration into main + Mobile Pult (:8840) + live capture of Dnipro City Center, Ukraine",
+  "capture": {
+    "id": "aleph-20261031T143945Z-eft_2jpx",
+    "folder": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\bossblock-captures\\aleph-20261031T143945Z-eft_2jpx",
+    "location": "Dnipro City Center, Ukraine (European Square, TsUM, Passage, Dmytro Yavornytskyi Ave, Centralna St)",
+    "bounds_sw_ne": [48.4638, 35.0448, 48.4658, 35.0480],
+    "center": {"lat": 48.4648, "lon": 35.0464},
+    "dimensions_m": {"width": 235.9, "height": 222.4, "area_m2": 52470.7},
+    "layers": {
+      "streetview": {"done": 52, "total": 52, "stops": 26, "step_m": 60},
+      "satellite": {"done": 16, "total": 16, "zoom": 18, "resolution_m_per_px": 0.4, "files": ["satellite.png", "satellite.tif"]},
+      "osm": {"done": 1, "total": 1, "buildings": 67, "roads": 96, "land_water": 23, "files": ["map.osm", "osm_buildings_roads.geojson"]},
+      "terrain": {"done": 2, "total": 2, "zoom": 14, "elevation_min_m": 57.6, "elevation_max_m": 105.4, "relief_m": 47.8, "files": ["terrain.tif"]},
+      "mesh": {"done": 40, "total": 40, "level": 19, "bytes": 187716, "files": ["mesh.glb"]}
+    },
+    "game_exports": [
+      "game_manifest.json",
+      "osm_buildings_roads.geojson",
+      "bossblock_showcase.png",
+      "mesh.glb",
+      "satellite.png",
+      "satellite.tif",
+      "terrain.tif",
+      "map.osm"
+    ]
+  },
+  "verifications": {
+    "pytest_bossblock": {"passed": 3, "failed": 0, "file": "tests/test_bossblock.py"},
+    "telegram_pult_album_message_ids": [4042, 4043, 4044, 4045],
+    "screenshots": [
+      "docs/media/bossblock-2026-10-31/01_bossblock_dnipro_showcase.png",
+      "docs/media/bossblock-2026-10-31/02_bossblock_dashboard_dnipro_map_8845.png",
+      "docs/media/bossblock-2026-10-31/03_bossblock_dashboard_dnipro_3d_mesh_8845.png",
+      "docs/media/bossblock-2026-10-31/04_mobile_pult_bossblock_card_8840.png"
+    ]
+  }
+}
