@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,10 +53,14 @@ REQ_ID = r"^[A-Za-z0-9._:-]+$"
 STREAM_KINDS = {"stream.open", "stream.replayed", "stream.lagged", "run.answer_delta", "run.answer_reset",
                 "run.token_delta", "run.assistant_message", "run.tool_use", "run.tool_result", "approval.created", "approval.decided",
                 "task.started", "task.progress", "task.completed", "task.failed", "task.stopped", "task.blocked",
-                "task.paused", "task.queued", "tool.denied"}
+                "task.paused", "task.queued", "tool.denied",
+                # owner 31.10 «процесс, что он делает, live»: model steps, reasoning, text beside tool calls, and the
+                # privacy notice (the cloud model did not get the chat) — cloud runs emit them too
+                "run.usage", "run.reasoning_delta", "run.assistant_delta", "run.notice"}
 STREAM_FIELDS = {"kind", "seq", "ts", "task_id", "run_id", "step", "attempt", "idx", "text", "chars", "streamed",
                  "delta", "token", "model", "call_id", "tool", "source", "args", "ok", "summary", "preview", "truncated", "duration_ms",
-                 "id", "approval_kind", "approve", "status", "error", "reason", "cursor", "after"}
+                 "id", "approval_kind", "approve", "status", "error", "reason", "cursor", "after",
+                 "step_tokens_in", "step_tokens_out", "context_window", "notice", "reason_code", "rules"}
 TERMINAL = {"completed", "failed", "stopped", "blocked", "cancelled"}
 
 PRIVACY_BLACKLIST = (
@@ -96,6 +100,23 @@ class SendIn(BaseModel):
     agent_id: int | None = None
     client_request_id: str | None = Field(default=None, min_length=8, max_length=128, pattern=REQ_ID)
     attachments: list[str] = Field(default_factory=list, max_length=CHAT_ATTACH_MAX_FILES)
+
+
+class QueueIn(BaseModel):
+    """Next prompt typed while the chat answers (owner 31.10): waits in the thread queue, goes right after."""
+    text: str = Field(min_length=1, max_length=20000)
+    agent_id: int | None = None
+
+
+class SteerIn(BaseModel):
+    """«Steer»: the owner's words go into the RUNNING task now; the model sees them at its next step."""
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class ImportContextIn(BaseModel):
+    """«Перенести контекст из…» (owner 31.10): which chat's /compact summary goes into this chat."""
+    source_thread_id: str = Field(min_length=1, max_length=64)
+    agent_id: int | None = None
 
 
 AGENT_MODES = ("CHAT", "AGENT", "AUTO", "CODE", "COMPUTER", "SELF-IMPROVE")
@@ -886,8 +907,51 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.post("/m/api/threads/{thread_id}/stop")
     async def stop(thread_id: str, _=Depends(session)):
-        workers.trigger_global_stop()
-        return await call("POST", f"/api/chat/threads/{_tid(thread_id)}/stop")
+        """STOP of THIS chat only (owner 31.10): Bossman stops the chat's newest unfinished task; worker devices drop that
+        task. «СТОП всё» is POST /m/api/stop — a chat's stop no longer flips the registry-wide STOP for every chat."""
+        res = await call("POST", f"/api/chat/threads/{_tid(thread_id)}/stop")
+        if isinstance(res, dict):
+            workers.stop_task(res.get("task_id"))
+        return res
+
+    @app.get("/m/api/threads/{thread_id}/queue")
+    async def thread_queue(thread_id: str, _=Depends(session)):
+        return await call("GET", f"/api/chat/threads/{_tid(thread_id)}/queue")
+
+    @app.post("/m/api/threads/{thread_id}/queue", status_code=201)
+    async def thread_enqueue(thread_id: str, body: QueueIn, _=Depends(session)):
+        """Same phone rule as Send: only agents allowed for mobile (a cloud one only after the owner's opt-in)."""
+        await mobile_agent_or_fail(body.agent_id, [])
+        return await call("POST", f"/api/chat/threads/{_tid(thread_id)}/queue",
+                          json={"text": body.text, "agent_id": body.agent_id})
+
+    @app.delete("/m/api/threads/{thread_id}/queue/{queue_id}")
+    async def thread_dequeue(thread_id: str, queue_id: str, _=Depends(session)):
+        if not re.fullmatch(r"[a-z0-9]{2,32}", queue_id):
+            raise fail(404, "в очереди такого сообщения нет", "BM_NOT_FOUND")
+        return await call("DELETE", f"/api/chat/threads/{_tid(thread_id)}/queue/{queue_id}")
+
+    @app.post("/m/api/threads/{thread_id}/steer", status_code=202)
+    async def thread_steer(thread_id: str, body: SteerIn, _=Depends(session)):
+        return await call("POST", f"/api/chat/threads/{_tid(thread_id)}/steer", json={"text": body.text})
+
+    @app.get("/m/api/tasks/{task_id}/queue")
+    async def task_queue(task_id: int, _=Depends(session)):
+        """Why a chat turn has not started yet: busy engine slots and the chats holding them (ids, titles, counts)."""
+        return await call("GET", f"/api/chat/tasks/{task_id}/queue")
+
+    @app.get("/m/api/compacted-threads")
+    async def compacted_threads(exclude: str | None = None, _=Depends(session)):
+        """Chats with a /compact summary — candidates for «Перенести контекст из…» (titles and sizes only)."""
+        params = {"exclude": _tid(exclude)} if exclude else None
+        return await call("GET", "/api/chat/compacted", params=params)
+
+    @app.post("/m/api/threads/{thread_id}/import-context", status_code=201)
+    async def import_context(thread_id: str, body: ImportContextIn, _=Depends(session)):
+        payload: dict[str, Any] = {"source_thread_id": _tid(body.source_thread_id)}
+        if body.agent_id is not None:
+            payload["agent_id"] = body.agent_id
+        return await call("POST", f"/api/chat/threads/{_tid(thread_id)}/import-context", json=payload)
 
     # -- long-press actions (owner 22.10): encrypted archive and delete forever. Bossman does the work; this is a proxy.
     @app.post("/m/api/threads/{thread_id}/archive-encrypted")
@@ -2007,8 +2071,11 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         return slash.palette_view(await call("GET", "/api/agent/palette", params=params))
 
     @app.get("/m/api/agent/sessions/{session_id}/context")
-    async def m_agent_session_context(session_id: str, _=Depends(session)):
-        return slash.context_view(await call("GET", f"/api/agent/sessions/{_tid(session_id)}/context"))
+    async def m_agent_session_context(session_id: str, agent_id: int | None = Query(default=None, ge=1),
+                                      _=Depends(session)):
+        """agent_id = the model picked for the NEXT turn (owner 31.10): the gauge counts the window of that model."""
+        params = {"agent_id": agent_id} if agent_id is not None else None
+        return slash.context_view(await call("GET", f"/api/agent/sessions/{_tid(session_id)}/context", params=params))
 
     @app.get("/m/api/agent/sessions/{session_id}/updates")
     async def m_agent_session_updates(session_id: str, _=Depends(session)):

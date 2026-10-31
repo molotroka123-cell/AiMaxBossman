@@ -519,20 +519,19 @@
   $('btn-model').addEventListener('click', () => {
     const list = $('model-list'); list.replaceChildren();
     if (!S.agents.length) list.appendChild(el('p', 'muted', 'Доступных агентов нет. Создайте агента на локальной модели в Панели.'));
-    if (S.threadId) list.appendChild(el('p', 'muted', 'Модель закреплена за этим чатом. Выбор другой модели откроет новый чат.'));
+    if (S.threadId) list.appendChild(el('p', 'muted', 'Смена модели в этом чате: следующее сообщение уйдёт новой модели, и она получит весь чат — сколько влезает в её окно; не влезет — предложу сжать.'));
     S.agents.forEach((a) => {
       const b = el('button', 'model-opt' + (a.id === S.agentId ? ' sel' : ''));
       const t = el('div', 'mtxt'); t.append(el('b', '', a.name), el('span', '', `${(a.model && (a.model.alias || a.model.name)) || '—'}${a.tools.length ? ' · инструменты: ' + a.tools.join(', ') : ''}`));
       b.append(el('span', 'dot'), t, el('span', a.cloud ? 'badge-cloud' : 'badge-local', a.cloud ? `облако · ${a.provider || '—'}` : 'локально'));
-      // Owner 29.10: no model switch in the middle of a chat (context gauge and cost stay tied to one model).
-      // Another model in an open chat = a NEW chat with that model; the current chat stays as it was.
+      // Owner 31.10 (replaces 29.10 «new chat per model»): switching the model INSIDE a chat is allowed — the next turn goes
+      // to the new model with the whole chat (as much as fits its window; Bossman says what did not fit and offers
+      // /compact). The context gauge follows the picked model.
       b.addEventListener('click', () => {
         tap();
-        if (a.id !== S.agentId && S.threadId) {
-          if (!window.confirm(`Модель закреплена за этим чатом. Начать новый чат с «${a.name}»?`)) return;
-          newChat();
-        }
+        const changed = a.id !== S.agentId;
         S.agentId = a.id; store.set('agent', a.id); renderModelChip(); closeModelSheet();
+        if (changed && S.threadId) { toast(`Дальше отвечает «${a.name}» — с контекстом всего чата`); refreshContext().catch(() => {}); }
       });
       list.appendChild(b);
     });
@@ -555,8 +554,12 @@
       const r = await api('GET', '/threads');
       const list = $('thread-list'); list.replaceChildren();
       (r.items || []).forEach((t) => {
-        const b = el('button', 'thread' + (t.id === S.threadId ? ' active' : ''));
-        b.append(el('b', '', t.title || 'Без названия'), el('span', '', `${(t.updated_at || '').replace('T', ' ').slice(0, 16)} · ${t.turns || 0} сообщ.`));
+        const run = t.last && t.last.running;
+        const b = el('button', 'thread' + (t.id === S.threadId ? ' active' : '') + (run ? ' running' : ''));
+        const sub = el('span', '', `${(t.updated_at || '').replace('T', ' ').slice(0, 16)} · ${t.turns || 0} сообщ.`);
+        if (run) sub.prepend(el('span', 'run-tag', `идёт · ${t.last.model || 'модель'} · `));
+        b.append(el('b', '', t.title || 'Без названия'), sub);
+        if (run) b.setAttribute('aria-label', `${t.title || 'Без названия'}: сейчас работает, модель ${t.last.model || 'неизвестна'}`);
         b.addEventListener('click', () => { drawer(false); openThread(t.id); });
         bindLongPress(b, () => openChatActions(t));
         list.appendChild(b);
@@ -565,7 +568,7 @@
       projDecorateThreads(list, r.items || []);       // project filter + tag (projects block below)
     } catch (err) { loadFailed($('thread-list'), err, loadThreads); }
   }
-  function newChat() { closeStream(); S.threadId = null; S.chatFiles = []; renderChatFiles(); store.set('thread', null); clearMessages(); ctxReset(); refreshCost(); drawer(false); $('input').focus(); }
+  function newChat() { closeStream(); busy(false); renderChatQueue([]); S.threadId = null; S.chatFiles = []; renderChatFiles(); store.set('thread', null); clearMessages(); ctxReset(); refreshCost(); drawer(false); $('input').focus(); }
   // new chat = project picker first (owner 31.10 «выбор проекта перед созданием чата»), then newChat()
   $('btn-new').addEventListener('click', () => { tap(); openProjectPicker(); });
   $('drawer-new').addEventListener('click', () => { openProjectPicker(); });
@@ -604,7 +607,7 @@
   const shortId = (id) => String(id).slice(-6);
   function forgetThreadIfCurrent(id) {
     if (S.threadId !== id) return;
-    closeStream(); S.threadId = null; store.set('thread', null); clearMessages();
+    closeStream(); busy(false); S.threadId = null; store.set('thread', null); clearMessages();
   }
   function chatSheet(label) {
     const wrap = el('div', 'sheet chat-actions'); wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true'); wrap.setAttribute('aria-label', label);
@@ -630,17 +633,75 @@
   function openChatActions(t) {
     const sid = shortId(t.id); const name = t.title || 'Без названия';
     const sh = chatSheet('Действия с чатом');
+    let compacted = null;                 // чаты с резюме /compact (только названия и размеры)
+    const loaded = () => { if (!sh.wrap.isConnected) return; if (sh.view === 'menu') menu(); else if (sh.view === 'import') importView(); };
+    api('GET', `/compacted-threads`).then((r) => { compacted = r.items || []; loaded(); }).catch(() => { compacted = []; loaded(); });
     const menu = () => {
+      sh.view = 'menu';
+      const imp = sheetBtn('Перенести контекст из…', 'btn big', 'import-from');
+      const mine = (compacted || []).find((x) => x.id === t.id);
+      const toNew = mine ? sheetBtn('Перенести этот контекст в новый чат', 'btn big', 'import-to-new') : null;
       const arch = sheetBtn('Архивировать в зашифрованную папку', 'btn big', 'archive');
       const del = sheetBtn('Удалить навсегда', 'btn big destroy', 'delete');
       const cancel = sheetBtn('Отмена', 'btn big ghost', 'cancel');
+      imp.addEventListener('click', () => { tap(); importView(); });
+      if (toNew) toNew.addEventListener('click', () => { tap(); importToNew(); });
       arch.addEventListener('click', () => { tap(); archiveView(); });
       del.addEventListener('click', () => { tap(); deleteView(); });
       cancel.addEventListener('click', sh.close);
-      const col = el('div', 'sheet-actions'); col.append(arch, del, cancel);
+      const col = el('div', 'sheet-actions'); col.append(...[imp, toNew, arch, del, cancel].filter(Boolean));
       sh.show(cancel, el('h3', 'serif', name), el('p', 'muted small', `Чат …${sid}`), col);
     };
+    /* «Перенести сжатый контекст» (владелец 31.10): резюме /compact другого чата встаёт в этот чат видимой заметкой
+       «Контекст из чата …», и модель видит его в контексте следующего хода. */
+    const doImport = async (target, src, err, done) => {
+      try {
+        const r = await api('POST', `/threads/${encodeURIComponent(target)}/import-context`, { source_thread_id: src.id, agent_id: S.agentId });
+        done(r);
+      } catch (e) {
+        err.textContent = e.code === 'CHAT_IMPORT_TOO_LARGE' ? `Резюме «${src.title}» больше бюджета модели. Сожмите тот чат ещё раз — короче — или выберите модель с большим окном.`
+          : e.code === 'CHAT_NO_SUMMARY' ? `У «${src.title}» нет сжатого контекста — сначала /compact в том чате.` : errText(e, 'Не удалось перенести контекст');
+        err.hidden = false;
+        if (e.code === 'CHAT_IMPORT_TOO_LARGE') {
+          const sq = sheetBtn(`Сжать «${src.title}» короче`, 'btn big', 'compact-source');
+          sq.addEventListener('click', () => { tap(); sh.close(); openThread(src.id).then(() => runCompact('Сделай резюме заметно короче')); });
+          err.after(sq);
+        }
+      }
+    };
+    const importView = () => {
+      sh.view = 'import';
+      const err = sheetErr(); const back = sheetBtn('Назад', 'btn big ghost', 'back'); back.addEventListener('click', menu);
+      const list = el('div', 'sheet-actions');
+      const items = (compacted || []).filter((x) => x.id !== t.id);
+      if (compacted === null) list.appendChild(el('p', 'muted', 'Загружаю список сжатых чатов…'));
+      else if (!items.length) list.appendChild(el('p', 'muted', 'Сжатых чатов пока нет: в нужном чате сначала сожмите контекст (/compact).'));
+      items.forEach((x) => {
+        const b = sheetBtn(`${x.title} · ≈${fmtTok(x.summary_tokens)} ток.`, 'btn big', 'import-pick'); b.dataset.id = x.id;
+        b.addEventListener('click', () => {
+          tap(); if (b.disabled) return; b.disabled = true; err.hidden = true;
+          doImport(t.id, x, err, (r) => {
+            const ok = sheetBtn('Готово', 'btn big primary', 'done'); ok.addEventListener('click', sh.close);
+            const msg = el('p', 'sheet-ok', r.imported ? `Контекст из «${x.title}» добавлен в этот чат — модель увидит его со следующего сообщения.` : `Контекст из «${x.title}» уже был добавлен.`);
+            msg.setAttribute('role', 'status'); sh.show(ok, el('h3', 'serif', name), msg, ok);
+            if (S.threadId === t.id) openThread(t.id);
+          }).finally(() => { b.disabled = false; });
+        });
+        list.appendChild(b);
+      });
+      list.appendChild(back);
+      sh.show(back, el('h3', 'serif', 'Перенести контекст из…'), el('p', 'muted small', `в чат «${name}»`), err, list);
+    };
+    const importToNew = async () => {
+      const err = sheetErr();
+      try {
+        const nt = await api('POST', '/threads', { title: `Продолжение: ${name}`.slice(0, 60) });
+        await doImport(nt.id, { id: t.id, title: name }, err, () => { sh.close(); loadThreads(); openThread(nt.id); });
+        if (!err.hidden) { const back = sheetBtn('Назад', 'btn big ghost', 'back'); back.addEventListener('click', menu); sh.show(back, el('h3', 'serif', name), err, back); }
+      } catch (e) { toast(errText(e, 'Не удалось создать чат')); }
+    };
     const archiveView = () => {
+      sh.view = 'archiveView';
       const err = sheetErr(); const go = sheetBtn('Зашифровать', 'btn big primary', 'archive-confirm'); const back = sheetBtn('Назад', 'btn big ghost', 'back');
       back.addEventListener('click', menu);
       go.addEventListener('click', async () => {
@@ -661,6 +722,7 @@
       sh.show(back, el('h3', 'serif', name), el('p', '', 'Зашифровать этот чат и убрать его из списка? Вернуть его можно из «Зашифрованного архива». Ключ хранится только на ПК (DPAPI).'), err, col);
     };
     const deleteView = () => {
+      sh.view = 'deleteView';
       const err = sheetErr();
       const lab = el('label', 'sheet-label', `Чтобы удалить навсегда, введите последние 6 символов id чата: ${sid}`); lab.htmlFor = 'chat-confirm-input';
       const inp = el('input', 'sheet-input'); inp.id = 'chat-confirm-input'; inp.type = 'text'; inp.autocomplete = 'off'; inp.spellcheck = false;
@@ -819,6 +881,91 @@
       t.append(el('i'), el('i'), el('i')); if (label) t.appendChild(el('span', 'typing-label', label)); b.ans.appendChild(t);
     } else if (old) old.remove();
   }
+  /* ---- live: что агент делает прямо сейчас (владелец 31.10 «процесс, что он делает, live, как у тебя»). Одна строка над
+     ответом: очередь и почему, шаг и модель, инструмент, чтение результата, ответ пишется; секунды идут. Облачные прогоны
+     шлют те же события, что локальные, поэтому «тихого ожидания» нет ни у тех, ни у других. ---- */
+  function liveSet(b, what) {
+    if (!b.lv) {
+      const node = el('div', 'live-status'); node.setAttribute('role', 'status'); node.setAttribute('aria-live', 'polite');
+      b.m.insertBefore(node, b.ans); b.lv = { node, what: '' };
+    }
+    b.lv.what = what; liveTick(b);
+  }
+  function liveTick(b) {
+    if (!b.lv) return;
+    const sec = b.t0 ? Math.round((performance.now() - b.t0) / 1000) : 0;
+    const txt = sec ? `${b.lv.what} · ${sec} с` : b.lv.what;
+    if (b.lv.node.textContent !== txt) b.lv.node.textContent = txt;
+  }
+  function liveStart(b) {
+    if (!b.lv) liveSet(b, 'Отправлено на ПК…');
+    if (S.clock) clearInterval(S.clock);
+    S.clock = setInterval(() => liveTick(b), 1000);
+  }
+  function liveStop(b) {
+    if (S.clock) { clearInterval(S.clock); S.clock = null; }
+    if (b.lv) { b.lv.node.remove(); b.lv = null; }
+  }
+  async function queueWhy(b, taskId) {
+    if (taskId == null) return;
+    try {
+      const q = await api('GET', `/tasks/${taskId}/queue`);
+      if (b.done || !q || q.status !== 'queued') return;
+      const names = (q.running || []).map((r) => (r.thread_title ? `«${r.thread_title}»` : `задача #${r.task_id}`));
+      liveSet(b, q.reason === 'slots_busy' ? `В очереди: заняты все ${q.workers} слота — ${names.join(', ') || 'другие задачи'}`
+        : q.reason === 'queue_ahead' ? `В очереди: впереди ${q.ahead}` : 'В очереди: ждёт память под модель');
+    } catch { /* старый Bossman без /queue: остаётся «В очереди…» */ }
+  }
+  function privacyNotice(b, ev) {
+    b.rerouted = true;
+    if (b.cards['notice' + (ev.step || 0)]) return;
+    const box = el('div', 'notice privacy'); box.setAttribute('role', 'note');
+    const rules = (ev.rules || []).length ? ` (${ev.rules.join(', ')})` : '';
+    box.append(el('b', '', '🔒 Облачная модель не получила этот запрос'),
+      el('p', '', `В запросе или переписке найдены приватные данные${rules}: по правилу приватности они не уходят в облако. Ответ готовит локальная модель на ПК — поэтому дольше.`));
+    b.tools.appendChild(box); b.cards['notice' + (ev.step || 0)] = box; autoScroll();
+  }
+  function stepText(b, ev, kind) {
+    const key = kind + (ev.step || 0);
+    let c = b.cards[key];
+    if (!c) {
+      const d = el('details', 'tool think'); const sm = el('summary');
+      sm.append(icon('status'), el('span', 'tname', kind === 'reason' ? `Размышления · шаг ${ev.step || ''}` : `Пояснение модели · шаг ${ev.step || ''}`));
+      const pre = el('div', 'tbody'); d.append(sm, pre); b.tools.appendChild(d); c = b.cards[key] = { d, pre };
+    }
+    c.pre.textContent = (c.pre.textContent + (ev.text || '')).slice(-6000); autoScroll();
+  }
+  function placeBadge(b) {
+    if (b.rerouted) return el('span', 'badge-local', 'локально · облако не получило запрос');
+    const a = agentOf(b.agentId != null ? b.agentId : S.agentId);
+    const cloud = b.locality ? b.locality === 'cloud' : !!(a && !a.local);
+    return cloud ? el('span', 'badge-cloud', `облако${a && a.provider ? ' · ' + a.provider : ''}`) : el('span', 'badge-local', 'локально');
+  }
+  /* ---- окно модели (владелец 31.10): модель видит весь чат, сколько влезает в её окно; не влезло — сказано и
+     предложено сжатие, а после ответа контекст сжимается сам (кнопкой «Не сжимать» — отменить) ---- */
+  function contextFit(b, c) {
+    if (!c || !c.turns_live) return;
+    b.ctxDropped = c.turns_dropped || 0;
+    if (b.ctxDropped) b.ctxNote = `контекст: ${c.turns_included} из ${c.turns_live} ходов`;
+    if (!c.compact_suggested) return;
+    S.ctxOffered = S.ctxOffered || {};
+    const key = `${b.threadId || S.threadId}|${c.model || ''}`;
+    if (key in S.ctxOffered && S.ctxOffered[key] >= b.ctxDropped) { b.autoCompact = !!b.ctxDropped && S.ctxOffered[key + '|auto'] !== false; return; }
+    S.ctxOffered[key] = b.ctxDropped;
+    const card = sysCard('Контекст не помещается', 'status'); card.m.classList.add('ctx-fit-card');
+    const model = c.model ? `«${c.model}»` : 'выбранная';
+    const text = b.ctxDropped
+      ? `Модель ${model} видит ${c.turns_included} из ${c.turns_live} ходов этого чата — ранние не помещаются в её окно (≈${fmtTok(c.budget_tokens)} токенов на запрос). После ответа сожму контекст автоматически.`
+      : `Контекст почти заполнен: ≈${fmtTok(c.used_tokens)} из ${fmtTok(c.budget_tokens)} токенов на запрос у модели ${model}. Сжать?`;
+    const row = el('div', 'row');
+    const later = el('button', 'btn small', b.ctxDropped ? 'Не сжимать' : 'Позже'); later.type = 'button';
+    const go = el('button', 'btn small primary', 'Сжать сейчас'); go.type = 'button';
+    b.autoCompact = !!b.ctxDropped;
+    later.addEventListener('click', () => { tap(); b.autoCompact = false; S.ctxOffered[key + '|auto'] = false; card.m.remove(); });
+    go.addEventListener('click', () => { tap(); b.autoCompact = false; card.m.remove(); runCompact(''); });
+    row.append(later, go); card.body.replaceChildren(el('p', 'syscard-note', text), row);
+  }
+
   /* ---- поток ответа: накопить -> один вывод за кадр ---- */
   function schedulePaint(b) { if (!b.raf) b.raf = requestAnimationFrame(() => paint(b)); }
   function stopPaint(b) { if (b.raf) { cancelAnimationFrame(b.raf); b.raf = 0; } }
@@ -954,11 +1101,20 @@
 
   function applyEvent(b, ev, live) {
     switch (ev.kind) {
+      case 'task.queued': if (live) { liveSet(b, ev.attempt ? 'Повтор: другая модель…' : 'В очереди…'); queueWhy(b, ev.task_id != null ? ev.task_id : b.taskId); } break;
+      case 'task.started': if (live) liveSet(b, `Модель${b.model ? ` «${b.model}»` : ''} думает…`); break;
+      case 'run.usage':
+        if (ev.model) b.model = ev.model;
+        if (live) liveSet(b, `Шаг ${ev.step || 1} готов · ${ev.model || b.model || 'модель'}${ev.step_tokens_in ? ` · прочитано ≈${fmtTok(ev.step_tokens_in)} ток.` : ''}`);
+        break;
+      case 'run.reasoning_delta': if (ev.text) stepText(b, ev, 'reason'); if (live) liveSet(b, 'Модель рассуждает…'); break;
+      case 'run.assistant_delta': if (ev.text) stepText(b, ev, 'say'); break;
+      case 'run.notice': if (ev.notice === 'privacy_withheld') { privacyNotice(b, ev); if (live) liveSet(b, 'Облако не получило запрос — отвечает локальная модель…'); } break;
       case 'run.answer_delta':
         if (!ev.text) break;
         b.text += ev.text;
         if (!live) { rich(b.ans, b.text); break; }
-        if (!b.first) b.first = performance.now();
+        if (!b.first) { b.first = performance.now(); requestAnimationFrame(() => { if (!b.done) liveSet(b, 'Пишет ответ…'); }); }   // no DOM write inside a delta handler
         schedulePaint(b); break;                                   // no DOM work here: one paint per frame
       case 'run.answer_reset':
         stopPaint(b); b.text = ''; b.live = null; b.full = false; b.committed = 0; b.ans.replaceChildren();
@@ -970,8 +1126,8 @@
           if (live) { b.full = true; schedulePaint(b); } else rich(b.ans, b.text);
         }
         break;
-      case 'run.tool_use': toolCard(b, ev); break;
-      case 'run.tool_result': toolResult(b, ev, live); break;
+      case 'run.tool_use': toolCard(b, ev); if (live) liveSet(b, `Инструмент: ${ev.tool || 'инструмент'}…`); break;
+      case 'run.tool_result': toolResult(b, ev, live); if (live) liveSet(b, 'Модель читает результат…'); break;
       case 'tool.denied': { const c = toolCard(b, { call_id: 'd' + (ev.seq || Math.random()), tool: ev.tool, args: {} }); const st = el('span', 'tstate err', 'запрещено'); c.st.replaceWith(st); c.st = st; if (ev.reason) c.body.appendChild(el('div', '', ev.reason)); break; }
       case 'approval.created': approvalCard(b, ev); break;
       case 'approval.decided': approvalDecided(b, ev); break;
@@ -980,7 +1136,10 @@
   }
 
   async function openThread(id) {
-    closeStream();
+    /* Owner 31.10 «пока один чат работает, другие не могут»: the Send/STOP button and the stream belong to the chat on
+       screen. Leaving a chat with a running answer only stops WATCHING it (the task keeps running on the PC; opening the
+       chat again follows it); the newly opened chat starts with Send unless its own last turn is still running. */
+    closeStream(); busy(false);
     try {
       const t = await api('GET', `/threads/${encodeURIComponent(id)}`);
       S.threadId = t.id; store.set('thread', t.id); clearMessages(); ctxReset(); stopNotes(); NW.shown = new Set(); refreshCost();
@@ -999,10 +1158,10 @@
         showAgentFiles(b, turn.files);
         if (turn.result) msgActions(b);
         if (turns.indexOf(turn) >= turns.length - 6) {
-          api('GET', `/tasks/${turn.task_id}/history`).then((h) => (h.events || []).forEach((ev) => { if (ev.kind.startsWith('run.tool') || ev.kind.startsWith('approval') || ev.kind === 'tool.denied') applyEvent(b, ev, false); })).catch(() => {});
+          api('GET', `/tasks/${turn.task_id}/history`).then((h) => (h.events || []).forEach((ev) => { if (ev.kind.startsWith('run.tool') || ev.kind.startsWith('approval') || ev.kind === 'tool.denied' || ev.kind === 'run.notice') applyEvent(b, ev, false); })).catch(() => {});
         }
       }
-      autoScroll(true); refreshContext().catch(() => {});
+      autoScroll(true); refreshContext().catch(() => {}); loadChatQueue();
       if (noteJobs(t.id)) watchNotes(t.id);                       // an edit still on its way: keep listening
     } catch (err) { if (err.status === 404) { store.set('thread', null); S.threadId = null; ctxReset(); } }
   }
@@ -1025,6 +1184,12 @@
     const n = turn.note || {}; $('chat-empty').hidden = true; NW.shown.add(noteId(turn));
     const m = el('div', 'msg bot note'); m.dataset.idx = String(turn.idx); if (n.job_id) m.dataset.job = n.job_id;
     const ans = el('div', 'answer'); const meta = el('div', 'meta'); m.append(ans, meta);
+    if (n.kind === 'context_import') {
+      ans.appendChild(el('p', 'note-text', turn.text || 'Контекст из другого чата'));
+      const d = el('details', 'ctx-summary'); d.append(el('summary', '', `Резюме · ${n.summary_chars || 0} симв. — модель видит его в контексте`), el('p', '', n.summary || ''));
+      ans.appendChild(d); meta.replaceChildren(el('span', 'badge-local', 'контекст'));
+      msgs.appendChild(m); autoScroll(); return m;
+    }
     const ok = n.status === 'completed';
     ans.appendChild(el('p', ok ? 'note-text' : 'note-text note-err', turn.text || ''));
     if (ok && n.job_id && /^image\//.test(n.mime || 'image/png')) {
@@ -1215,13 +1380,76 @@
     if (!text) return;
     const lc = typedCommand(text);       // «/compact …», «/tools», «/new»…: the phone runs them (also while an answer streams)
     if (lc && !readyFiles.length && runCommand(lc.name, lc.args)) { tap(); input.value = ''; saveDraft(); input.style.height = 'auto'; return; }
-    if (S.sending) return;
+    if (S.sending) {
+      if (readyFiles.length || S.photoMode) { toast('Дождитесь ответа: файлы и фото — после него'); return; }
+      enqueue(text); return;
+    }
     tap(); input.value = ''; saveDraft(); input.style.height = 'auto';
     S.chatFiles = []; renderChatFiles(); if (!S.photoMode) input.placeholder = 'Напишите Bossman…';
     const photo = S.photoMode; setPhotoMode(false); await send(text, { photo, files: readyFiles });
   });
+  $('btn-steer').addEventListener('click', async () => {
+    const text = input.value.trim(); const tid = S.threadId;
+    if (!text) { toast('Напишите, что сказать модели сейчас, и нажмите ⚡'); input.focus(); return; }
+    if (!tid) return;
+    tap();
+    try {
+      await api('POST', `/threads/${encodeURIComponent(tid)}/steer`, { text });
+      input.value = ''; saveDraft(); input.style.height = 'auto';
+      if (S.threadId === tid) { const m = addUser(text); if (m && m.classList) m.classList.add('steer'); }
+      toast('Модель увидит это на следующем шаге');
+    } catch (err) {
+      if (err.code === 'CHAT_NOTHING_RUNNING') { enqueue(text); return; }
+      toast(errText(err, 'Не удалось направить'));
+    }
+  });
   $('btn-stop').addEventListener('click', async () => { tap(); if (!S.threadId) return; try { await api('POST', `/threads/${encodeURIComponent(S.threadId)}/stop`); toast('Остановлено'); } catch (err) { toast(err.message); } });
-  function busy(on) { S.sending = on; $('btn-send').hidden = on; $('btn-stop').hidden = !on; }
+  function busy(on) {
+    S.sending = on; $('btn-stop').hidden = !on; $('btn-steer').hidden = !on;
+    const snd = $('btn-send'); snd.hidden = false; snd.classList.toggle('queue', on);
+    snd.setAttribute('aria-label', on ? 'В очередь: уйдёт сразу после текущего ответа' : 'Отправить');
+  }
+  /* ---- очередь треда и «направить сейчас» (владелец 31.10): пока модель отвечает, следующее сообщение встаёт в очередь
+     ЭТОГО чата на ПК и уходит сразу после текущего ответа (видно, можно отменить); Steer — сказать модели сейчас:
+     она увидит это на следующем шаге, без перезапуска. ---- */
+  function renderChatQueue(items) {
+    const box = $('chat-queue'); box.replaceChildren();
+    (items || []).forEach((it) => {
+      const row = el('div', 'q-item'); row.dataset.id = it.id;
+      const x = el('button', 'q-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Отменить сообщение из очереди');
+      x.addEventListener('click', async () => {
+        tap(); const tid = S.threadId;
+        try { await api('DELETE', `/threads/${encodeURIComponent(tid)}/queue/${encodeURIComponent(it.id)}`); } catch (err) { if (err.status !== 404) toast(errText(err)); }
+        if (S.threadId === tid) loadChatQueue();
+      });
+      row.append(el('span', 'q-tag', it.kind === 'steer_leftover' ? 'следующим ходом' : 'в очереди'), el('span', 'q-text', it.text || ''), x);
+      box.appendChild(row);
+    });
+    box.hidden = !box.children.length;
+  }
+  async function loadChatQueue() {
+    const tid = S.threadId; if (!tid) { renderChatQueue([]); return []; }
+    try { const r = await api('GET', `/threads/${encodeURIComponent(tid)}/queue`); if (S.threadId === tid) renderChatQueue(r.items); return r.items || []; }
+    catch { return []; }
+  }
+  async function enqueue(text) {
+    const tid = S.threadId; if (!tid) return;
+    tap(); input.value = ''; saveDraft(); input.style.height = 'auto';
+    try {
+      const r = await api('POST', `/threads/${encodeURIComponent(tid)}/queue`, { text, agent_id: S.agentId });
+      if (S.threadId === tid) renderChatQueue(r.items); toast('В очереди: уйдёт сразу после текущего ответа');
+    } catch (err) { input.value = text; toast(errText(err, 'Не удалось поставить в очередь')); }
+  }
+  /* после ответа: если в очереди что-то было, ПК уже отправляет следующее — открыть чат заново, когда ход появится */
+  function followQueue(tid, before) {
+    let tries = 0;
+    const tick = async () => {
+      if (S.threadId !== tid || ++tries > 15) return;
+      try { const t = await api('GET', `/threads/${encodeURIComponent(tid)}`); if ((t.turns || []).length > before) { openThread(tid); return; } } catch { /* retry */ }
+      setTimeout(tick, 1000);
+    };
+    setTimeout(tick, 800);
+  }
 
   /* ---- «Фото по описанию» (владелец 19.10): модель чата (по умолчанию Gemma) пишет промпт, владелец видит его и жмёт
      «Запустить» или «Изменить»; перед постановкой в очередь модель чата выгружается из памяти ПК (keep_alive 0), чтобы
@@ -1298,19 +1526,24 @@
         if (r.coding_task) { finish(b, (r.turn && r.turn.synthetic_result) || `Задача OpenCode ${r.coding_task.id}`, null, 'completed'); return; }
         if (r.admission && r.admission.ok === false) { finish(b, null, r.admission.reason || 'Bossman не принял задачу', 'blocked'); return; }
         if (!r.task || r.task.id == null) { finish(b, null, 'Bossman не вернул задачу', 'error'); return; }
-        b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId;
+        b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId; b.locality = r.model && r.model.locality;
+        if (r.context) contextFit(b, r.context);
         follow(r.task.id, b);
         return;
       }
-      const r = await api('POST', `/threads/${encodeURIComponent(S.threadId)}/send`, payload);
+      const sentFrom = S.threadId; b.threadId = sentFrom;
+      const r = await api('POST', `/threads/${encodeURIComponent(sentFrom)}/send`, payload);
+      if (S.threadId !== sentFrom) return;          // the owner moved on: the turn runs on the PC, reopening shows it
       if (r.admission && r.admission.ok === false) { finish(b, null, r.admission.reason || 'Bossman не принял задачу', 'blocked'); return; }
-      b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId;
+      b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId; b.locality = r.model && r.model.locality;
+      if (r.context) contextFit(b, r.context);
       follow(r.task.id, b);
     } catch (err) { finish(b, null, err.message, 'error'); }
   }
-  function closeStream() { if (S.es) { S.es.close(); S.es = null; } if (S.poll) { clearInterval(S.poll); S.poll = null; } }
+  function closeStream() { if (S.es) { S.es.close(); S.es = null; } if (S.poll) { clearInterval(S.poll); S.poll = null; } if (S.clock) { clearInterval(S.clock); S.clock = null; } }
   function follow(taskId, b) {
-    closeStream(); busy(true); b.taskId = taskId; b.m.setAttribute('aria-busy', 'true');
+    closeStream(); busy(true); b.taskId = taskId; b.threadId = b.threadId || S.threadId; b.m.setAttribute('aria-busy', 'true');
+    liveStart(b);
     typing(b, true, b.photo ? 'Модель чата пишет промпт…' : ''); b.t0 = b.t0 || performance.now(); S.task = taskId;
     const es = new EventSource(`/m/api/tasks/${taskId}/events?after=0`); S.es = es;
     es.onmessage = (m) => {
@@ -1331,17 +1564,24 @@
     finish(b, t.result, t.status === 'completed' ? null : ruErr, t.status, taskId);
   }
   function finish(b, result, error, status, taskId) {
-    busy(false); typing(b, false); b.m.setAttribute('aria-busy', 'false');
+    if (!b.threadId || b.threadId === S.threadId) busy(false);
+    typing(b, false); b.m.setAttribute('aria-busy', 'false'); liveStop(b);
     if (result) { endStream(b, result); b.text = result; }
     else {
       if (b.text) endStream(b, b.text); else { stopPaint(b); b.ended = true; }
       if (error && !b.text) { b.ans.classList.add('error'); b.ans.textContent = error; }
     }
     const total = b.t0 ? (performance.now() - b.t0) / 1000 : null; const first = b.first && b.t0 ? (b.first - b.t0) / 1000 : null;
-    b.meta.replaceChildren(el('span', 'badge-local', 'локально'), el('span', '', [b.model, taskId ? `#${taskId}` : '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
+    b.meta.replaceChildren(placeBadge(b), el('span', '', [b.model, taskId ? `#${taskId}` : '', b.ctxNote || '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
     if (b.photo) photoAfterPrompt(b, status, error); else if (b.text) msgActions(b);
     if (!b.photo) loadAgentFiles(b, taskId || b.taskId);
     loadThreads(); autoScroll(); refreshContext().catch(() => {}); refreshCost();
+    const tid = b.threadId || S.threadId;
+    if (tid && tid === S.threadId) {
+      if (b.autoCompact && status === 'completed' && !CP.run) { b.autoCompact = false; setTimeout(() => { if (S.threadId === tid) runCompact(''); }, 300); }
+      const before = msgs.querySelectorAll('.msg.user').length;
+      loadChatQueue().then((items) => { if (items.length) followQueue(tid, before); });
+    }
   }
 
   /* ---- под ответом: «Копировать» и «Повторить» ---- */
@@ -3470,7 +3710,7 @@
   }
   function fetchContext(sid) {
     if (CX.inflight && CX.inflight.sid === sid) return CX.inflight.p;
-    const p = api('GET', `/agent/sessions/${enc(sid)}/context`).finally(() => { if (CX.inflight && CX.inflight.p === p) CX.inflight = null; });
+    const p = api('GET', `/agent/sessions/${enc(sid)}/context${S.agentId != null ? `?agent_id=${S.agentId}` : ''}`).finally(() => { if (CX.inflight && CX.inflight.p === p) CX.inflight = null; });
     CX.inflight = { sid, p }; return p;
   }
   /* Обновляем: при открытии чата, после каждого завершённого ответа/остановки, и каждые 3 с, пока идёт сжатие. */

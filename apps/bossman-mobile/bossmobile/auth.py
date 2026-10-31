@@ -338,6 +338,19 @@ class WorkerDeviceRegistry:
             rec["stopped"] = self.global_stop
             return dict(rec)
 
+    def stop_task(self, task_id: str | int | None) -> int:
+        """Per-chat STOP (owner 31.10 «стоп в чате A не останавливает чат B»): only the devices working on THIS task
+        drop it; the registry-wide STOP flag stays as it was. Returns how many devices dropped the task."""
+        if task_id is None:
+            return 0
+        with self._lock:
+            hit = 0
+            for rec in self._devices.values():
+                if rec.get("active_task_id") is not None and str(rec["active_task_id"]) == str(task_id):
+                    rec["active_task_id"] = None
+                    hit += 1
+            return hit
+
     def trigger_global_stop(self) -> dict:
         t0 = self.clock()
         with self._lock:

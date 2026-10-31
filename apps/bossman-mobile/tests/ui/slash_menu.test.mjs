@@ -51,7 +51,7 @@ function mk(extra = {}) {
     if (p === '/agents') return AGENTS;
     if (p === '/threads/t1') return { id: 't1', turns: [] };
     if (p.startsWith('/agent/palette')) return st.paletteFail ? new Error('offline') : st.palette;
-    if (p === '/agent/sessions/t1/context') return typeof st.ctx === 'function' ? st.ctx() : st.ctx;
+    if (p.split('?')[0] === '/agent/sessions/t1/context') return typeof st.ctx === 'function' ? st.ctx() : st.ctx;
     if (p === '/agent/sessions/t1/compact' && m === 'POST') return st.compact || { __status: 202, body: { session_id: 't1', task_id: 'c1', status: 'running' } };
     if (p === '/agent/sessions/t1/memory' && m === 'POST') return st.memory || { ok: true, note_id: 'm1', chars: 1800 };
     if (p === '/agent/sessions/t1/stop') return { ok: true, stopped_tasks: [5], killed_terminals: [] };
@@ -70,7 +70,7 @@ function mk(extra = {}) {
 async function app(extra, opts = {}) {
   const m = mk(extra);
   const a = await boot({ routes: m.routes, css: true, before: (w) => { w.localStorage.setItem('bm.thread', 't1'); if (opts.before) opts.before(w); } });
-  await until(() => a.calls.some((c) => c.path === '/agent/sessions/t1/context'), 'context fetched on open');
+  await until(() => a.calls.some((c) => c.path.split('?')[0] === '/agent/sessions/t1/context'), 'context fetched on open');
   return { ...a, st: m.st };
 }
 const type = (a, v) => { a.$('input').value = v; a.$('input').setSelectionRange(v.length, v.length); a.$('input').dispatchEvent(new a.w.Event('input')); };

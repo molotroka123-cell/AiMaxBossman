@@ -419,12 +419,19 @@ def test_worker_device_endpoints_and_task_eta_runtime_wiring(authed):
     st = authed.c.get("/m/api/status").json()
     assert st["workers"]["count"] == 2
 
-    # 4. Trigger STOP via /m/api/threads/T1/stop -> propagates to worker registry
+    # 4. STOP of chat T1 (owner 31.10 «стоп в чате A не останавливает чат B»): only the device on THAT chat's task
+    #    drops it; the registry-wide STOP is NOT flipped (a second device busy with another chat's task keeps it).
+    authed.post("/m/api/workers/heartbeat", json={"device_id": "laptop-2", "active_task_id": 99})
     stop_resp = authed.post("/m/api/threads/T1/stop")
-    assert stop_resp.status_code == 200
+    assert stop_resp.status_code == 200 and stop_resp.json()["task_id"] == 7
     ws_after = authed.c.get("/m/api/workers").json()
-    assert ws_after["global_stop"] is True
-    assert all(d["active_task_id"] is None and d["stopped"] is True for d in ws_after["devices"])
+    assert ws_after["global_stop"] is False
+    by = {d["device_id"]: d for d in ws_after["devices"]}
+    assert by["pc-main"]["active_task_id"] is None, "the stopped chat's task is dropped"
+    assert by["laptop-2"]["active_task_id"] == 99, "another chat's task keeps running"
+    # «СТОП всё» still stops every device
+    authed.post("/m/api/workers/stop")
+    assert authed.c.get("/m/api/workers").json()["global_stop"] is True
 
     # 5. /m/api/tasks/7 returns calibrated ETA from calibrate_task_eta
     task_resp = authed.c.get("/m/api/tasks/7").json()

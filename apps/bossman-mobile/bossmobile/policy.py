@@ -70,7 +70,13 @@ def local_agents(options: dict, agents: list[dict], models: list[dict], provider
             for x in (options.get("agents") or [])
         ):
             reasons.append("объединён в единого рабочего агента Argon PC-Agent")
+        model_row = by_model.get(int(raw["model_id"])) if raw.get("model_id") is not None else None
+        prov_row = by_prov.get(int((model_row or {}).get("provider_id", -1))) or {}
         if view.get("locality_detail") != "local" or view.get("billing") not in ("local",):
+            reasons.append("модель не локальная")
+        elif prov_row.get("base_url") and not loopback_url(prov_row["base_url"]):
+            # owner 31.10: «GLM … — локально» on a 7API agent. The provider's own address decides: anything that is not
+            # this PC's loopback (7API, Outrun, OpenRouter, NIM, a LAN box) is never labelled «локально».
             reasons.append("модель не локальная")
         if view.get("usable") is False:
             reasons.append(view.get("refusal") or "модель недоступна")
@@ -84,8 +90,7 @@ def local_agents(options: dict, agents: list[dict], models: list[dict], provider
         local = not reasons
         usable_ok = a.get("enabled") and view.get("usable") is not False and bool(raw)
         opted = perms.get("mobile_cloud_ok") is True and bool(usable_ok)
-        model = by_model.get(int(raw["model_id"])) if raw.get("model_id") is not None else None
-        prov = by_prov.get(int((model or {}).get("provider_id", -1))) or {}
+        prov = prov_row
         out.append({"id": int(a["id"]), "name": a.get("name"), "role": a.get("role") or "",
                     "tools": list(raw.get("tools") or []),
                     "model": {"alias": view.get("alias"), "name": view.get("name"),
