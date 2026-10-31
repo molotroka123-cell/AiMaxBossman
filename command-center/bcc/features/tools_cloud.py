@@ -31,8 +31,13 @@ import functools
 import hashlib
 import json
 import math
+import os
 import re
+import threading
 import time
+import uuid
+import weakref
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -61,6 +66,11 @@ MAX_ANSWER_CHARS = 8000
 CALL_TIMEOUT_S = 90.0
 #: Движок показывает владельцу аргументы вызова первыми 2000 знаками (engine._execute_tool_calls).
 PREVIEW_WINDOW = 2000
+#: A paid reservation not settled within this time belongs to a call whose outcome nobody recorded (process died, hang):
+#: whether the provider billed it is unknown, so it becomes billing_unknown spend that only the owner can reconcile.
+RESERVATION_STALE_S = 15 * 60
+#: Ledger statuses whose ACTUAL cost is not known. Their `cost_usd` is null (legacy rows: 0.0) and is never summed as spend.
+_UNKNOWN_COST_STATUSES = ("billing_unknown", "reserved")
 
 #: Подсказка о силе при равном ярусе роутера: от сильной к слабой. Это оценка, а не бенчмарк; явный `model` её перекрывает.
 STRENGTH_HINT = ("claude-sonnet-4", "haiku-5.5", "nemotron-ultra-free", "qwen3-coder-paid", "deepseek-v4.1-flash",
@@ -90,14 +100,27 @@ def _est_tokens(text: str) -> int:
 
 
 class _State:
-    """Services для `bind_args` (у хука нет ctx) и замок аудита. Выставляется в setup(svc)."""
+    """Services для `bind_args` (у хука нет ctx). Выставляется в setup(svc).
+
+    Locks: `ledger_lock` (threading) + an OS file lock serialise every read-check-append of the ledger across threads and
+    processes; `_budget_lock()` (one asyncio lock per event loop) serialises the in-process session-budget bookkeeping.
+    """
 
     def __init__(self) -> None:
         self.svc: Any = None
-        self.audit_lock = asyncio.Lock()
+        self.ledger_lock = threading.Lock()
+        self.loop_locks: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock]" = weakref.WeakKeyDictionary()
 
 
 _STATE = _State()
+
+
+def _budget_lock() -> asyncio.Lock:
+    loop = asyncio.get_running_loop()
+    lock = _STATE.loop_locks.get(loop)
+    if lock is None:
+        lock = _STATE.loop_locks[loop] = asyncio.Lock()
+    return lock
 
 
 def set_services(svc: Any) -> None:
@@ -183,12 +206,55 @@ def _audit_path(svc: Any) -> Path:
     return Path(svc.settings.data_dir) / "cloud_ask" / "audit.jsonl"
 
 
+def _svc_for(data_dir: Path) -> Any:
+    return SimpleNamespace(settings=SimpleNamespace(data_dir=data_dir))
+
+
+def _now() -> float:
+    return time.time()
+
+
 def _today() -> str:
     return time.strftime("%Y-%m-%d", time.gmtime())
 
 
+def _stamp() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _ts_epoch(row: dict) -> float | None:
+    try:
+        return datetime.strptime(str(row.get("ts")), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+@contextlib.contextmanager
+def _ledger_lock(svc: Any):
+    """Exclusive across threads (threading lock) and processes (OS lock on `audit.lock`, the Jeff budget's lock helper).
+
+    A busy or broken lock raises OSError - callers fail closed (no paid call), never proceed unlocked.
+    """
+    from ..pit.cloud_budget import _process_lock
+    with _STATE.ledger_lock, _process_lock(_audit_path(svc).with_name("audit.lock")):
+        yield
+
+
+def _money(value: Any, *, what: str) -> float:
+    if isinstance(value, bool) or value is None:
+        raise ValueError(f"missing {what}")
+    out = float(value)
+    if not math.isfinite(out) or out < 0:
+        raise ValueError(f"invalid {what}")
+    return out
+
+
 def _read_audit(svc: Any) -> list[dict]:
-    """Read the complete audit; corrupt or unreadable data must not reset spend."""
+    """Read the complete audit; corrupt or unreadable data must not reset spend.
+
+    Two money fields, never mixed: `cost_usd` = ACTUAL spend (null when unknown: billing_unknown / open reservation),
+    `quoted_cost_usd` = the price quoted before the call (worst case: full answer budget). A reservation must carry its quote.
+    """
     out = []
     try:
         with _audit_path(svc).open("r", encoding="utf-8") as fh:
@@ -198,12 +264,13 @@ def _read_audit(svc: Any) -> list[dict]:
                 row = json.loads(line)
                 if not isinstance(row, dict) or not isinstance(row.get("ts"), str):
                     raise ValueError("invalid audit row")
-                raw_cost = row.get("cost_usd")
-                if isinstance(raw_cost, bool) or raw_cost is None:
-                    raise ValueError("missing audit cost")
-                cost = float(raw_cost)
-                if not math.isfinite(cost) or cost < 0:
-                    raise ValueError("invalid audit cost")
+                status = row.get("status")
+                if not (status in _UNKNOWN_COST_STATUSES and row.get("cost_usd") is None):
+                    _money(row.get("cost_usd"), what="audit cost")
+                if status == "reserved" or row.get("quoted_cost_usd") is not None:
+                    _money(row.get("quoted_cost_usd"), what="audit quote")
+                if status == "reserved" and not row.get("reservation_id"):
+                    raise ValueError("reservation without id")
                 out.append(row)
     except FileNotFoundError:
         return []
@@ -211,10 +278,18 @@ def _read_audit(svc: Any) -> list[dict]:
 
 
 def _append_audit(svc: Any, row: dict) -> None:
+    """Append under the ledger lock (cross-thread and cross-process)."""
+    with _ledger_lock(svc):
+        _append_audit_locked(svc, row)
+
+
+def _append_audit_locked(svc: Any, row: dict) -> None:
     path = _audit_path(svc)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
 
 
 def _row_sha256(row: dict) -> str:
@@ -227,21 +302,67 @@ def _resolved_unknown(rows: list[dict]) -> set[str]:
             if r.get("status") == "billing_reconciled" and r.get("decided_by") == "owner" and r.get("reconciles_sha256")}
 
 
+def _settled_ids(rows: list[dict]) -> set[str]:
+    return {str(r["reservation_id"]) for r in rows if r.get("status") != "reserved" and r.get("reservation_id")}
+
+
+def _settled(rows: list[dict], row: dict) -> bool:
+    return str(row.get("reservation_id")) in _settled_ids(rows)
+
+
+def _ledger(rows: list[dict], *, now: float | None = None) -> dict[str, Any]:
+    """Pure view of the ledger. Date-independent where money is unknown:
+
+      * `unknown` - every billing_unknown row and every stale open reservation the owner has NOT reconciled, from ANY day.
+        They block paid calls until reconciled (P0 31.10: they used to stop counting at UTC midnight).
+      * `open` - fresh reservations (calls in flight, any day): their quote is held against the budget.
+      * `spent_usd` - today's (UTC) known actual spend, including owner-confirmed amounts (counted on the reconciliation day).
+    """
+    now = _now() if now is None else now
+    today = _today()
+    resolved = _resolved_unknown(rows)
+    settled = _settled_ids(rows)
+    unknown: list[dict] = []
+    open_rows: list[dict] = []
+    spent = 0.0
+    for r in rows:
+        status = r.get("status")
+        if status == "billing_unknown":
+            if _row_sha256(r) not in resolved:
+                unknown.append(r)
+            continue                       # actual unknown: never summed as 0; the owner's reconciliation row carries it
+        if status == "reserved":
+            if str(r.get("reservation_id")) in settled:
+                continue
+            started = _ts_epoch(r)
+            if started is None or now - started > RESERVATION_STALE_S:
+                if _row_sha256(r) not in resolved:
+                    unknown.append(r)
+            else:
+                open_rows.append(r)
+            continue
+        if str(r.get("ts", ""))[:10] == today:
+            spent += float(r.get("cost_usd") or 0.0)
+    return {"today": today, "spent_usd": round(spent, 6), "unknown": unknown, "open": open_rows,
+            "reserved_usd": round(sum(float(r["quoted_cost_usd"]) for r in open_rows), 6)}
+
+
 def unresolved_unknown_spend(data_dir: Path) -> list[dict]:
-    """The billing_unknown rows the owner has not reconciled yet (metadata only, never request text)."""
-    rows = _read_audit(SimpleNamespace(settings=SimpleNamespace(data_dir=data_dir)))
-    done = _resolved_unknown(rows)
-    return [{"sha256": _row_sha256(r), "ts": r.get("ts"), "model": r.get("model"), "provider": r.get("provider"),
-             "error": r.get("error")} for r in rows if r.get("status") == "billing_unknown" and _row_sha256(r) not in done]
+    """Unknown-cost rows the owner has not reconciled yet, any day (metadata only, never request text)."""
+    led = _ledger(_read_audit(_svc_for(data_dir)))
+    return [{"sha256": _row_sha256(r), "ts": r.get("ts"), "status": r.get("status"), "model": r.get("model"),
+             "provider": r.get("provider"), "quoted_cost_usd": r.get("quoted_cost_usd"), "error": r.get("error")}
+            for r in led["unknown"]]
 
 
 def reconcile_unknown_spend_by_owner(data_dir: Path, *, target_record_sha256: str, actual_cost_usd: float, owner_id: str,
                                      evidence_note: str) -> dict[str, Any]:
-    """Owner's append-only reconciliation of ONE billing_unknown row (trio audit 29.10, Codex H4-A).
+    """Owner's append-only reconciliation of ONE unknown-cost row (trio audit 29.10, Codex H4-A; P0 31.10).
 
-    Fail-closed stays the default: an unknown charge blocks paid calls until the owner states the real amount from the provider's
-    own usage. The original row is never rewritten; a `billing_reconciled` row is appended that names it by SHA-256 and carries the
-    confirmed cost, which then counts in the day's spend. Idempotent: a second reconciliation of the same row returns the first.
+    Fail-closed stays the default: an unknown charge blocks paid calls - on every following day too - until the owner states
+    the real amount from the provider's own usage. The original row is never rewritten; a `billing_reconciled` row is appended
+    that names it by SHA-256 and carries the confirmed cost, which then counts in the spend of the reconciliation day.
+    Idempotent: a second reconciliation of the same row returns the first.
     """
     if owner_id != "owner":
         raise PermissionError("only the owner reconciles unknown cloud spend")
@@ -251,28 +372,29 @@ def reconcile_unknown_spend_by_owner(data_dir: Path, *, target_record_sha256: st
     note = str(evidence_note or "").strip()
     if not note:
         raise ValueError("evidence_note (where the amount comes from) is required")
-    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=data_dir))
-    rows = _read_audit(svc)
-    target = next((r for r in rows if r.get("status") == "billing_unknown" and _row_sha256(r) == target_record_sha256), None)
-    if target is None:
-        raise LookupError("no billing_unknown row with this SHA-256")
-    existing = next((r for r in rows if r.get("status") == "billing_reconciled"
-                     and r.get("reconciles_sha256") == target_record_sha256), None)
-    if existing is not None:
-        return existing
-    record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "status": "billing_reconciled",
-              "reconciles_sha256": target_record_sha256, "cost_usd": round(float(actual_cost_usd), 6),
-              "decided_by": "owner", "evidence_note": note[:500], "model": target.get("model"),
-              "provider": target.get("provider")}
-    _append_audit(svc, record)
+    svc = _svc_for(data_dir)
+    with _ledger_lock(svc):
+        rows = _read_audit(svc)
+        existing = next((r for r in rows if r.get("status") == "billing_reconciled"
+                         and r.get("reconciles_sha256") == target_record_sha256), None)
+        if existing is not None:
+            return existing
+        target = next((r for r in _ledger(rows)["unknown"] if _row_sha256(r) == target_record_sha256), None)
+        if target is None:
+            raise LookupError("no unresolved billing_unknown row with this SHA-256")
+        record = {"ts": _stamp(), "status": "billing_reconciled",
+                  "reconciles_sha256": target_record_sha256, "cost_usd": round(float(actual_cost_usd), 6),
+                  "quoted_cost_usd": target.get("quoted_cost_usd"),
+                  "decided_by": "owner", "evidence_note": note[:500], "model": target.get("model"),
+                  "provider": target.get("provider")}
+        _append_audit_locked(svc, record)
     return record
 
 
 async def audit(svc: Any, **row: Any) -> dict:
     """Одна строка журнала. Намеренно без полей текста: только метаданные вызова."""
-    record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **row}
-    async with _STATE.audit_lock:
-        await asyncio.to_thread(_append_audit, svc, record)
+    record = {"ts": _stamp(), **row}
+    await asyncio.to_thread(_append_audit, svc, record)
     return record
 
 
@@ -285,31 +407,87 @@ async def _session_of_task(svc: Any, task_id: int | None) -> str | None:
     return await asyncio.to_thread(_thread_of_task, svc, task_id, exclude="")
 
 
+async def _session_budget(svc: Any, task_id: int | None) -> dict | None:
+    """Raw session budget of the task's agent session (router accounting), or None -> the day budget applies."""
+    session_id = await _session_of_task(svc, task_id)
+    if not session_id:
+        return None
+    try:
+        detail = await _session_detail(svc, session_id)
+        return {"session_id": session_id, "budget_usd": float(detail["budget_usd"]),
+                "spent_usd": float(detail["spent_usd"]), "remaining_usd": float(detail["budget_remaining_usd"])}
+    except Exception:  # noqa: BLE001 - сессия пропала или не читается: считаем по суткам, не по воздуху
+        return None
+
+
+_LEDGER_ERRORS = (OSError, UnicodeError, ValueError, TypeError, OverflowError)
+
+
+def _blocked(**extra: Any) -> dict:
+    return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD,
+            "spent_usd": DEFAULT_SESSION_BUDGET_USD, "remaining_usd": 0.0, "billing_unknown": True, **extra}
+
+
 async def budget_state(svc: Any, task_id: int | None) -> dict:
-    """Бюджет, из которого платит вызов: сессия агента (учёт роутера) или, вне сессии, сутки по журналу cloud.ask."""
+    """Бюджет, из которого платит вызов: сессия агента (учёт роутера) или, вне сессии, сутки по журналу cloud.ask.
+
+    Any unreconciled unknown-cost row (any day) or an unreadable ledger -> remaining 0 (paid calls blocked).
+    Quotes of calls in flight are held against the remaining budget. Advisory: the binding check is `reserve_paid_call_sync`.
+    """
     try:
         rows = await asyncio.to_thread(_read_audit, svc)
-    except (OSError, UnicodeError, ValueError, TypeError, OverflowError):
-        return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD,
-                "spent_usd": DEFAULT_SESSION_BUDGET_USD, "remaining_usd": 0.0,
-                "billing_unknown": True, "audit_unavailable": True}
-    today_rows = [r for r in rows if str(r.get("ts", ""))[:10] == _today()]
-    resolved = _resolved_unknown(rows)                       # owner reconciliations (any day) clear the matching unknown row
-    if any(r.get("status") == "billing_unknown" and _row_sha256(r) not in resolved for r in today_rows):
-        return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD,
-                "spent_usd": DEFAULT_SESSION_BUDGET_USD, "remaining_usd": 0.0,
-                "billing_unknown": True}
-    session_id = await _session_of_task(svc, task_id)
-    if session_id:
-        try:
-            detail = await _session_detail(svc, session_id)
-            return {"scope": "session", "session_id": session_id, "budget_usd": float(detail["budget_usd"]),
-                    "spent_usd": float(detail["spent_usd"]), "remaining_usd": float(detail["budget_remaining_usd"])}
-        except Exception:  # noqa: BLE001 - сессия пропала или не читается: считаем по суткам, не по воздуху
-            pass
-    spent = sum(float(r.get("cost_usd") or 0.0) for r in today_rows)
-    return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD, "spent_usd": round(spent, 6),
-            "remaining_usd": round(max(0.0, DEFAULT_SESSION_BUDGET_USD - spent), 6)}
+    except _LEDGER_ERRORS:
+        return _blocked(audit_unavailable=True)
+    led = _ledger(rows)
+    if led["unknown"]:
+        return _blocked(unknown_count=len(led["unknown"]))
+    session = await _session_budget(svc, task_id)
+    if session:
+        held = sum(float(r["quoted_cost_usd"]) for r in led["open"] if r.get("session_id") == session["session_id"])
+        return {"scope": "session", **session, "reserved_usd": round(held, 6),
+                "remaining_usd": round(max(0.0, session["remaining_usd"] - held), 6)}
+    return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD, "spent_usd": led["spent_usd"],
+            "reserved_usd": led["reserved_usd"],
+            "remaining_usd": round(max(0.0, DEFAULT_SESSION_BUDGET_USD - led["spent_usd"] - led["reserved_usd"]), 6)}
+
+
+def reserve_paid_call_sync(data_dir: Path, *, quoted_usd: float, budget_usd: float, scope: str,
+                           session_id: str | None = None, session_remaining_usd: float | None = None,
+                           meta: dict | None = None) -> tuple[dict | None, str | None]:
+    """The binding budget check for ONE paid call: check and append a `reserved` row atomically under the ledger lock.
+
+    Cross-process for the day budget: every process appends to the same ledger under the same OS file lock, so two processes
+    cannot both spend the last of the budget. The session budget (`session_remaining_usd`) comes from the in-memory session
+    runtime of THIS process; its in-flight quotes are held through the same ledger rows.
+    Fails closed: unknown spend, an unreadable/corrupt ledger or a busy lock -> no reservation, no paid call.
+    """
+    try:
+        quoted = _money(quoted_usd, what="quote")
+    except (TypeError, ValueError):
+        return None, "CLOUD_ASK_NO_BUDGET: у платного вызова нет цены - без цены не отправляем"
+    svc = _svc_for(data_dir)
+    try:
+        with _ledger_lock(svc):
+            led = _ledger(_read_audit(svc))
+            if led["unknown"]:
+                return None, (f"CLOUD_ASK_NO_BUDGET: {len(led['unknown'])} платн. вызов(ов) с неизвестной стоимостью ждут "
+                              "сверки владельцем (billing_unknown) - платные вызовы остановлены до сверки")
+            if scope == "session" and session_remaining_usd is not None:
+                held = sum(float(r["quoted_cost_usd"]) for r in led["open"] if r.get("session_id") == session_id)
+                remaining = float(session_remaining_usd) - held
+            else:
+                scope, session_id = "day", None
+                remaining = float(budget_usd) - led["spent_usd"] - led["reserved_usd"]
+            remaining = round(remaining, 6)
+            if remaining <= 0 or quoted > remaining:
+                return None, f"CLOUD_ASK_NO_BUDGET: оценка {quoted} USD при остатке бюджета {max(0.0, remaining)} USD"
+            row = {**(meta or {}), "ts": _stamp(), "status": "reserved", "reservation_id": uuid.uuid4().hex,
+                   "quoted_cost_usd": round(quoted, 6), "cost_usd": None, "scope": scope, "session_id": session_id,
+                   "pid": os.getpid()}
+            _append_audit_locked(svc, row)
+            return row, None
+    except _LEDGER_ERRORS:
+        return None, "CLOUD_ASK_NO_BUDGET: журнал расходов cloud.ask недоступен или повреждён - платный вызов не отправлен"
 
 
 async def _task_id_from_trace(svc: Any) -> int | None:
@@ -555,35 +733,59 @@ async def _t_ask(args: dict, ctx: ToolContext) -> ToolResult:
     route, denied = await resolve_route(svc, args, task_id=task_id, bound=bound)
     if route is None:
         return _fail(denied.split(":", 1)[0], denied.split(":", 1)[-1].strip())
-    budget = await budget_state(svc, task_id)
+    paid = bool(bound.get("paid"))
+    quoted = route.get("est_cost_usd")
+    reservation: dict | None = None
+    session: dict | None = None
+    if paid:
+        # Binding check: check + reserve the quote atomically, BEFORE the provider is called (P0 31.10: N parallel calls all
+        # passed the advisory check above and overspent together). The asyncio lock covers the in-process session runtime;
+        # the ledger's file lock covers the day budget across processes.
+        async with _budget_lock():
+            session = await _session_budget(svc, task_id)
+            reservation, denied = await asyncio.to_thread(
+                reserve_paid_call_sync, Path(svc.settings.data_dir), quoted_usd=quoted,
+                budget_usd=DEFAULT_SESSION_BUDGET_USD, scope="session" if session else "day",
+                session_id=(session or {}).get("session_id"),
+                session_remaining_usd=(session or {}).get("remaining_usd"),
+                meta={"model": bound["model"], "provider": bound["provider"], "worker": bound["worker"],
+                      "approval_id": ctx.approval_id, "task_id": task_id, "run_id": ctx.run_id})
+        if reservation is None:
+            return _fail("CLOUD_ASK_NO_BUDGET", (denied or "").split(":", 1)[-1].strip())
     messages = [{"role": "user", "content": text}]
     call = transport or default_transport
     started = time.monotonic()
     base = {"model": bound["model"], "provider": bound["provider"], "worker": bound["worker"], "chars_out": len(text),
-            "approval_id": ctx.approval_id, "task_id": task_id, "run_id": ctx.run_id, "scope": budget["scope"]}
+            "approval_id": ctx.approval_id, "task_id": task_id, "run_id": ctx.run_id,
+            "scope": reservation["scope"] if reservation else "day", "quoted_cost_usd": quoted,
+            "reservation_id": reservation["reservation_id"] if reservation else None}
     try:
         result = await asyncio.wait_for(call(svc, bound, messages, max_tokens=MAX_ANSWER_TOKENS, timeout=CALL_TIMEOUT_S),
                                         timeout=CALL_TIMEOUT_S + 5.0)
     except asyncio.CancelledError:
-        if bound.get("paid"):
+        if paid:
             # await_shared, not asyncio.shield (bcc/single_flight.py): the audit row must be written even if this caller is cancelled
-            await await_shared(asyncio.ensure_future(audit(svc, **base, chars_in=0, cost_usd=0.0, status="billing_unknown",
+            await await_shared(asyncio.ensure_future(audit(svc, **base, chars_in=0, cost_usd=None, status="billing_unknown",
                                                             error="CancelledError", ms=int((time.monotonic() - started) * 1000))))
         raise
     except Exception as exc:  # noqa: BLE001 - не включать текст исключения, он может содержать запрос
-        await audit(svc, **base, chars_in=0, cost_usd=0.0, status="billing_unknown" if bound.get("paid") else "error", error=type(exc).__name__,
+        # Paid: the request may have been billed - actual cost unknown (null, NOT 0) until the owner reconciles it.
+        await audit(svc, **base, chars_in=0, cost_usd=None if paid else 0.0,
+                    status="billing_unknown" if paid else "error", error=type(exc).__name__,
                     ms=int((time.monotonic() - started) * 1000))
         return _fail("CLOUD_ASK_FAILED", f"облачная модель не ответила ({type(exc).__name__}); повторите позже или "
                                           "сообщите владельцу")
     answer = str(getattr(result, "text", "") or "").strip()
     cost = _actual_cost(bound, result)
-    await audit(svc, **base, chars_in=len(answer), cost_usd=cost if cost is not None else 0.0,
-                status="billing_unknown" if cost is None else ("ok" if answer else "empty"),
-                ms=int((time.monotonic() - started) * 1000))
-    if cost and budget["scope"] == "session" and budget["session_id"]:
-        rt = _orch(svc).runtime(budget["session_id"])
-        rt.spent_usd = round(budget["spent_usd"] + cost, 6)           # учёт роутера: spent_usd сессии
-        rt.emit("session.updated", spent_usd=rt.spent_usd, cloud_ask_cost_usd=cost)
+    async with _budget_lock():
+        if cost and reservation and reservation["scope"] == "session" and session:
+            rt = _orch(svc).runtime(session["session_id"])
+            # max(): the session total is max(run costs, runtime); adding to the snapshot keeps every parallel call counted
+            rt.spent_usd = round(max(float(rt.spent_usd or 0.0), session["spent_usd"]) + cost, 6)   # учёт роутера
+            rt.emit("session.updated", spent_usd=rt.spent_usd, cloud_ask_cost_usd=cost)
+        await audit(svc, **base, chars_in=len(answer), cost_usd=cost,
+                    status="billing_unknown" if cost is None else ("ok" if answer else "empty"),
+                    ms=int((time.monotonic() - started) * 1000))
     if not answer:
         return _fail("CLOUD_ASK_EMPTY_ANSWER", "облачная модель вернула пустой ответ")
     cut = len(answer) > MAX_ANSWER_CHARS
@@ -649,12 +851,11 @@ async def api_cloud_budget_reconcile(request: Request, body: dict[str, Any]):
     _require_owner(request)
     svc = request.app.state.svc
     try:
-        async with _STATE.audit_lock:
-            row = await asyncio.to_thread(
-                reconcile_unknown_spend_by_owner, Path(svc.settings.data_dir),
-                target_record_sha256=str((body or {}).get("target_record_sha256") or ""),
-                actual_cost_usd=(body or {}).get("actual_cost_usd"), owner_id="owner",
-                evidence_note=str((body or {}).get("evidence_note") or ""))
+        row = await asyncio.to_thread(                       # takes the ledger lock itself (cross-thread, cross-process)
+            reconcile_unknown_spend_by_owner, Path(svc.settings.data_dir),
+            target_record_sha256=str((body or {}).get("target_record_sha256") or ""),
+            actual_cost_usd=(body or {}).get("actual_cost_usd"), owner_id="owner",
+            evidence_note=str((body or {}).get("evidence_note") or ""))
     except LookupError as exc:
         raise HTTPException(404, {"code": "UNKNOWN_ROW_NOT_FOUND", "message": str(exc)}) from exc
     except ValueError as exc:
