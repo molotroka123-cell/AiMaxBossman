@@ -1,0 +1,47 @@
+{
+ "started": "2026-10-31T08:06:39",
+ "agent": 41,
+ "checks": {
+  "big_upload_download_exact": {
+   "pass": true,
+   "mb": 300,
+   "upload_http": 201,
+   "upload_s": 0.7,
+   "download_http": 200,
+   "download_s": 0.7,
+   "sha256_match": true,
+   "kind": "binary"
+  },
+  "agent_hands_over_file": {
+   "pass": true,
+   "task": 834,
+   "status": "completed",
+   "files_on_turn": 1,
+   "download_http": 200,
+   "sha256_match": true,
+   "share_calls": [
+    [
+     "chat.share_file",
+     "executed",
+     "Файл «report-synthetic.csv» (0.0 МБ) прикреплён к ответу — владелец может его скачать."
+    ]
+   ]
+  },
+  "bossman_db_refused": {
+   "pass": true,
+   "task": 835,
+   "status": "failed",
+   "share_calls": [
+    [
+     "chat.share_file",
+     "denied",
+     "файлы данных Bossman (база, ключи, токены, сессии) отдавать нельзя"
+    ]
+   ],
+   "files_on_turn": 0
+  }
+ },
+ "thread": "20261031-080639-e66dff",
+ "finished": "2026-10-31T08:08:12",
+ "verdict": "PASS"
+}
