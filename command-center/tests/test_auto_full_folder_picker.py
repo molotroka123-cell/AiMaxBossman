@@ -1,4 +1,5 @@
 """Owner 31.10: Auto Full offers a folder picker; Python / installed programs / home / drive root are refused."""
+import os
 import sys
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from bcc.approval_scope import validate_auto_full_folder
 
 def test_python_install_and_programs_are_refused():
     with pytest.raises(PermissionError):
-        validate_auto_full_folder(Path(sys.base_prefix) / "Lib")
+        validate_auto_full_folder(Path(os.__file__).parent)   # the stdlib folder: exists on Windows and Linux CI
 
 
 @pytest.mark.parametrize("bad", [str(Path.home()), str(Path.home().parent), Path.home().anchor])

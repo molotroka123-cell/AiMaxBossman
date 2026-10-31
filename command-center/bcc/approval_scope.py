@@ -608,7 +608,7 @@ def lease_offer(scope: Scope) -> str:
     cannot see what a lease would cover cannot consent to it."""
     if scope.tool in NON_LEASABLE_TOOLS or scope.effect_class in NON_LEASABLE_EFFECT_CLASSES:
         return ("\nОдобрение одноразовое: привилегированное или настольное действие; "
-                "аренда на время для него не выдаётся.")
+                "аренда для него не выдаётся (даже на время).")
     return ("\nМожно ответить один раз на всю область: "
             + scope.describe()
             + f" — не более {MAX_LEASE_USES} вызовов и не дольше "
