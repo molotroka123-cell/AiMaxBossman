@@ -2734,7 +2734,10 @@
           itemBox.appendChild(kv(`№ ${String(o.order_id || '').slice(0, 8)} · ${o.status}${o.preset ? ' · ' + o.preset : ''}`, `${priceStr} (${costStr})`));
           if (o.qc_metrics) {
             const qm = o.qc_metrics;
-            itemBox.appendChild(el('div', 'muted small', `Превью QC: ${qm.width || 1080}×${qm.height || 1920} · резкость ${qm.sharpness_laplacian ?? '—'} · фликер ${qm.flicker_score ?? '—'}`));
+            // audit 31.10: only metrics measured on decoded frames of a verified video are QC; older ones were synthetic
+            itemBox.appendChild(el('div', 'muted small', qm.source === 'decoded_frames'
+              ? `QC (кадры видео): ${qm.width}×${qm.height} · резкость ${qm.sharpness_laplacian ?? '—'} · фликер ${qm.flicker_score ?? '—'}`
+              : 'QC не измерен: синтетические метрики без видео (отозваны 31.10), принять нельзя'));
           }
           const actRow = el('div', 'row');
           if (o.can_approve || o.status === 'owner_review') {

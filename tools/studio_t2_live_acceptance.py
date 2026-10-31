@@ -8,6 +8,12 @@
 3. Run 3 (live owner pult card): creates/updates a ready-to-review Studio preset order in the live CommandCenter data
    dir under participant 'owner' in status 'owner_review' with contact_sheet.png and qc_report.json so the owner's
    Mobile Pult (:8840) displays the card with «Принять» and «На доработку» buttons.
+
+Audit P0 31.10 (docs/audits/2026-10-31-15-agent-convergence/studio_revocation.md): render_preset used to draw a PIL
+``out.png`` for a video job and mark it completed with a parameter as render time and synthetic QC tiles, so the
+29.10 PASS of this harness proved the state machine only, not a render. Now ``run_acceptance`` needs a REAL engine
+(``engine(job, result_dir) -> video path``). Without one it runs only the negative control (render refused, order
+untouched) and returns ``status: NOT_RUN`` - never PASS - and does not touch the live data dir.
 """
 from __future__ import annotations
 
@@ -32,12 +38,45 @@ CLIENT_A = "c1" * 32
 CLIENT_B = "c2" * 32
 
 
-def run_acceptance(live_data_dir: Path | None = None) -> dict:
+def run_without_engine() -> dict:
+    """Negative control: with no engine wired the render is refused and nothing is fabricated."""
+    with tempfile.TemporaryDirectory(prefix="bossman-studio-t2-noengine-") as tmp:
+        tmp_dir = Path(tmp)
+        book = OrderBook(tmp_dir, JobStore(tmp_dir))
+        o = book.create_preset_order(CLIENT_A, "product_spin", "Synthetic product, no faces", face=False, seed=1)
+        book.accept(CLIENT_A, o["order_id"], actor="client")
+        refusal = None
+        try:
+            book.render_preset(CLIENT_A, o["order_id"])
+        except OrderError as exc:
+            refusal = {"http_status": exc.status, "code": exc.code}
+        after = book.get(CLIENT_A, o["order_id"])
+        job = book._job(CLIENT_A, after["items"][0]["job_ids"][0])
+        return {
+            "schema": "bossman.studio.t2-live-acceptance.v2",
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "status": "NOT_RUN",
+            "reason": "render_engine_missing: no real video engine is wired; a render cannot be accepted",
+            "negative_control": {
+                "refusal": refusal,
+                "order_status_after": after["status"],
+                "job_status_after": job.get("status"),
+                "job_result_after": job.get("result"),
+                "qc_metrics_after": after.get("qc_metrics"),
+            },
+            "cloud_cost_usd": 0.0,
+        }
+
+
+def run_acceptance(live_data_dir: Path | None = None, engine=None) -> dict:
+    if engine is None:
+        return run_without_engine()
     # Run 1 & Run 2 execute in an isolated temporary Studio store so synthetic test orders do not pollute client history
     with tempfile.TemporaryDirectory(prefix="bossman-studio-t2-acc-") as tmp:
         tmp_dir = Path(tmp)
         store = JobStore(tmp_dir)
         book = OrderBook(tmp_dir, store)
+        book.render_engine = engine
         tokens = ClientTokens(tmp_dir)
 
         tok_a = tokens.issue(CLIENT_A, label="synthetic-client-a")
@@ -151,9 +190,10 @@ def run_acceptance(live_data_dir: Path | None = None) -> dict:
     if live_data_dir.is_dir():
         live_store = JobStore(live_data_dir)
         live_book = OrderBook(live_data_dir, live_store)
-        existing_review = [
+        live_book.render_engine = engine
+        existing_review = [   # only cards whose QC was measured on decoded frames of a verified video
             o for o in live_book.list("owner")
-            if o.get("status") == "owner_review" and o.get("qc_metrics")
+            if o.get("status") == "owner_review" and (o.get("qc_metrics") or {}).get("source") == "decoded_frames"
         ]
         if existing_review:
             card_order = existing_review[0]
@@ -194,7 +234,7 @@ def run_acceptance(live_data_dir: Path | None = None) -> dict:
         }
 
     return {
-        "schema": "bossman.studio.t2-live-acceptance.v1",
+        "schema": "bossman.studio.t2-live-acceptance.v2",
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "status": "PASS",
         "run1_full_e2e_delivery": run1_summary,
@@ -215,6 +255,9 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "receipt.json").write_text(
         json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
+    if receipt["status"] != "PASS":
+        print(json.dumps({"status": receipt["status"], "reason": receipt.get("reason")}, ensure_ascii=False))
+        return 2
     print(json.dumps({
         "status": receipt["status"],
         "run1_order_id": receipt["run1_full_e2e_delivery"]["order_id"],

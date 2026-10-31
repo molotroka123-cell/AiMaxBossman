@@ -56,7 +56,10 @@ import json
 import os
 import re
 import secrets
+import shutil
+import subprocess
 import threading
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -221,6 +224,91 @@ def migrate(order: dict) -> dict:
     return order
 
 
+# ---------- Studio preset render honesty (P0 audit 31.10) ----------
+# A preset render result counts only if a REAL engine wrote a decodable video file: container magic bytes AND ffprobe
+# (a video stream, a non-image container, duration > 0, >= 2 decoded frames). Render time is a wall clock measured
+# around the engine call, never a parameter; QC metrics are measured on frames decoded from that file.
+VIDEO_MIME = {"mp4": "video/mp4", "matroska": "video/x-matroska", "avi": "video/x-msvideo"}
+PROBE_TIMEOUT_S = 120
+
+
+def video_container(head: bytes) -> str | None:
+    """Container from magic bytes: ISO-BMFF (mp4/mov ``ftyp`` at offset 4), Matroska/WebM (EBML), AVI (RIFF/AVI)."""
+    if len(head) >= 12 and head[4:8] == b"ftyp":
+        return "mp4"
+    if head[:4] == b"\x1aE\xdf\xa3":
+        return "matroska"
+    if len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"AVI ":
+        return "avi"
+    return None
+
+
+def _fraction(value: Any) -> float | None:
+    try:
+        num, _, den = str(value or "").partition("/")
+        f = float(num) / float(den or 1)
+    except (ValueError, ZeroDivisionError):
+        return None
+    return f if f > 0 else None
+
+
+def probe_video(path: Path, ffprobe: str | None) -> dict:
+    """Independent check of an engine's output file. Unverified is reported as such, never as success."""
+    try:
+        with Path(path).open("rb") as fh:
+            head = fh.read(16)
+    except OSError as exc:
+        return {"verified": False, "reason": f"unreadable:{type(exc).__name__}"}
+    container = video_container(head)
+    if container is None:
+        return {"verified": False, "reason": "not_a_video_container", "magic": head[:8].hex()}
+    if not ffprobe:
+        return {"verified": False, "reason": "ffprobe_unavailable", "container": container}
+    try:
+        out = subprocess.run([ffprobe, "-v", "error", "-count_frames", "-print_format", "json", "-show_format",
+                              "-show_streams", str(path)], capture_output=True, text=True,
+                             timeout=PROBE_TIMEOUT_S, check=False)
+        info = json.loads(out.stdout or "{}")
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        return {"verified": False, "reason": f"ffprobe_failed:{type(exc).__name__}", "container": container}
+    fmt = info.get("format") or {}
+    fmt_name = str(fmt.get("format_name") or "")
+    video = next((s for s in info.get("streams") or [] if s.get("codec_type") == "video"), None)
+    try:
+        duration = float(fmt.get("duration") or (video or {}).get("duration") or 0)
+    except (TypeError, ValueError):
+        duration = 0.0
+    try:
+        frames = int((video or {}).get("nb_read_frames") or 0)
+    except (TypeError, ValueError):
+        frames = 0
+    reason = None
+    if out.returncode != 0 or video is None:
+        reason = "no_decodable_video_stream"
+    elif fmt_name.endswith("_pipe") or fmt_name.startswith("image2"):
+        reason = f"still_image_format:{fmt_name}"
+    elif duration <= 0 or frames < 2:
+        reason = "not_a_moving_video"
+    if reason:
+        return {"verified": False, "reason": reason, "container": container, "format_name": fmt_name}
+    return {"verified": True, "container": container, "format_name": fmt_name, "codec": video.get("codec_name"),
+            "width": int(video.get("width") or 0), "height": int(video.get("height") or 0),
+            "fps": _fraction(video.get("avg_frame_rate")) or _fraction(video.get("r_frame_rate")),
+            "duration_s": round(duration, 3), "frames": frames, "checked_by": "magic_bytes+ffprobe"}
+
+
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _engine_name(engine: Any) -> str:
+    return str(getattr(engine, "name", None) or getattr(engine, "__name__", None) or type(engine).__name__)[:80]
+
+
 class _CommitThenFail(Exception):
     """Raised by a step that must keep its state change (preflight entered) and still refuse."""
     def __init__(self, error: OrderError):
@@ -335,6 +423,9 @@ class OrderBook:
         self.jeff_pause_path = studio / "jeff_pause.json"
         self.delivery_links_path = studio / "delivery_links.json"
         self.tokens = ClientTokens(self.data_dir)
+        # Real video engine for Studio presets: engine(job, result_dir) -> Path | {"path": Path, "watermark": str}.
+        # None (the default: no engine is wired yet) means render_preset REFUSES; it never fabricates a result.
+        self.render_engine: Callable[[dict, Path], Any] | None = None
         self._locks: dict[Path, threading.Lock] = {}
         self._locks_guard = threading.Lock()
 
@@ -1151,9 +1242,21 @@ class OrderBook:
                 sha = (job.get("result") or {}).get("sha256")
                 if job.get("status") != "completed" or not sha or self._result_file(job) is None:
                     problems.append({"job_id": job_id, "code": "job_not_completed", "status": job.get("status")})
+                elif self._preset_result_unverified(job):
+                    problems.append({"job_id": job_id, "code": "preset_render_unverified"})
                 else:
                     hashes[job_id] = sha
         return hashes, problems
+
+    @staticmethod
+    def _preset_result_unverified(job: dict) -> bool:
+        """A Studio preset video job whose result was not verified as a real decodable video (e.g. the pre-31.10
+        placeholder ``out.png`` marked completed) can be neither approved nor delivered."""
+        if not job.get("preset") or job.get("kind") != "video":
+            return False
+        res = job.get("result") or {}
+        return not ((res.get("verification") or {}).get("verified") is True
+                    and str(res.get("mime") or "").startswith("video/"))
 
     def qc(self, participant: str, order_id: str, passed: bool, note: str = "", key: str | None = None) -> dict:
         """Owner's QC verdict on the rendered files: passed -> qc_passed -> owner_review (every job must be finished),
@@ -1292,6 +1395,8 @@ class OrderBook:
                 if job.get("status") != "completed" or not job.get("result") or self._result_file(job) is None:
                     problems.append({"job_id": job_id, "code": "job_not_completed", "status": job.get("status")})
                     continue
+                if self._preset_result_unverified(job):
+                    problems.append({"job_id": job_id, "code": "preset_render_unverified"})
                 sha = job["result"].get("sha256")
                 disc = (item.get("disclosures") or {}).get(job_id) or {}
                 if DISCLOSURE_MARK.lower() not in str(disc.get("caption", "")).lower():
@@ -1440,40 +1545,56 @@ class OrderBook:
             order["jeff_pause"] = {**prev, "paused": False, "resumed_at": rec["at"], "reason": reason}
         return order["jeff_pause"]
 
-    def _generate_contact_sheet_and_qc(self, order: dict, job: dict) -> dict:
-        """T2: generate contact_sheet.png and qc_report.json in the order folder (<orders_dir>/<order_id>/)."""
-        from PIL import Image, ImageDraw, ImageFilter, ImageStat
+    @staticmethod
+    def media_tools() -> tuple[str | None, str | None]:
+        """(ffmpeg, ffprobe) executables, or None each when missing (tests may override)."""
+        return shutil.which("ffmpeg"), shutil.which("ffprobe")
 
+    def _generate_contact_sheet_and_qc(self, order: dict, job: dict, video_path: Path, ffmpeg: str) -> dict:
+        """T2: contact_sheet.png + qc_report.json in the order folder (<orders_dir>/<order_id>/), MEASURED on four
+        frames decoded by ffmpeg from the engine's verified video file (t = 10/35/65/90 % of its probed duration).
+        Size/fps/duration come from the ffprobe verification of that file, not from the job's requested params.
+        Raises OrderError when the frames cannot be decoded (no synthetic fallback)."""
+        from PIL import Image, ImageFilter, ImageStat
+
+        probe = (job.get("result") or {}).get("verification") or {}
+        if probe.get("verified") is not True:
+            raise OrderError(409, "preset_render_unverified", "QC needs a verified video file")
         art_dir = self._order_artifacts_dir(order)
         art_dir.mkdir(parents=True, exist_ok=True)
-        params = job.get("params") or {}
-        width = int(job.get("width") or params.get("width") or 1080)
-        height = int(job.get("height") or params.get("height") or 1920)
-        fps = int(job.get("fps") or params.get("fps") or 24)
-        duration_s = float(job.get("duration_s") or params.get("duration_s") or 6.0)
-        seed = int(job.get("seed") or params.get("seed") or 42)
+        width, height = int(probe["width"]), int(probe["height"])
+        fps, duration_s = probe.get("fps"), float(probe["duration_s"])
 
-        # Build 4 keyframe tiles at motion peaks (t=10%, 35%, 65%, 90%) and measure Laplacian sharpness + flicker
         tile_w, tile_h = 270, 480
-        sheet = Image.new("RGB", (tile_w * 4, tile_h), (18, 22, 32))
+        sheet = Image.new("RGB", (tile_w * 4, tile_h), (0, 0, 0))
         lap_scores: list[float] = []
         means: list[float] = []
+        sampled: list[float] = []
         for idx, pct in enumerate((10, 35, 65, 90)):
-            tile = Image.new("RGB", (tile_w, tile_h), (24 + idx * 6, 30 + idx * 4, 46 + idx * 5))
-            draw = ImageDraw.Draw(tile)
-            # Crisp high-contrast studio product geometry for Laplacian edge measurement
-            cx, cy = tile_w // 2 + (idx - 1) * 8, tile_h // 2
-            for r in range(85, 15, -14):
-                col = (210 - r, 180 - r // 2, 245 - r)
-                draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=col, width=3)
-            draw.rectangle((28, tile_h - 90, tile_w - 28, tile_h - 28), outline=(235, 240, 255), width=2)
-            draw.text((38, 24), f"{order.get('preset') or 'studio'} #{idx + 1} ({pct}%)", fill=(240, 245, 255))
-            draw.text((38, tile_h - 70), f"{width}x{height} @{fps}fps s={seed}", fill=(190, 215, 255))
-            edges = tile.convert("L").filter(ImageFilter.FIND_EDGES)
-            stat = ImageStat.Stat(edges)
-            lap_scores.append(round(float(stat.var[0]), 2))
-            means.append(float(ImageStat.Stat(tile.convert("L")).mean[0]))
-            sheet.paste(tile, (idx * tile_w, 0))
+            t = round(duration_s * pct / 100.0, 3)
+            frame_path = art_dir / f".qc_frame_{idx}.png"
+            try:
+                proc = subprocess.run([ffmpeg, "-v", "error", "-y", "-ss", str(t), "-i", str(video_path),
+                                       "-frames:v", "1", str(frame_path)], capture_output=True,
+                                      timeout=PROBE_TIMEOUT_S, check=False)
+                frame = None
+                if proc.returncode == 0 and frame_path.is_file():
+                    with Image.open(frame_path) as im:
+                        frame = im.convert("RGB")
+            except (OSError, subprocess.TimeoutExpired):
+                frame = None
+            if frame is None:
+                frame_path.unlink(missing_ok=True)
+                raise OrderError(409, "qc_frame_decode_failed", f"could not decode a frame at t={t}s")
+            gray = frame.convert("L")
+            lap_scores.append(round(float(ImageStat.Stat(gray.filter(ImageFilter.FIND_EDGES)).var[0]), 2))
+            means.append(float(ImageStat.Stat(gray).mean[0]))
+            sampled.append(t)
+            thumb = frame.copy()
+            thumb.thumbnail((tile_w, tile_h))
+            sheet.paste(thumb, (idx * tile_w + (tile_w - thumb.width) // 2, (tile_h - thumb.height) // 2))
+            frame.close()
+            frame_path.unlink(missing_ok=True)
 
         cs_path = art_dir / "contact_sheet.png"
         sheet.save(cs_path, format="PNG")
@@ -1486,6 +1607,9 @@ class OrderBook:
         dur_ok = 0.5 <= duration_s <= 10.0
         qcr_path = art_dir / "qc_report.json"
         qc_metrics = {
+            "source": "decoded_frames",
+            "video_sha256": (job.get("result") or {}).get("sha256"),
+            "frames_sampled_at_s": sampled,
             "sharpness_laplacian": sharpness,
             "flicker_score": flicker,
             "duration_s": duration_s,
@@ -1505,17 +1629,45 @@ class OrderBook:
         return qc_metrics
 
     def render_preset(self, participant: str, order_id: str, *, simulate_kill_mid_render: bool = False,
-                      render_seconds: float = 48.0, key: str | None = None, dg_service: Any = None) -> dict:
+                      key: str | None = None, engine: Callable[[dict, Path], Any] | None = None) -> dict:
         """T2: execute the preset render for a Studio order with an idempotent key (`order_id + job_id`).
+        - REFUSES (503 ``render_engine_missing``, no state change, no file, no timing, no QC) when no real engine is
+          given or wired (``self.render_engine``), and 503 ``video_probe_unavailable`` without ffmpeg/ffprobe.
+          Until 31.10 this path drew a PIL ``out.png`` for a video job, marked it ``completed`` with a render time
+          taken from a parameter and synthetic QC tiles; that behaviour is removed (audit P0, studio_revocation.md).
+        - engine(job, result_dir) must write a video file inside result_dir and return its Path, or
+          {"path": Path, "watermark": "<mark it burned in>"}. Only the engine may declare a watermark.
+        - The file counts only if verified (``probe_video``: container magic bytes + ffprobe, >= 2 decoded frames);
+          ``timing.total_s`` is the wall clock (time.monotonic) around the engine call. An unverified file leaves the
+          job ``failed`` and the order ``qc_failed``; an engine exception (unknown outcome) -> ``reconcile_required``.
         - Pauses Jeff while rendering (`jeff_pause.paused = True`) and resumes on exit.
-        - If a job is already `completed` with its file on disk, it is reused (never duplicated).
+        - A job already `completed` with a VERIFIED video whose SHA-256 still matches is reused (never duplicated);
+          a legacy unverified result is rendered again on the same job_id.
         - If the render process dies mid-render (`simulate_kill_mid_render=True`), the order moves to
           `reconcile_required` without creating duplicate jobs; a subsequent call resumes cleanly on the same job_id.
-        - Writes the deliverable, contact_sheet.png, qc_report.json, and updates the order manifest & cost receipt."""
+        - Writes contact_sheet.png + qc_report.json measured on decoded frames, the manifest and the cost receipt."""
         participant = valid_participant(participant)
+        engine = engine if engine is not None else self.render_engine
+        if engine is None:
+            raise OrderError(503, "render_engine_missing",
+                             "no real video engine is wired for Studio presets; nothing was rendered "
+                             "(no placeholder file, no render time, no QC metrics)",
+                             [{"code": "render_engine_missing", "engine": "none", "demo": False}])
+        ffmpeg, ffprobe = self.media_tools()
+        if not ffmpeg or not ffprobe:
+            raise OrderError(503, "video_probe_unavailable",
+                             "ffmpeg/ffprobe are required to verify a rendered video; nothing was rendered",
+                             [{"code": "video_probe_unavailable"}])
+        engine_name = _engine_name(engine)
         cur = self._load(participant, order_id)
         if cur["status"] in ("accepted", "preflight", "rework", "qc_failed", "reconcile_required"):
             self.start(participant, order_id, key=f"{key}:start" if key else None)
+
+        def reusable(job: dict) -> bool:
+            path = self._result_file(job)
+            if job.get("status") != "completed" or path is None or self._preset_result_unverified(job):
+                return False
+            return _sha256_path(path) == (job.get("result") or {}).get("sha256")
 
         def fn(order: dict, moves: list) -> dict:
             if order["status"] != "generating":
@@ -1528,7 +1680,7 @@ class OrderBook:
                 for item in order["items"]:
                     for job_id in item["job_ids"]:
                         job = self._job(participant, job_id)
-                        if job.get("status") == "completed" and self._result_file(job) is not None:
+                        if reusable(job):
                             reused_jobs.append(job_id)
                             continue
                         render_idem = f"{order_id}:render:{job_id}"
@@ -1543,41 +1695,70 @@ class OrderBook:
                             self._move(order, moves, "reconcile_required", "render_interrupted_mid_flight")
                             self._write_manifest(order)
                             return {"interrupted": True, "reused_jobs": reused_jobs, "rendered_jobs": rendered_jobs}
-                        # Produce the local deliverable in the job's result dir (via Direct Gen store contract)
+                        # The REAL engine writes the deliverable into the job's result dir; we time it ourselves.
                         res_dir = self.jobs.job_dir(participant, job_id) / "result"
                         res_dir.mkdir(parents=True, exist_ok=True)
-                        from PIL import Image, ImageDraw
-                        w = int(job.get("width") or 1080)
-                        h = int(job.get("height") or 1920)
-                        img = Image.new("RGB", (w, h), (20, 26, 38))
-                        d = ImageDraw.Draw(img)
-                        d.ellipse((w // 4, h // 3, 3 * w // 4, 2 * h // 3), outline=(225, 200, 255), width=6)
-                        d.text((64, h - 140), f"{DISCLOSURE} · {WATERMARK}", fill=(240, 240, 255))
-                        out_name = "out.png"
-                        out_path = res_dir / out_name
-                        img.save(out_path, format="PNG")
-                        data = out_path.read_bytes()
-                        sha = hashlib.sha256(data).hexdigest()
+                        job.update(result=None, timing=None, engine=engine_name, demo=False)
+                        (job.get("provenance") or {}).pop("watermark", None)
+                        t0 = time.monotonic()
+                        try:
+                            produced = engine(dict(job), res_dir)
+                        except Exception as exc:  # noqa: BLE001 - unknown outcome: the owner reconciles
+                            job.update(status="failed", error=f"engine_error:{type(exc).__name__}",
+                                       finished_at=now_iso())
+                            self.jobs.save(job)
+                            self._move(order, moves, "reconcile_required", f"render_engine_error:{type(exc).__name__}")
+                            self._write_manifest(order)
+                            return {"interrupted": True, "reused_jobs": reused_jobs, "rendered_jobs": rendered_jobs,
+                                    "error": "render_engine_error"}
+                        elapsed = time.monotonic() - t0
+                        declared = produced if isinstance(produced, dict) else {"path": produced}
+                        out_path = Path(declared.get("path") or "")
+                        inside = out_path.is_file() and out_path.resolve().parent == res_dir.resolve()
+                        probe = (probe_video(out_path, ffprobe) if inside
+                                 else {"verified": False, "reason": "engine_output_missing_or_outside_result_dir"})
+                        if probe.get("verified") is not True:
+                            job.update(status="failed", finished_at=now_iso(),
+                                       error=f"engine_output_unverified:{probe.get('reason')}",
+                                       verification=probe)
+                            self.jobs.save(job)
+                            order["qc_metrics"] = None
+                            order["qc"] = {"passed": False, "note": f"render_unverified:{probe.get('reason')}",
+                                           "at": now_iso(), "attempt": order.get("attempt", 1)}
+                            self._move(order, moves, "qc_failed", f"render_unverified:{probe.get('reason')}")
+                            self._write_manifest(order)
+                            return {"interrupted": False, "reused_jobs": reused_jobs, "rendered_jobs": rendered_jobs,
+                                    "error": "engine_output_unverified", "verification": probe}
+                        sha = _sha256_path(out_path)
+                        job.pop("verification", None)
+                        job.pop("error", None)
                         job.update(
                             status="completed",
                             finished_at=now_iso(),
-                            timing={"total_s": float(render_seconds)},
-                            result={"file": out_name, "bytes": len(data), "sha256": sha, "mime": "image/png",
-                                    "width": w, "height": h},
+                            timing={"total_s": round(elapsed, 3), "clock": "time.monotonic around engine call",
+                                    "measured": True},
+                            result={"file": out_path.name, "bytes": out_path.stat().st_size, "sha256": sha,
+                                    "mime": VIDEO_MIME[probe["container"]], "width": probe["width"],
+                                    "height": probe["height"], "fps": probe["fps"],
+                                    "duration_s": probe["duration_s"], "frames": probe["frames"],
+                                    "engine": engine_name, "verification": probe},
                         )
-                        job.setdefault("provenance", {})["watermark"] = {"mark": WATERMARK, "sha256": sha}
-                        self.jobs.save(job)
                         stamp = now_iso()
+                        mark = str(declared.get("watermark") or "").strip()[:120]
+                        if mark:   # only the engine that burned the mark in may declare it
+                            job.setdefault("provenance", {})["watermark"] = {"mark": mark, "sha256": sha,
+                                                                             "declared_by": engine_name}
+                            item.setdefault("watermarks", {})[job_id] = {"mark": mark, "at": stamp, "sha256": sha}
+                        self.jobs.save(job)
                         item.setdefault("disclosures", {})[job_id] = {"caption": DISCLOSURE, "at": stamp, "sha256": sha}
-                        item.setdefault("watermarks", {})[job_id] = {"mark": WATERMARK, "at": stamp, "sha256": sha}
-                        qc_metrics = self._generate_contact_sheet_and_qc(order, job)
-                        order["qc_metrics"] = qc_metrics
+                        order["qc_metrics"] = self._generate_contact_sheet_and_qc(order, job, out_path, ffmpeg)
                         rendered_jobs.append(job_id)
-                if order.get("qc_metrics") is None:
-                    first_jid = order["items"][0]["job_ids"][0]
-                    order["qc_metrics"] = self._generate_contact_sheet_and_qc(order, self._job(participant, first_jid))
+                if (order.get("qc_metrics") or {}).get("source") != "decoded_frames":
+                    first = self._job(participant, order["items"][0]["job_ids"][0])
+                    order["qc_metrics"] = self._generate_contact_sheet_and_qc(order, first, self._result_file(first),
+                                                                              ffmpeg)
                 qm = order["qc_metrics"]
-                passed_qc = bool(qm.get("passed_signals", True))
+                passed_qc = qm.get("passed_signals") is True
                 order["qc"] = {"passed": passed_qc, "note": "auto_qc_contact_sheet", "at": now_iso(),
                                "attempt": order.get("attempt", 1)}
                 if passed_qc:
@@ -1592,7 +1773,7 @@ class OrderBook:
                 self._set_jeff_pause(order, False, f"studio_render_done:{order_id}")
 
         return self._step(participant, order_id, "render_preset", fn,
-                          args=[bool(simulate_kill_mid_render), float(render_seconds)], key=key, replayable=True)
+                          args=[bool(simulate_kill_mid_render), engine_name], key=key, replayable=True)
 
 
 PRESETS = OrderBook.PRESETS

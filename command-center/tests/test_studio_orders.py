@@ -13,14 +13,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import subprocess
 import threading
+import time
 import uuid
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
-from bcc.direct_gen.orders import DISCLOSURE, OrderBook, OrderError, brands_named, energy_cost, job_seconds
+from bcc.direct_gen.orders import (DISCLOSURE, WATERMARK, OrderBook, OrderError, brands_named, energy_cost,
+                                   job_seconds)
 from bcc.direct_gen.store import JobStore
 
 A = "a" * 64
@@ -1067,55 +1071,257 @@ async def test_t1_delivery_link_revoked_expired_and_cross_client_404(env):
     assert revoked_resp.status_code == 404
 
 
-# ---------- T2 (29.10): preset product_spin / hand_reveal + kill recovery + contact_sheet + QC ----------
+# ---------- T2 (29.10, honesty fix 31.10): preset render + kill recovery + contact_sheet + QC ----------
+# Audit P0 31.10: render_preset used to draw a PIL out.png for a VIDEO job, mark it completed, take the render time
+# from a parameter and compute "QC" on synthetic tiles. The old T2 test asserted exactly that (owner_review with
+# duration_s == 6.0 copied from params, sharpness of drawn circles). Now: no engine -> refusal; a result counts only
+# when a real encoder wrote a decodable video (magic bytes + ffprobe), time is a measured wall clock, QC is measured
+# on decoded frames. The positive tests use a REAL ffmpeg encode of synthetic testsrc2 content (no personal media).
 
-def test_t2_preset_product_spin_and_hand_reveal_kill_recovery_and_contact_sheet_qc(book):
-    o = book.create_preset_order(A, "product_spin", "luxury watch rotating on velvet", seed=101)
-    oid = o["order_id"]
-    assert o["preset"] == "product_spin"
-    job_ids_before = list(o["items"][0]["job_ids"])
-    assert len(job_ids_before) == 1
-    book.accept(A, oid)
+FFMPEG, FFPROBE = shutil.which("ffmpeg"), shutil.which("ffprobe")
+needs_ffmpeg = pytest.mark.skipif(not (FFMPEG and FFPROBE), reason="ffmpeg/ffprobe not installed")
 
-    # Simulate killed process mid-render -> reconcile_required without duplicate jobs
-    killed = book.render_preset(A, oid, simulate_kill_mid_render=True)
-    assert killed["status"] == "reconcile_required"
-    assert killed["items"][0]["job_ids"] == job_ids_before
-    # Jeff pause state is cleared when render exits
-    pause_state = json.loads(book.jeff_pause_path.read_text("utf-8"))
-    assert pause_state["paused"] is False
 
-    # Re-run from reconcile_required -> completes cleanly on the SAME job_id without duplicate jobs
-    done_qc = book.render_preset(A, oid, simulate_kill_mid_render=False)
-    assert done_qc["status"] == "owner_review"
-    assert done_qc["items"][0]["job_ids"] == job_ids_before
-    assert Path(done_qc["contact_sheet_path"]).exists()
-    assert Path(done_qc["qc_report_path"]).exists()
+class FfmpegTestEngine:
+    """A real encoder (ffmpeg lavfi testsrc2 -> mpeg4 in mp4): synthetic content, genuinely decodable video."""
 
-    qm = done_qc["qc_metrics"]
-    assert qm["resolution_ok"] is True and qm["width"] == 1080 and qm["height"] == 1920
-    assert qm["sharpness_laplacian"] >= 60.0 and qm["flicker_score"] <= 0.15 and qm["duration_s"] == 6.0
+    name = "test-ffmpeg-testsrc2"
 
-    # Approve and deliver with full manifest + delivery link
+    def __init__(self, *, sleep_s: float = 0.0, watermark: str | None = WATERMARK, frames: int = 24):
+        self.sleep_s, self.watermark, self.frames, self.calls = sleep_s, watermark, frames, 0
+
+    def __call__(self, job: dict, out_dir: Path):
+        self.calls += 1
+        time.sleep(self.sleep_s)
+        out = out_dir / "out.mp4"
+        subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i",
+                        f"testsrc2=size={job['width']}x{job['height']}:rate={job['fps']}", "-frames:v",
+                        str(self.frames), "-c:v", "mpeg4", "-q:v", "4", "-pix_fmt", "yuv420p", str(out)],
+                       check=True, capture_output=True, timeout=120)
+        return {"path": out, "watermark": self.watermark} if self.watermark else out
+
+
+def _placeholder_png(path: Path) -> Path:
+    """The exact kind of file the pre-31.10 code produced and called a finished video."""
+    from PIL import Image
+    Image.new("RGB", (1080, 1920), (20, 26, 38)).save(path, format="PNG")
+    return path
+
+
+def _preset_accepted(book: OrderBook, preset: str = "product_spin") -> tuple[str, str]:
+    o = book.create_preset_order(A, preset, "synthetic product on a turntable, no faces", seed=101)
+    book.accept(A, o["order_id"])
+    return o["order_id"], o["items"][0]["job_ids"][0]
+
+
+def test_t2_no_engine_is_refused_and_nothing_is_fabricated(book):
+    oid, jid = _preset_accepted(book)
+    with pytest.raises(OrderError) as e:
+        book.render_preset(A, oid)
+    assert e.value.status == 503 and e.value.code == "render_engine_missing"
+    assert e.value.problems == [{"code": "render_engine_missing", "engine": "none", "demo": False}]
+    order, job = book.get(A, oid), book._job(A, jid)
+    assert order["status"] == "accepted" and order.get("qc_metrics") is None and not order.get("contact_sheet_path")
+    assert job["status"] == "queued" and job["result"] is None and job.get("timing") is None
+    res_dir = book.jobs.job_dir(A, jid) / "result"
+    assert not res_dir.exists() or not any(res_dir.iterdir())
+    with pytest.raises(TypeError):                 # a render time can no longer be passed in as a parameter
+        book.render_preset(A, oid, render_seconds=48.0)
+    with pytest.raises(OrderError) as e:           # no video can be approved or delivered from this path
+        book.approve("owner", A, oid, "yes")
+    assert e.value.code == "invalid_transition"
+
+
+def test_t2_missing_ffprobe_is_refused_before_rendering(book):
+    oid, jid = _preset_accepted(book)
+    engine = FfmpegTestEngine()
+    book.media_tools = lambda: (None, None)
+    with pytest.raises(OrderError) as e:
+        book.render_preset(A, oid, engine=engine)
+    assert e.value.status == 503 and e.value.code == "video_probe_unavailable"
+    assert engine.calls == 0 and book.get(A, oid)["status"] == "accepted"
+
+
+@pytest.mark.parametrize("name", ["out.png", "out.mp4"])
+def test_t2_png_from_an_engine_is_never_a_completed_video(book, name):
+    """Negative control: the old placeholder (a PNG), even renamed .mp4, fails the magic-byte check."""
+    oid, jid = _preset_accepted(book)
+    book.media_tools = lambda: ("ffmpeg-not-called", "ffprobe-not-called")
+    r = book.render_preset(A, oid, engine=lambda job, out_dir: _placeholder_png(out_dir / name))
+    assert r["status"] == "qc_failed" and r["error"] == "engine_output_unverified"
+    assert r["verification"]["reason"] == "not_a_video_container" and r["verification"]["magic"] == "89504e470d0a1a0a"
+    job = book._job(A, jid)
+    assert job["status"] == "failed" and job["result"] is None and job.get("timing") is None
+    assert r.get("qc_metrics") is None and r["qc"]["passed"] is False
+    assert book.receipt(book.get(A, oid))["cost_complete"] is False
+
+
+def test_t2_engine_crash_is_reconcile_required_not_completed(book):
+    oid, jid = _preset_accepted(book)
+    book.media_tools = lambda: ("ffmpeg-not-called", "ffprobe-not-called")
+
+    def broken(job, out_dir):
+        raise RuntimeError("gpu lost")
+    r = book.render_preset(A, oid, engine=broken)
+    assert r["status"] == "reconcile_required" and r["error"] == "render_engine_error"
+    job = book._job(A, jid)
+    assert job["status"] == "failed" and job["result"] is None and job["error"] == "engine_error:RuntimeError"
+    assert json.loads(book.jeff_pause_path.read_text("utf-8"))["paused"] is False
+
+
+def test_t2_legacy_placeholder_result_cannot_be_approved_or_delivered(book):
+    """An order rendered by the pre-31.10 code (out.png marked completed, timing from a parameter) is blocked."""
+    oid, jid = _preset_accepted(book)
+    book.start(A, oid)
+    job = book._job(A, jid)
+    res = book.jobs.job_dir(A, jid) / "result"
+    res.mkdir(parents=True, exist_ok=True)
+    data = _placeholder_png(res / "out.png").read_bytes()
+    sha = hashlib.sha256(data).hexdigest()
+    job.update(status="completed", timing={"total_s": 48.0},
+               result={"file": "out.png", "bytes": len(data), "sha256": sha, "mime": "image/png"})
+    job.setdefault("provenance", {})["watermark"] = {"mark": "Bossman Motion Studio", "sha256": sha}
+    book.jobs.save(job)
+    with pytest.raises(OrderError) as e:
+        book.qc(A, oid, True, "looks fine")
+    assert e.value.code == "preset_render_unverified"
+    codes = {p["code"] for p in book.delivery_problems(book.get(A, oid))}
+    assert "preset_render_unverified" in codes
+
+
+def _ffprobe_independent(path: Path) -> dict:
+    out = subprocess.run([FFPROBE, "-v", "error", "-count_frames", "-select_streams", "v:0", "-print_format", "json",
+                          "-show_entries", "stream=codec_name,nb_read_frames,width,height:format=format_name,duration",
+                          str(path)], capture_output=True, text=True, check=True, timeout=120)
+    return json.loads(out.stdout)
+
+
+@needs_ffmpeg
+def test_t2_real_engine_kill_recovery_measured_time_decodable_video_and_measured_qc(book):
+    oid, jid = _preset_accepted(book)
+    engine = FfmpegTestEngine(sleep_s=0.4)
+    killed = book.render_preset(A, oid, simulate_kill_mid_render=True, engine=engine)
+    assert killed["status"] == "reconcile_required" and killed["items"][0]["job_ids"] == [jid]
+    assert engine.calls == 0
+    assert json.loads(book.jeff_pause_path.read_text("utf-8"))["paused"] is False
+
+    t0 = time.monotonic()
+    done = book.render_preset(A, oid, engine=engine)
+    outer = time.monotonic() - t0
+    assert done["status"] == "owner_review" and done["items"][0]["job_ids"] == [jid] and engine.calls == 1
+    job = book._job(A, jid)
+    path = book._result_file(job)
+    raw = path.read_bytes()
+    assert raw[4:8] == b"ftyp" and not raw.startswith(b"\x89PNG")                       # magic bytes: mp4, not png
+    assert job["result"]["sha256"] == hashlib.sha256(raw).hexdigest()                   # sha256 of the real file
+    assert job["result"]["mime"] == "video/mp4" and job["engine"] == engine.name and job["demo"] is False
+    probe = _ffprobe_independent(path)                                                  # independent decode
+    assert "mp4" in probe["format"]["format_name"] and int(probe["streams"][0]["nb_read_frames"]) == 24
+    secs = job["timing"]["total_s"]                                                     # measured, not a parameter
+    assert job["timing"]["measured"] is True and 0.4 <= secs <= outer
+    qm = done["qc_metrics"]
+    assert qm["source"] == "decoded_frames" and qm["video_sha256"] == job["result"]["sha256"]
+    assert (qm["width"], qm["height"]) == (1080, 1920) and abs(qm["duration_s"] - 1.0) < 0.05   # probed: 24 f @ 24
+    assert qm["fps"] == pytest.approx(24.0) and len(qm["frames_sampled_at_s"]) == 4
+    assert Path(done["contact_sheet_path"]).read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    assert Path(done["qc_report_path"]).is_file()
+
     book.approve("owner", A, oid, "yes")
     delivered = book.deliver(A, oid)
-    assert delivered["status"] == "delivered"
-    assert delivered["receipt"]["cost_complete"] is True
-    assert Decimal(delivered["receipt"]["cost"]) > Decimal("0")
+    assert delivered["status"] == "delivered" and delivered["receipt"]["cost_complete"] is True
+    assert Decimal(delivered["receipt"]["seconds"]) == Decimal(str(secs))
+    with pytest.raises(OrderError) as e:                                                # delivered: no re-render
+        book.render_preset(A, oid, engine=engine)
+    assert e.value.code == "invalid_transition" and engine.calls == 1
     link = book.issue_delivery_link(A, oid, ttl_hours=48)
-    opened = book.open_delivery_link(link["token"], caller_client=A)
-    assert opened["order"]["order_id"] == oid
+    assert book.open_delivery_link(link["token"], caller_client=A)["order"]["order_id"] == oid
 
 
-def test_t2_live_acceptance_harness_e2e_kill_recovery_and_pult_card(tmp_path):
+@needs_ffmpeg
+def test_t2_single_frame_or_garbage_mp4_is_not_a_video(book):
+    oid, jid = _preset_accepted(book)
+    r = book.render_preset(A, oid, engine=FfmpegTestEngine(frames=1))
+    assert r["status"] == "qc_failed" and r["verification"]["reason"] == "not_a_moving_video"
+    assert book._job(A, jid)["status"] == "failed"
+
+    oid2, jid2 = _preset_accepted(book, "hand_reveal")
+
+    def garbage(job, out_dir):
+        p = out_dir / "out.mp4"
+        p.write_bytes(b"\x00\x00\x00\x18ftypisom" + bytes(range(256)) * 8)
+        return p
+    r2 = book.render_preset(A, oid2, engine=garbage)
+    assert r2["status"] == "qc_failed" and r2["verification"]["reason"] == "no_decodable_video_stream"
+    assert book._job(A, jid2)["status"] == "failed"
+
+
+@needs_ffmpeg
+def test_t2_engine_without_watermark_declaration_is_not_auto_stamped(book):
+    oid, jid = _preset_accepted(book)
+    done = book.render_preset(A, oid, engine=FfmpegTestEngine(watermark=None))
+    assert done["status"] == "owner_review"
+    assert "watermark" not in (book._job(A, jid).get("provenance") or {})
+    book.approve("owner", A, oid, "yes")
+    with pytest.raises(OrderError) as e:
+        book.deliver(A, oid)
+    assert {"job_id": jid, "code": "watermark_missing"} in e.value.problems
+
+
+@needs_ffmpeg
+def test_t2_legacy_placeholder_is_rerendered_not_reused(book):
+    oid, jid = _preset_accepted(book)
+    book.start(A, oid)
+    job = book._job(A, jid)
+    res = book.jobs.job_dir(A, jid) / "result"
+    res.mkdir(parents=True, exist_ok=True)
+    data = _placeholder_png(res / "out.png").read_bytes()
+    job.update(status="completed", timing={"total_s": 48.0},
+               result={"file": "out.png", "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+                       "mime": "image/png"})
+    book.jobs.save(job)
+    book.qc(A, oid, False, "legacy placeholder")
+    engine = FfmpegTestEngine()
+    r = book.render_preset(A, oid, engine=engine)
+    assert engine.calls == 1 and r["rendered_jobs"] == [jid] and r["reused_jobs"] == []
+    assert book._job(A, jid)["result"]["mime"] == "video/mp4"
+
+
+async def test_api_render_preset_without_engine_is_503(env):
+    r = await env.client.post(f"{URL}/preset?client={A}", json={"preset": "product_spin", "brief": "synthetic"},
+                              headers=OWNER)
+    assert r.status_code == 201, r.text
+    oid = r.json()["order_id"]
+    assert (await env.client.post(f"{URL}/{oid}/accept?client={A}", headers=OWNER)).status_code == 200
+    refused = await env.client.post(f"{URL}/{oid}/render-preset?client={A}", headers=OWNER)
+    assert refused.status_code == 503 and refused.json()["error"]["code"] == "render_engine_missing"
+    after = (await env.client.get(f"{URL}/{oid}?client={A}", headers=OWNER)).json()
+    assert after["status"] == "accepted" and after.get("qc_metrics") is None
+
+
+def _t2_harness():
     import sys as _sys
     tools_dir = str(Path(__file__).resolve().parents[2] / "tools")
     if tools_dir not in _sys.path:
         _sys.path.insert(0, tools_dir)
     import studio_t2_live_acceptance as t2_acc
+    return t2_acc
 
-    receipt = t2_acc.run_acceptance(live_data_dir=tmp_path)
+
+def test_t2_live_acceptance_harness_without_engine_is_not_run(tmp_path):
+    receipt = _t2_harness().run_acceptance(live_data_dir=tmp_path)
+    assert receipt["status"] == "NOT_RUN" and "PASS" not in json.dumps(receipt)
+    nc = receipt["negative_control"]
+    assert nc["refusal"] == {"http_status": 503, "code": "render_engine_missing"}
+    assert nc["order_status_after"] == "accepted" and nc["job_status_after"] == "queued"
+    assert nc["job_result_after"] is None and nc["qc_metrics_after"] is None
+    assert not any(tmp_path.iterdir())                       # the live data dir is not touched
+
+
+@needs_ffmpeg
+def test_t2_live_acceptance_harness_e2e_kill_recovery_and_pult_card(tmp_path):
+    receipt = _t2_harness().run_acceptance(live_data_dir=tmp_path, engine=FfmpegTestEngine())
     assert receipt["status"] == "PASS"
+    assert receipt["run1_full_e2e_delivery"]["qc_metrics"]["source"] == "decoded_frames"
     assert receipt["run1_full_e2e_delivery"]["delivery_link_checks"] == {
         "client_a_open": 200,
         "client_b_cross_open": 404,
