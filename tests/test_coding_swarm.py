@@ -122,7 +122,9 @@ def test_training_export_is_impossible_while_terms_are_pending():
 def test_free_model_over_its_daily_limit_falls_back_to_local_and_paid_over_cap_is_skipped():
     day = cs._today()
     ledger = {"days": {day: {"nemotron": {"calls": cs.FREE_DAILY_CALLS["nemotron"], "usd": 0.0},
-                             "qwen": {"calls": 9, "usd": cs.PAID_DAILY_USD["qwen"]}}}, "totals": {"7api": cs.PAID_TOTAL_USD["7api"]}}
+                             "qwen": {"calls": 9, "usd": cs.PAID_DAILY_USD["qwen"]}}},
+              # owner 31.10: Kimi has its own $5 cap (was the shared 7API cap)
+              "totals": {"7api": cs.PAID_TOTAL_USD["7api"], "kimi": cs.MODEL_TOTAL_USD["kimi"]}}
     planned, notes = cs.plan_models(["nemotron", "qwen", "kimi", "gemini"], ledger)
     assert planned == ["local", "gemini"]
     assert {n["model"]: n["action"] for n in notes} == {"nemotron": "fallback_local", "qwen": "skipped", "kimi": "skipped"}
@@ -220,3 +222,13 @@ def test_ordinary_code_is_not_flagged_as_a_secret(text):
 def test_code_that_reads_a_secret_is_not_itself_a_secret(text):
     import coding_swarm as cs
     assert not cs._SECRET_EXTRA.search(text)
+
+
+def test_owner_caps_kimi_5_usd_glm_uncapped():
+    """Owner 31.10: Kimi stops at its own $5; GLM keeps running past the shared 7API $5; Nemotron stays free."""
+    import coding_swarm as cs
+    over = {"days": {}, "totals": {"kimi": 5.0, "7api": 9.0, "glm": 4.0}}
+    planned, notes = cs.plan_models(["kimi", "glm", "nemotron"], over)
+    assert planned == ["glm", "nemotron"] and notes[0]["model"] == "kimi" and "kimi budget" in notes[0]["reason"]
+    under = {"days": {}, "totals": {"kimi": 4.99, "7api": 9.0}}
+    assert cs.plan_models(["kimi"], under)[0] == ["kimi"]

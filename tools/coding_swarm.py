@@ -136,6 +136,10 @@ STATE_DIR = Path(os.environ.get("BOSSMAN_SWARM_STATE", r"D:\Bossman\work\coding-
 FREE_DAILY_CALLS = {"nemotron": 50, "nemotron-nim": 40, "gemini": 250}
 PAID_DAILY_USD = {"qwen": 2.0}
 PAID_TOTAL_USD = {"7api": 5.0}        # the 7API sub-key (kimi + glm) is a $5 budget in total
+# Owner 31.10: «Kimi K3.1 Pro с лимитом 5$, GLM 5.3 Flash вообще без лимита, Nemotron бесплатный».
+# Per-model lifetime caps win over the shared 7API cap; a model listed in UNCAPPED is bounded only by its key balance.
+MODEL_TOTAL_USD = {"kimi": 5.0}
+UNCAPPED = {"glm"}
 
 
 def _ledger_path() -> Path:
@@ -170,7 +174,11 @@ def plan_models(models: list[str], ledger: dict | None = None) -> tuple[list[str
         elif m in PAID_DAILY_USD and used.get("usd", 0.0) >= PAID_DAILY_USD[m]:
             notes.append({"model": m, "action": "skipped", "reason": f"paid daily cap ${PAID_DAILY_USD[m]}"})
             continue
-        elif MODELS.get(m, ("", "", ""))[2] == "7api" and ledger.get("totals", {}).get("7api", 0.0) >= PAID_TOTAL_USD["7api"]:
+        elif m in MODEL_TOTAL_USD and ledger.get("totals", {}).get(m, 0.0) >= MODEL_TOTAL_USD[m]:
+            notes.append({"model": m, "action": "skipped", "reason": f"{m} budget ${MODEL_TOTAL_USD[m]} used up"})
+            continue
+        elif (m not in MODEL_TOTAL_USD and m not in UNCAPPED and MODELS.get(m, ("", "", ""))[2] == "7api"
+              and ledger.get("totals", {}).get("7api", 0.0) >= PAID_TOTAL_USD["7api"]):
             notes.append({"model": m, "action": "skipped", "reason": f"7API budget ${PAID_TOTAL_USD['7api']} used up"})
             continue
         if m not in planned:
@@ -203,6 +211,7 @@ def record_usage(results: list[dict]) -> dict:
         if MODELS.get(r["model"], ("", "", ""))[2] == "7api":
             tot = ledger.setdefault("totals", {})
             tot["7api"] = round(tot.get("7api", 0.0) + float(r.get("cost_usd") or 0.0), 6)
+            tot[r["model"]] = round(tot.get(r["model"], 0.0) + float(r.get("cost_usd") or 0.0), 6)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     tmp = _ledger_path().with_suffix(".tmp")
     tmp.write_text(json.dumps(ledger, ensure_ascii=False, indent=1), encoding="utf-8")
