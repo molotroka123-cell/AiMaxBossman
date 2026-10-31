@@ -3094,4 +3094,3 @@ def render_voxel_scene_screenshot_png(
 
     img.save(target, format="PNG")
     return target
-

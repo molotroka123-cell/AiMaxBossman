@@ -1343,6 +1343,10 @@ class DirectGenService:
                 job["provenance"]["command"][job["provenance"]["command"].index("-p") + 1] = "<prompt>" + sdcli.lora_tags(spec)
 
                 async def on_progress(value: int, maximum: int) -> None:
+                    if spec.kind == "video" and maximum == 1 and int(p.get("steps") or 0) > 1:
+                        # a one-shot bar of a video engine (LTX-2.5: start-picture encode before sampling, VAE decode
+                        # after it) is not a sampling step: it showed 1/1 = 100 % before the first step
+                        return
                     prev = job["progress"]
                     job["progress"] = {"kind": "steps", "value": value, "max": maximum,
                                        "percent": round(100.0 * value / maximum, 1)}

@@ -196,19 +196,22 @@ def verify_self_modify_candidate_isolation() -> dict[str, Any]:
     """Strict Red Team invariant: pc.self_modify must NEVER execute untrusted model
     Python candidate code on an unisolated host.
 
-    Returns status 'verification_blocked_unisolated' unless running inside a verified
-    hermetic container with network isolation (--network=none).
+    A reachable Docker daemon is NOT that verification: nothing in Bossman launches
+    the candidate inside ``docker run --network=none``, so the candidate would still
+    execute on the host. Until such a runner exists and is verified, this check fails
+    closed on every host; container availability is reported for diagnostics only.
+    (Before 31.10 it returned ``allowed: True`` whenever ``docker info`` answered —
+    fail-open on every GitHub ubuntu runner and on any owner PC with Docker Desktop.)
     """
-    if not is_hermetic_container_available():
-        return {
-            "allowed": False,
-            "status": "verification_blocked_unisolated",
-            "tests_passed": False,
-            "reason": "Host lacks hermetic container with --network=none. Red Team invariant: candidate Python cannot execute on host.",
-        }
+    runtime = is_hermetic_container_available()
     return {
-        "allowed": True,
-        "status": "hermetic_container_ready",
-        "tests_passed": None,
-        "reason": "Hermetic container runtime ready.",
+        "allowed": False,
+        "status": "verification_blocked_unisolated",
+        "tests_passed": False,
+        "container_runtime_detected": runtime,
+        "reason": (
+            "No verified hermetic candidate runner (--network=none) is wired; "
+            + ("a container runtime is reachable, but " if runtime else "")
+            + "candidate Python cannot execute on the host (Red Team invariant)."
+        ),
     }

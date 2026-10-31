@@ -61,11 +61,9 @@ SPECS: tuple[ModelSpec, ...] = (
               (Need("diffusion", "diffusion_models", "Wan2_2-Animate-14B*.safetensors"),),
               fps=16, frame_step=4, max_seconds=10,
               unsupported="ANIMATE needs a driving video and pose inputs; the Direct window has no such input yet"),
-    ModelSpec("ltx-video", "LTX-Video", "ltx", ("T2V", "I2V"),
-              (Need("checkpoint", "checkpoints", "ltx*.safetensors"),
-               Need("text_encoder", "text_encoders", "t5xxl*.safetensors")),
-              fps=24, frame_step=8, max_seconds=8, side_multiple=32, max_side=1280),
 )
+# Retired 31.10: the ComfyUI "ltx-video" (LTX-Video 0.9 checkpoint + t5xxl) never had weights or a workflow template
+# on this PC and only showed up as «недоступна». LTX on this PC is LTX-2.5 through sd-cli: sdcli.SPECS "ltx-2.5".
 BY_ID = {s.id: s for s in SPECS}
 
 
@@ -184,6 +182,9 @@ def parse_resolution(spec: ModelSpec, value: str) -> tuple[int, int]:
     for side in (w, h):
         if not spec.min_side <= side <= spec.max_side or side % spec.side_multiple:
             raise ValueError(f"each side must be {spec.min_side}..{spec.max_side} and a multiple of {spec.side_multiple}")
+    cap = getattr(spec, "max_pixels", 0)            # sd-cli specs only: the measured memory ceiling of the model
+    if cap and w * h > cap:
+        raise ValueError(f"frame area {w}x{h} is above this model's limit of {cap} pixels (width x height)")
     return w, h
 
 

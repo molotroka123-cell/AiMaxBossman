@@ -272,6 +272,12 @@ class VideoProgress:
         self.known = True
         stage = ev.stage
         if stage is None:                                       # sd-cli step bar: sampling, or VAE decode steps
+            if (ev.total == 1 and (self.steps or 0) > 1 and self.bar_total is None
+                    and self.stage in ("load", "encode")):
+                # a one-shot bar before any sampling bar (LTX-2.5 I2V: the start picture's VAE encode) is not a
+                # sampling pass: counted as one, it made 8 steps read 9 and showed 15 % before sampling began
+                self._enter("encode")
+                return self._bump()
             stage = "decode" if self.stage in ("decode", "save") else "sample"
             if stage == "decode":
                 self.decode_frac = max(self.decode_frac, ev.step / ev.total)

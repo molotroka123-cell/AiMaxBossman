@@ -490,4 +490,3 @@ async def open_delivery_link(token: str, request: Request, x_participant: str | 
 
 
 FEATURE = Feature(name="studio_orders", router=router)
-

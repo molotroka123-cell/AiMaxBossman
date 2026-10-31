@@ -136,7 +136,7 @@ def test_malformed_owner_overrides_do_not_break_or_forge_the_catalogue(tmp_path)
 
     models, flows = make_models(tmp_path)
     good_sha = "ab" * 32
-    over = {"wan2.1-t2v-1.3b": "oops", "ltx-video": {"sha256": "not-a-hash", "license": "MIT"},
+    over = {"wan2.1-t2v-1.3b": "oops", "wan2.2-animate-14b": {"sha256": "not-a-hash", "license": "MIT"},
             "wan2.2-s2v-14b": {"sha256": good_sha.upper(), "source": ["x"], "license": "  "},
             sdcli.SPECS[0].id: 42}
     data = tmp_path / "data"
@@ -144,7 +144,7 @@ def test_malformed_owner_overrides_do_not_break_or_forge_the_catalogue(tmp_path)
     (data / "models.json").write_text(json.dumps(over), encoding="utf-8")
     by = {m["id"]: m for m in catalog.list_models(models, flows, data)}
     assert by["wan2.1-t2v-1.3b"]["available"] is True and by["wan2.1-t2v-1.3b"]["license"] == "UNKNOWN"
-    assert by["ltx-video"]["sha256"] == "UNKNOWN" and by["ltx-video"]["license"] == "MIT"
+    assert by["wan2.2-animate-14b"]["sha256"] == "UNKNOWN" and by["wan2.2-animate-14b"]["license"] == "MIT"
     s2v = by["wan2.2-s2v-14b"]
     assert s2v["sha256"] == good_sha and s2v["source"] == "UNKNOWN" and s2v["license"] == "UNKNOWN"
 

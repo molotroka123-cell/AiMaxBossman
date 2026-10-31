@@ -16,6 +16,9 @@ copyrights and licenses. This decision does not relicense them. Preserve the
 notices in `integrations/`, `command-center/ui/vendor/`,
 `command-center/bcc/skills_catalog/`, `docs/skills/THIRD_PARTY_NOTICES.md` and
 `tools/motion_studio/vendor/`, together with dependency distribution notices.
+`apps/bossblock/` is built on Belluxx/Aleph (MIT) and keeps that MIT `LICENSE`
+and copyright notice; how Bossman-authored files inside it are licensed is an
+open owner decision.
 AGPL adoption alone is not a completed dependency compatibility audit.
 
 Model weights, LoRAs, datasets, personal photos/videos, credentials and local

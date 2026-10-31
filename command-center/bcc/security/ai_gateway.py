@@ -839,9 +839,11 @@ class ProviderPolicyRegistry:
             if isinstance(provider.get("id"), int) and provider.get("enabled", True) is not False:
                 return ProviderTrustTier.TRUSTED
 
-        if not strict_unknown and host in ("169.254.169.254", "fe80::1"):
-            return ProviderTrustTier.TRUSTED
-
+        # The cloud-metadata / link-local address is never a trusted provider, in any
+        # encoding and regardless of strict_unknown. (A former special case returned
+        # TRUSTED for the two bare spellings "169.254.169.254" / "fe80::1" when
+        # strict_unknown was False — GovernedAdapter's default — so the bare metadata
+        # address received prompts while its IPv4-mapped/NAT64 wrappers were blocked.)
         return ProviderTrustTier.UNKNOWN
 
     def allow_provider(self, host: str, *, tier: ProviderTrustTier = ProviderTrustTier.TRUSTED) -> None:

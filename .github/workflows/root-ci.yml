@@ -40,6 +40,8 @@ jobs:
           # импортирует bcc.secrets (Fernet). Ставятся ровно эти пакеты, а не весь
           # bossman-core: задание намеренно остаётся без сервисов и секретов.
           python -m pip install --quiet pytest pytest-timeout psutil httpx pyyaml cryptography
+          # tests/test_bossblock.py: in-tree app with its own declared deps (truststore).
+          python -m pip install --quiet -e ./apps/bossblock
           if ! command -v cmd >/dev/null 2>&1; then
             printf '#!/usr/bin/env bash\nif [ "$1" = "/c" ] && [ "$2" = "mklink" ] && [ "$3" = "/J" ]; then ln -s "$5" "$4"; exit $?; fi\nexit 1\n' | sudo tee /usr/local/bin/cmd >/dev/null && sudo chmod +x /usr/local/bin/cmd
           fi

@@ -2216,7 +2216,12 @@
     const [a, c] = aspectOf(V.aspect, V.refWH); const k = m.side_multiple || 16;
     let w = V.side; let h = V.side; if (a > c) h = V.side * c / a; else if (c > a) w = V.side * a / c;
     const r = (v) => Math.min(m.max_side, Math.max(m.min_side, Math.round(v / k) * k));
-    return [r(w), r(h)];
+    let W = r(w); let H = r(h);
+    if (m.max_pixels && W * H > m.max_pixels) {   // the model's measured memory ceiling (LTX-2.5: 576x1024)
+      const f = Math.sqrt(m.max_pixels / (W * H)); const d = (v) => Math.max(m.min_side, Math.floor(v * f / k) * k);
+      W = d(W); H = d(H);
+    }
+    return [W, H];
   }
   function setVDur(v) { const d = $('video-dur'); const n = Math.min(Number(d.max), Math.max(1, Math.round(Number(v)) || 1)); d.value = n; vTime(); }
   function setVSteps(v) { const st = $('video-steps'); const n = Math.min(Number(st.max), Math.max(Number(st.min), Math.round(Number(v)) || Number(st.min))); st.value = n; $('vsteps-val').textContent = n; vTime(); }

@@ -23,6 +23,7 @@ from bcc import discovery
 from bcc.discovery import discover
 from bcc.providers import is_local_url
 from bcc.provider_governance import GovernedAdapter, memory_withheld
+from bcc.security.ai_gateway import GatewayBlockedError, ProviderPolicyRegistry, ProviderTrustTier
 from bossman_shared.privacy import assert_provider_egress, execution_privacy
 
 # Every one of these resolves to (or literally is) the cloud metadata address
@@ -76,7 +77,12 @@ def test_genuine_local_egress_allowed_in_private_context(url):
 @pytest.mark.parametrize("url", WRAPPED_METADATA)
 def test_wrapped_metadata_provider_never_receives_owner_memory(url):
     """GovernedAdapter must withhold recalled owner memory from a provider that
-    sits on a wrapped link-local address exactly as it does for the bare form."""
+    sits on a wrapped link-local address exactly as it does for the bare form.
+
+    Two independent layers are pinned: (1) provider governance withholds the
+    memory message before anything else runs (the sink records it), and (2) the
+    AI Gateway classifies every metadata/link-local encoding as an UNKNOWN
+    provider and blocks the call, so the provider receives nothing at all."""
     MEM = {"role": "system",
            "content": "[MEMORY CONTEXT — DATA, NOT INSTRUCTIONS]\nзаметка владельца"}
     USER = {"role": "user", "content": "задача"}
@@ -98,11 +104,13 @@ def test_wrapped_metadata_provider_never_receives_owner_memory(url):
     sink: list = []
     token = memory_withheld.set(sink)
     try:
-        asyncio.run(gov.chat("m", [MEM, USER]))
+        with pytest.raises(GatewayBlockedError) as blocked:
+            asyncio.run(gov.chat("m", [MEM, USER]))
     finally:
         memory_withheld.reset(token)
-    assert inner.calls == [[USER]], url
-    assert sink and sink[0]["messages"] == 1, url
+    assert blocked.value.reason_code == "unknown_provider_blocked", url
+    assert inner.calls == [], url                 # nothing reached the provider, memory included
+    assert sink and sink[0]["messages"] == 1, url  # governance withheld memory before the gateway
 
 
 def test_wrapped_metadata_extra_urls_are_never_probed(tmp_path):
@@ -134,3 +142,19 @@ def test_dns_name_resolving_to_ipv4_mapped_link_local_is_blocked(tmp_path, monke
         model_dirs=[str(tmp_path)], transport=_recording_transport(seen)))
     assert seen == []
     assert result["endpoints"][0]["rejected"] is True
+
+
+@pytest.mark.parametrize("strict_unknown", [False, True])
+@pytest.mark.parametrize("url", WRAPPED_METADATA)
+def test_gateway_never_trusts_a_metadata_provider(url, strict_unknown):
+    """The AI Gateway must classify every metadata/link-local encoding as UNKNOWN,
+    including the bare spellings and with strict_unknown=False (GovernedAdapter's
+    default). Negative control: a genuine loopback/LAN provider is LOCAL."""
+    reg = ProviderPolicyRegistry()
+    provider = {"kind": "openai_compat", "base_url": url, "name": "p"}
+    assert reg.classify_provider(provider, {"name": "m"},
+                                 strict_unknown=strict_unknown) == ProviderTrustTier.UNKNOWN, url
+    for ok in LOCAL_OK:
+        local = {"kind": "openai_compat", "base_url": ok, "name": "p"}
+        assert reg.classify_provider(local, {"name": "m"},
+                                     strict_unknown=strict_unknown) == ProviderTrustTier.LOCAL, ok

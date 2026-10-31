@@ -246,4 +246,3 @@ async def game_bootstrap_play(world_id: str = "bossblocks-local-01"):
 
 
 FEATURE = Feature(name="game_bootstrap_v16", router=router)
-

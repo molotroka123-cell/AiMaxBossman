@@ -43,7 +43,7 @@ async def _off():
 
 
 @pytest.mark.parametrize("model,consumer", [("flux1-schnell", "sdcli_image"), ("qwen-image-2.1-uc-edit", "sdcli_image"),
-                                            ("ltx-video", "ltx25_sdcli"), ("wan2.2-animate-14b", "wangp_animate"),
+                                            ("ltx-video", "ltx25_sdcli"), ("ltx-2.5", "ltx25_sdcli"), ("wan2.2-animate-14b", "wangp_animate"),
                                             ("wan21-vace-14b", "wangp_vace"), ("wan2.2-ti2v-5b", "wan_video")])
 def test_every_direct_gen_model_maps_to_a_governor_profile(model, consumer):
     assert rl.consumer_for_job({"model": model}) == consumer

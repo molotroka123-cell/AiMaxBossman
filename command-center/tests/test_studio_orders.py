@@ -1333,4 +1333,3 @@ def test_t2_live_acceptance_harness_e2e_kill_recovery_and_pult_card(tmp_path):
     assert card["status"] == "owner_review"
     assert card["contact_sheet_exists"] is True
     assert card["qc_report_exists"] is True
-

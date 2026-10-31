@@ -207,6 +207,19 @@ def test_astra_sandbox_self_modify_unisolated_host_fails_closed():
     assert res["tests_passed"] is False
 
 
+def test_astra_sandbox_reachable_docker_is_not_isolation(monkeypatch):
+    """CI 3f18ff47 (ubuntu, docker installed): a reachable Docker daemon made the
+    check return allowed=True although nothing runs the candidate inside a
+    --network=none container. Simulate that host on any OS: still fail closed."""
+    from bcc.security import astra_sandbox
+    monkeypatch.setattr(astra_sandbox, "is_hermetic_container_available", lambda: True)
+    res = astra_sandbox.verify_self_modify_candidate_isolation()
+    assert res["allowed"] is False
+    assert res["status"] == "verification_blocked_unisolated"
+    assert res["tests_passed"] is False
+    assert res["container_runtime_detected"] is True
+
+
 # ---------------------------------------------------------------------------
 # Branch 8: AuditJournal v2 Tests
 # ---------------------------------------------------------------------------

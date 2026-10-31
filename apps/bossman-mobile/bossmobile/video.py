@@ -103,6 +103,7 @@ def model_view(m: dict, status: dict, history: dict[str, dict]) -> dict[str, Any
         "fps": int(m.get("fps") or 16), "frame_step": video_timing.FRAME_STEP.get(str(m.get("family")), 4),
         "max_seconds": float(m.get("max_seconds") or 5), "min_side": int(m.get("min_side") or 256),
         "max_side": int(m.get("max_side") or 1280), "side_multiple": int(m.get("side_multiple") or 16),
+        "max_pixels": int(m.get("max_pixels") or 0) or None,
         "default_resolution": m.get("default_resolution") or "480x320",
         "default_aspect": _aspect_of(m.get("default_resolution")),
         "steps": steps, "fixed_steps": fixed if not steps else None,
@@ -134,6 +135,9 @@ def check_job(spec: dict, *, resolution: str, duration: float, steps: int | None
     for side in (int(m.group(1)), int(m.group(2))):
         if not lo <= side <= hi or side % k:
             return f"каждая сторона кадра — от {lo} до {hi} и кратна {k}"
+    cap = spec.get("max_pixels")
+    if cap and int(m.group(1)) * int(m.group(2)) > cap:
+        return f"кадр больше, чем помещается в память ПК для этой модели (не больше {cap} точек, например 576x1024)"
     if not 0 < duration <= spec["max_seconds"]:
         return f"длительность — больше 0 и не больше {spec['max_seconds']:g} с"
     if spec.get("steps"):

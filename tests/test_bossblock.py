@@ -147,5 +147,3 @@ def test_bossblock_autopilot_audit_dnipro_and_negative_control(tmp_path: Path):
     trunc_receipt = audit_capture_folder(trunc_dir, write_receipt=False)
     assert trunc_receipt["layers"]["mesh"]["valid_glb"] is False
     assert "truncated GLB" in trunc_receipt["layers"]["mesh"]["reason"]
-
-
