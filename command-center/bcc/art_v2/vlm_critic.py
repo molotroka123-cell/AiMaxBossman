@@ -187,7 +187,9 @@ class VLMArtCritic:
         all_clean = all(len(k.artifacts_detected) == 0 for k in keyframes)
 
         timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        receipt_id = f"QC-{project_id[:8]}-{hashlib.md5(f'{project_id}:{timestamp}:{final_score}'.encode()).hexdigest()[:8]}"
+        # An identifier, not a security digest (the receipt signature below is sha256);
+        # MD5 here failed the bandit B324 high-severity gate in command-center CI.
+        receipt_id = f"QC-{project_id[:8]}-{hashlib.sha256(f'{project_id}:{timestamp}:{final_score}'.encode()).hexdigest()[:8]}"
 
         payload = {
             "receipt_id": receipt_id,
