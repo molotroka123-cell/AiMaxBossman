@@ -71,4 +71,4 @@ USDT = USD — допущение «не измерено»; прогнозов 
 
 `docs/ARCHITECTURE_ADR_RU.md`, `docs/SECURITY_RU.md`, `docs/OWNER_CHECKLIST_WINDOWS_RU.md`, `docs/SOURCES_REVIEW_RU.md`,
 `docs/AUDIT_MATRIX_20261017_RU.md`, `docs/REMAINING_TO_PRODUCTION_RU.md`, `docs/VISION_SOURCE_REFRESH_20261018_RU.md`,
-`docs/OSS_API_MCP_REVIEW_20261018_RU.md`, `docs/openapi.json`.
+`docs/OSS_API_MCP_REVIEW_20261018_RU.md`, `docs/FOUNDER_PLAYBOOK_CZ_EU_DEFENCE_DUAL_USE_RU.md`, `docs/openapi.json`.

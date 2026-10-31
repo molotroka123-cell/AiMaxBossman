@@ -1031,6 +1031,39 @@ async function showContact(el, id) {
       try { const r = await POST("/contacts/" + id + "/lesson"); res.append(msgBox("ok", Tf(T("Урок сохранён в памяти Bossman: {0}"), txt(r.path)))); }
       catch (e) { if (e.status !== 401) res.append(msgBox("err", errMsg(e))); }
     } }, T("Отправить урок в Bossman"));
+    const dossierKeywords = Object.fromEntries(Object.entries(c.keywords || {}).map(([lang, words]) => [lang, (Array.isArray(words) ? words : []).filter((word) => {
+      const value = String(word || "").trim();
+      return value && !/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/.test(value) && !/(?:^|\s)\+?\d[\d\s().-]{5,}\d(?:$|\s)/.test(value);
+    })]).filter(([, words]) => words.length));
+    const hasDossierProfile = (c.cpv_prefixes || []).length > 0 || Object.values(dossierKeywords).some((words) => words.length > 0);
+    const sourceConfirmed = h("input", { type: "checkbox", "aria-label": T("Источник контакта проверен") });
+    const sourceIsCleared = () => sourceConfirmed.checked && Boolean(String(c.source || "").trim()) && hasDossierProfile;
+    const dossierBtn = h("button", { type: "button", disabled: true, onclick: async () => {
+      clear(pv);
+      if (!sourceIsCleared()) return;
+      dossierBtn.disabled = true;
+      pv.append(msgBox("load", T("Сборка локального досье…")));
+      try {
+        const r = await POST("/monetization/dossier", { supplier: {
+          name: c.company, country: c.country || null, cpv_codes: c.cpv_prefixes || [], keywords: dossierKeywords, countries: [],
+        }, max_items: 25, format: "json" });
+        clear(pv);
+        if (!r.markdown) { pv.append(msgBox("err", T("Досье не содержит результата для скачивания."))); return; }
+        download(r.markdown, "tender-dossier-contact-" + id + ".md", "text/markdown");
+        pv.append(h("pre", { class: "msg pitch" }, r.markdown));
+      } catch (e) { if (e.status !== 401) { clear(pv); pv.append(msgBox("err", errMsg(e))); } }
+      finally { dossierBtn.disabled = !sourceIsCleared(); }
+    } }, T("Сформировать досье тендеров (.md)"));
+    const refreshDossierAccess = () => { dossierBtn.disabled = !sourceIsCleared(); };
+    sourceConfirmed.addEventListener("change", refreshDossierAccess);
+    const dossierAction = ["analyst", "compliance", "owner"].includes(S.role)
+      ? h("div", {},
+        h("p", { class: "mut" }, T("Локальный черновик по открытым тендерам. API получает только название компании, страну, CPV и ключевые слова; контактные поля и заметки не передаются. Не помещай личные данные в ключевые слова. 3% комиссии и 15% маржи — расчётные допущения, не предложение цены или прогноз. Контролируемые позиции исключены по умолчанию; наружу ничего не отправляется.")),
+        h("label", { class: "chk" }, sourceConfirmed, T("Подтверждаю, что источник и использование контакта законны, разрешены работодателем/юристом, если это требуется, и не связаны с моим влиянием на закупку.")),
+        !String(c.source || "").trim() ? h("p", { class: "mut" }, T("Сначала укажи источник контакта в карточке.")) : null,
+        !hasDossierProfile ? h("p", { class: "mut" }, T("Для подбора добавь CPV или ключевые слова в карточку компании.")) : null,
+        dossierBtn)
+      : null;
     const kwText = KW_LANGS.filter((l) => (c.keywords || {})[l]).map((l) => l.toUpperCase() + ": " + c.keywords[l].join(", ")).join(" · ");
     const site = c.website ? h("a", { href: /^https?:\/\//i.test(c.website) ? c.website : "https://" + c.website, target: "_blank", rel: "noopener noreferrer" }, c.website) : null;
     const person = "person_name" in c ? [c.person_name, c.person_phone].filter(Boolean).join(" · ") : (c.has_person ? T("есть (скрыто для вашей роли)") : null);
@@ -1038,7 +1071,7 @@ async function showContact(el, id) {
       kv([[T("Сайт"), site], [T("Публичный e-mail"), c.public_email ? c.public_email + " (" + txt(c.public_email_source) + ")" : null], [T("Продукты / возможности"), c.products],
         ["CPV", (c.cpv_prefixes || []).join(", ")], [T("Ключевые слова"), kwText], [T("Событие"), c.event], [T("Источник"), c.source],
         [T("Следующий шаг"), [c.next_step, c.next_step_date].filter(Boolean).join(" · ")], [T("Заметки"), c.notes], [T("Человек"), person || null]]),
-      h("div", { class: "bar" }, pitch, lesson), res, pv,
+      h("div", { class: "bar" }, pitch, lesson), dossierAction, res, pv,
       h("details", {}, h("summary", {}, T("Изменить контакт")), contactForm(c, async (body) => { await api("PATCH", "/contacts/" + id, body); showContact(el, id); }, T("Сохранить изменения"))),
       h("h3", {}, T("Подходящие тендеры")), mBox);
     const reload = () => load(mBox, async () => {
