@@ -56,12 +56,13 @@ async def _set_meta(svc, task_id: int, meta: dict) -> None:
         await s.commit()
 
 
-async def _evidence_roots(svc):
+async def _evidence_roots(svc, task: dict | None = None):
     """Корни, внутри которых верификатор имеет право перечитывать файлы: те же,
     что у terminal.run (owner-настройка) — модель не может указать в evidence
-    путь вне разрешённой области."""
-    from .tools_terminal import _roots
-    return await _roots(svc)
+    путь вне разрешённой области. Плюс папка проекта ЭТОЙ задачи — ровно та, что
+    её инструменты получили рабочим корнем (chat_projects.task_project_root)."""
+    from .chat_projects import verifier_roots
+    return await verifier_roots(svc, task)
 
 
 async def _llm_veto(svc, review: dict, answer: str) -> str | None:
@@ -101,7 +102,7 @@ async def _verdict(svc, review: dict, answer: str, *, task: dict) -> tuple[str, 
     if veto:
         return FAILED, f"ревьюер: {veto}", []
     expected = parse_expected(review.get("evidence"))
-    roots = await _evidence_roots(svc)
+    roots = await _evidence_roots(svc, task)
     status, reason, results = await verify_all(expected, svc=svc, task=task, roots=roots)
     return status, reason, results
 

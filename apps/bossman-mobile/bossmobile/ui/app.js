@@ -562,11 +562,13 @@
         list.appendChild(b);
       });
       if (!list.children.length) list.appendChild(el('p', 'muted pad', 'Чатов пока нет'));
+      projDecorateThreads(list, r.items || []);       // project filter + tag (projects block below)
     } catch (err) { loadFailed($('thread-list'), err, loadThreads); }
   }
   function newChat() { closeStream(); S.threadId = null; S.chatFiles = []; renderChatFiles(); store.set('thread', null); clearMessages(); ctxReset(); refreshCost(); drawer(false); $('input').focus(); }
-  $('btn-new').addEventListener('click', () => { tap(); newChat(); });
-  $('drawer-new').addEventListener('click', newChat);
+  // new chat = project picker first (owner 31.10 «выбор проекта перед созданием чата»), then newChat()
+  $('btn-new').addEventListener('click', () => { tap(); openProjectPicker(); });
+  $('drawer-new').addEventListener('click', () => { openProjectPicker(); });
 
   /* ================= долгое нажатие на чат (владелец 22.10) =================
      500 мс удержания (pointer events), сдвиг больше 8 px или раннее отпускание — отмена; также контекстное меню
@@ -982,6 +984,7 @@
     try {
       const t = await api('GET', `/threads/${encodeURIComponent(id)}`);
       S.threadId = t.id; store.set('thread', t.id); clearMessages(); ctxReset(); stopNotes(); NW.shown = new Set(); refreshCost();
+      projSetCurrent(t.project || null);              // the chat header shows this chat's project
       const turns = t.turns || [];
       for (const turn of turns) {
         if (turn.kind === 'note') { addNote(turn); continue; }   // Bossman's own note (e.g. the finished photo edit)
@@ -1259,7 +1262,7 @@
   async function ask(b, text, files = []) {
     try {
       if (!S.threadId) {
-        const t = await api('POST', '/threads', { title: text.slice(0, 60) });
+        const t = await api('POST', '/threads', { title: text.slice(0, 60), project: S.project || undefined });
         S.threadId = t.id; store.set('thread', t.id);
         renderGauge(); refreshContext().catch(() => {});
         if (S.agentMode && S.agentMode !== 'CHAT') {
@@ -3770,6 +3773,267 @@
     const pre = el('pre', 'cloud-text', info.text || '(пусто)'); pre.tabIndex = 0; pre.setAttribute('role', 'region'); pre.setAttribute('aria-label', 'Точный текст, который уйдёт в облако');
     box.appendChild(pre);
   }
+
+  /* ================= проекты, файлы проекта, память (owner 31.10) =================
+     «выбор проекта перед созданием чата как у тебя», «отдельная папка для удобного поиска», «хороший файл менеджер
+     памяти». Проект = папка на ПК (Bossman: /api/projects). Новый чат — сначала выбор проекта; заголовок чата
+     показывает проект; ящик чатов фильтруется по проекту. Файлы: список / скачать / загрузить / удалить с
+     подтверждением — только внутри папки проекта (Bossman проверяет каждый путь). Память — существующий API памяти:
+     факты (поиск, просмотр, «Забыть») и заметки (поиск, просмотр). */
+  S.project = store.get('project') || null; S.projects = []; S.threadFilter = 'all';
+  const projName = (slug) => { if (!slug) return 'Без проекта'; const p = S.projects.find((x) => x.slug === slug); return p ? p.name : slug; };
+  async function projLoad() {
+    try { const r = await api('GET', '/projects'); S.projects = r.items || []; S.projectsRoot = r.root || ''; }
+    catch (err) { if (err.status !== 401) S.projectsError = err.message; }
+    projRender(); return S.projects;
+  }
+  function projRender() {
+    const name = $('project-name'); if (!name) return;
+    // a chat opened before the list arrived: load the names once (no load loop when the project is really gone)
+    if (S.project && !S.projects.some((p) => p.slug === S.project) && !S.projTried) { S.projTried = true; projLoad(); }
+    name.textContent = projName(S.project);
+    $('project-chip').setAttribute('aria-label', `Проект чата: ${projName(S.project)}. Открыть файлы проекта`);
+  }
+  function projSetCurrent(slug) { S.project = slug || null; store.set('project', S.project); projRender(); }
+  $('project-chip').addEventListener('click', () => { tap(); openProjectFiles(S.project || '_inbox'); });
+
+  async function openProjectPicker() {
+    const sh = chatSheet('Проект нового чата');
+    const list = el('div', 'project-list'); list.setAttribute('role', 'list');
+    const err = sheetErr();
+    const lab = el('label', 'sheet-label', 'Новый проект'); lab.htmlFor = 'project-new-name';
+    const inp = el('input', 'sheet-input project-input'); inp.id = 'project-new-name'; inp.type = 'text'; inp.maxLength = 80;
+    inp.placeholder = 'Название проекта'; inp.autocomplete = 'off';
+    const mk = sheetBtn('Создать проект и начать чат', 'btn big primary', 'project-create'); mk.disabled = true;
+    const cancel = sheetBtn('Отмена', 'btn big ghost', 'cancel'); cancel.addEventListener('click', sh.close);
+    const pick = (slug) => { tap(); projSetCurrent(slug); sh.close(); newChat(); };
+    inp.addEventListener('input', () => { mk.disabled = !inp.value.trim(); });
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !mk.disabled) { e.preventDefault(); mk.click(); } });
+    mk.addEventListener('click', async () => {
+      const name = inp.value.trim(); if (!name || mk.disabled) return;
+      mk.disabled = true; err.hidden = true; mk.textContent = 'Создаю…';
+      try {
+        const p = await api('POST', '/projects', { name });
+        S.projects = [...S.projects.filter((x) => x.slug !== p.slug), p]; toast(`Проект «${p.name}» создан`); pick(p.slug);
+      } catch (e) { err.textContent = errText(e, 'Не удалось создать проект'); err.hidden = false; mk.disabled = false; mk.textContent = 'Создать проект и начать чат'; }
+    });
+    const row = (slug, title, sub) => {
+      const b = el('button', 'project-opt' + ((S.project || null) === slug ? ' sel' : '')); b.type = 'button'; b.setAttribute('role', 'listitem');
+      b.dataset.slug = slug || '';
+      b.append(el('b', '', title), el('span', '', sub));
+      b.addEventListener('click', () => pick(slug)); return b;
+    };
+    const fill = () => {
+      list.replaceChildren(row(null, 'Без проекта', 'файлы — в общую папку «Входящие»'));
+      S.projects.forEach((p) => list.appendChild(row(p.slug, p.name, `${p.threads || 0} чат. · ${p.path || ''}`)));
+    };
+    fill();
+    sh.show(list.querySelector('.project-opt.sel') || cancel, el('h3', 'serif', 'Новый чат'),
+      el('p', 'muted small', 'Выберите проект: файлы и код этого чата Bossman создаст в его папке на ПК.'), list, lab, inp, err, mk, cancel);
+    await projLoad(); fill();
+    if (S.projectsError) { err.textContent = `Проекты не загрузились: ${S.projectsError}`; err.hidden = false; S.projectsError = ''; }
+  }
+
+  /* ящик: фильтр по проекту + метка проекта у каждого чата (узлы, нарисованные loadThreads, по порядку = items) */
+  function projDecorateThreads(list, items) {
+    if (items.some((t) => t.project && !S.projects.some((p) => p.slug === t.project)) && !S.projDrawerTried) {
+      S.projDrawerTried = true; projLoad().then(() => projDecorateThreads(list, items));
+    }
+    const nodes = Array.from(list.querySelectorAll(':scope > button.thread'));
+    nodes.forEach((n, i) => {
+      const t = items[i]; if (!t) return;
+      n.dataset.project = t.project || '';
+      n.querySelectorAll('.thread-proj').forEach((x) => x.remove());
+      if (t.project) n.appendChild(el('i', 'thread-proj', `📁 ${projName(t.project)}`));
+    });
+    const bar = $('thread-filter'); if (!bar) return;
+    const present = [...new Set(items.map((t) => t.project || ''))];
+    const opts = [['all', 'Все'], ...present.filter(Boolean).map((s) => [s, projName(s)])];
+    if (present.includes('')) opts.push(['', 'Без проекта']);
+    if (!opts.some(([v]) => v === S.threadFilter)) S.threadFilter = 'all';
+    bar.replaceChildren(); bar.hidden = opts.length <= 2 && !present.some(Boolean);
+    opts.forEach(([v, label]) => {
+      const c = el('button', 'chip small' + (v === S.threadFilter ? ' on' : ''), label); c.type = 'button';
+      c.setAttribute('aria-pressed', v === S.threadFilter ? 'true' : 'false');
+      c.addEventListener('click', () => { tap(); S.threadFilter = v; projDecorateThreads(list, items); });
+      bar.appendChild(c);
+    });
+    nodes.forEach((n) => { n.hidden = S.threadFilter !== 'all' && n.dataset.project !== S.threadFilter; });
+  }
+
+  /* ---- файлы проекта ---- */
+  const fmtWhen = (iso) => String(iso || '').replace('T', ' ').slice(0, 16);
+  const filesUrl = (slug, path, extra) => `/m/api/projects/${encodeURIComponent(slug)}/files/download?${new URLSearchParams({ path, ...(extra || {}) })}`;
+  function uploadProjectFile(slug, dir, file, overwrite, onUp) {
+    const q = new URLSearchParams({ filename: file.name || 'file' }); if (dir) q.set('dir', dir); if (overwrite) q.set('overwrite', '1');
+    return new Promise((resolve, reject) => {
+      const x = new XMLHttpRequest(); x.open('POST', `/m/api/projects/${encodeURIComponent(slug)}/files?${q}`); x.withCredentials = true;
+      x.setRequestHeader('X-BM-CSRF', S.csrf); x.setRequestHeader('Accept', 'application/json'); x.setRequestHeader('Content-Type', 'application/octet-stream');
+      if (onUp) x.upload.onprogress = (e) => { if (e.lengthComputable) onUp(e.loaded / e.total); };
+      x.onerror = () => reject(new ApiError(0, { detail: { message: 'нет связи с ПК' } }));
+      x.onload = () => {
+        let data = null; try { data = JSON.parse(x.responseText); } catch { /* */ }
+        if (x.status === 401) { showLogin(); reject(new ApiError(401, data)); return; }
+        if (x.status < 200 || x.status >= 300) { reject(new ApiError(x.status, data)); return; }
+        resolve(data);
+      };
+      x.send(file);
+    });
+  }
+  async function openProjectFiles(startSlug) {
+    const sh = chatSheet('Файлы проекта');
+    let slug = startSlug || '_inbox'; let path = '';
+    const sel = el('select', 'project-select'); sel.id = 'files-project'; sel.setAttribute('aria-label', 'Проект');
+    const crumbs = el('p', 'muted small files-path'); crumbs.setAttribute('aria-live', 'polite');
+    const list = el('div', 'files-list'); const err = sheetErr();
+    const picker = el('input'); picker.type = 'file'; picker.multiple = true; picker.hidden = true; picker.id = 'files-upload-input';
+    const up = sheetBtn('Загрузить сюда', 'btn big', 'upload'); const close = sheetBtn('Закрыть', 'btn big ghost', 'close');
+    close.addEventListener('click', sh.close); up.addEventListener('click', () => { tap(); picker.click(); });
+    const fillSel = () => {
+      sel.replaceChildren(); const o = el('option', '', 'Без проекта (Входящие)'); o.value = '_inbox'; sel.appendChild(o);
+      S.projects.forEach((p) => { const x = el('option', '', p.name); x.value = p.slug; sel.appendChild(x); });
+      sel.value = slug; if (sel.value !== slug) { const x = el('option', '', projName(slug)); x.value = slug; sel.appendChild(x); sel.value = slug; }
+    };
+    sel.addEventListener('change', () => { slug = sel.value; path = ''; load(); });
+    const main = () => sh.show(close, el('h3', 'serif', 'Файлы проекта'), sel, crumbs, list, err, picker, up, close);
+    const confirmDelete = (it) => {
+      const derr = sheetErr(); const go = sheetBtn('Удалить', 'btn big destroy', 'delete-confirm'); const back = sheetBtn('Назад', 'btn big ghost', 'back');
+      back.addEventListener('click', () => { main(); });
+      go.addEventListener('click', async () => {
+        if (go.disabled) return; go.disabled = true; back.disabled = true; derr.hidden = true;
+        try {
+          await api('DELETE', `/projects/${encodeURIComponent(slug)}/files?${new URLSearchParams({ path: it.path, confirm: it.name })}`);
+          toast(`«${it.name}» удалён с ПК`); main(); load();
+        } catch (e) { derr.textContent = errText(e, 'Не удалось удалить'); derr.hidden = false; go.disabled = false; back.disabled = false; }
+      });
+      const col = el('div', 'sheet-actions'); col.append(go, back);
+      sh.show(back, el('h3', 'serif', it.name), el('p', '', it.is_dir ? 'Удалить эту пустую папку с ПК?' : 'Удалить этот файл с ПК? Вернуть его будет нельзя.'), derr, col);
+    };
+    const load = async () => {
+      err.hidden = true; crumbs.textContent = `${projName(slug === '_inbox' ? null : slug)} / ${path || ''}`;
+      list.replaceChildren(el('p', 'muted small', 'Загрузка…'));
+      try {
+        const r = await api('GET', `/projects/${encodeURIComponent(slug)}/files${path ? '?' + new URLSearchParams({ path }) : ''}`);
+        list.replaceChildren();
+        if (path) {
+          const upRow = el('button', 'file-row dir', '⬑ ..'); upRow.type = 'button';
+          upRow.addEventListener('click', () => { path = r.parent || ''; load(); }); list.appendChild(upRow);
+        }
+        (r.entries || []).forEach((it) => {
+          const row = el('div', 'file-row' + (it.is_dir ? ' dir' : '')); row.dataset.path = it.path;
+          const txt = el('div', 'file-txt');
+          txt.append(el('b', '', `${it.is_dir ? '📁' : '📄'} ${it.name}`), el('span', '', it.is_dir ? fmtWhen(it.mtime) : `${fmtBytes(it.size)} · ${fmtWhen(it.mtime)}`));
+          row.appendChild(txt);
+          const acts = el('div', 'file-acts');
+          if (it.is_dir) {
+            const open = sheetBtn('Открыть', 'btn small', 'open'); open.addEventListener('click', () => { tap(); path = it.path; load(); }); acts.appendChild(open);
+          } else {
+            const a = el('a', 'btn small', 'Скачать'); a.href = filesUrl(slug, it.path); a.setAttribute('download', it.name);
+            a.setAttribute('aria-label', `Скачать ${it.name}`); acts.appendChild(a);
+          }
+          const del = sheetBtn('Удалить', 'btn small danger-text', 'delete'); del.setAttribute('aria-label', `Удалить ${it.name}`);
+          del.addEventListener('click', () => { tap(); confirmDelete(it); }); acts.appendChild(del);
+          row.appendChild(acts); list.appendChild(row);
+        });
+        if (!(r.entries || []).length) list.appendChild(el('p', 'muted small', 'Папка пуста. Файлы, которые создаст Bossman в чатах этого проекта, появятся здесь.'));
+        if (r.hidden) list.appendChild(el('p', 'muted small', `Скрыто: ${r.hidden} (секреты, ссылки наружу)`));
+      } catch (e) { list.replaceChildren(); err.textContent = errText(e, 'Файлы не загрузились'); err.hidden = false; }
+    };
+    picker.addEventListener('change', async () => {
+      const files = Array.from(picker.files || []); picker.value = '';
+      for (const f of files) {
+        up.disabled = true; up.textContent = `Загрузка ${f.name}…`;
+        try {
+          try { await uploadProjectFile(slug, path, f, false, (p) => { up.textContent = `Загрузка ${f.name} · ${Math.round(p * 100)}%`; }); }
+          catch (e) {
+            if (e.status !== 409 || !window.confirm(`«${f.name}» уже есть в этой папке. Заменить?`)) throw e;
+            await uploadProjectFile(slug, path, f, true);
+          }
+          toast(`«${f.name}» загружен`);
+        } catch (e) { err.textContent = errText(e, `Не удалось загрузить ${f.name}`); err.hidden = false; }
+      }
+      up.disabled = false; up.textContent = 'Загрузить сюда'; load();
+    });
+    fillSel(); main(); load();
+    await projLoad(); fillSel();
+  }
+
+  /* ---- память Bossman (существующий API: факты и заметки) ---- */
+  async function openMemoryBrowser() {
+    const sh = chatSheet('Память Bossman');
+    let kind = 'facts';
+    const tabs = el('div', 'seg memory-tabs'); tabs.setAttribute('role', 'radiogroup'); tabs.setAttribute('aria-label', 'Что показать');
+    const q = el('input', 'sheet-input memory-q'); q.type = 'search'; q.id = 'memory-q'; q.placeholder = 'Поиск по памяти'; q.setAttribute('aria-label', 'Поиск по памяти');
+    const go = sheetBtn('Найти', 'btn small primary', 'memory-search');
+    const list = el('div', 'files-list memory-list'); const err = sheetErr();
+    const close = sheetBtn('Закрыть', 'btn big ghost', 'close'); close.addEventListener('click', sh.close);
+    const main = () => sh.show(q, el('h3', 'serif', 'Память Bossman'),
+      el('p', 'muted small', 'Факты, которые Bossman помнит, и заметки хранилища памяти. «Забыть» закрывает факт (история остаётся).'), tabs, q, go, err, list, close);
+    [['facts', 'Факты'], ['notes', 'Заметки']].forEach(([v, label]) => {
+      const b = el('button', 'chip small' + (v === kind ? ' on' : ''), label); b.type = 'button'; b.dataset.kind = v;
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', v === kind ? 'true' : 'false');
+      b.addEventListener('click', () => { tap(); kind = v; tabs.querySelectorAll('button').forEach((x) => { const on = x.dataset.kind === kind; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); }); load(); });
+      tabs.appendChild(b);
+    });
+    const forget = (f) => {
+      const ferr = sheetErr(); const yes = sheetBtn('Забыть', 'btn big destroy', 'forget-confirm'); const back = sheetBtn('Назад', 'btn big ghost', 'back');
+      back.addEventListener('click', () => { main(); });
+      yes.addEventListener('click', async () => {
+        if (yes.disabled) return; yes.disabled = true; back.disabled = true;
+        try { await api('POST', `/memory/facts/${encodeURIComponent(f.id)}/forget`); toast('Факт забыт'); main(); load(); }
+        catch (e) { ferr.textContent = errText(e, 'Не удалось'); ferr.hidden = false; yes.disabled = false; back.disabled = false; }
+      });
+      const col = el('div', 'sheet-actions'); col.append(yes, back);
+      sh.show(back, el('h3', 'serif', 'Забыть факт?'), el('p', '', `${f.subject || ''} · ${f.predicate || ''}`), el('p', 'muted', f.statement || ''), ferr, col);
+    };
+    const view = (title, text) => {
+      const back = sheetBtn('Назад', 'btn big ghost', 'back'); back.addEventListener('click', () => { main(); });
+      const pre = el('pre', 'memory-full', text || '(пусто)'); pre.tabIndex = 0;
+      sh.show(back, el('h3', 'serif', title), pre, back);
+    };
+    const load = async () => {
+      err.hidden = true; list.replaceChildren(el('p', 'muted small', 'Загрузка…'));
+      const query = q.value.trim();
+      try {
+        if (kind === 'facts') {
+          const r = await api('GET', `/memory/facts?${new URLSearchParams({ query, limit: '50' })}`);
+          list.replaceChildren();
+          (r.items || []).forEach((f) => {
+            const row = el('div', 'file-row memory-fact'); row.dataset.id = f.id;
+            const txt = el('div', 'file-txt'); txt.append(el('b', '', `${f.subject || ''} · ${f.predicate || ''}`), el('span', '', f.statement || ''));
+            const acts = el('div', 'file-acts');
+            const open = sheetBtn('Открыть', 'btn small', 'open'); open.addEventListener('click', () => view(`${f.subject || ''} · ${f.predicate || ''}`, `${f.statement || ''}\n\nисточник: ${f.source_kind || '—'} · с ${f.valid_at || '—'}`));
+            const del = sheetBtn('Забыть', 'btn small danger-text', 'forget'); del.addEventListener('click', () => { tap(); forget(f); });
+            acts.append(open, del); row.append(txt, acts); list.appendChild(row);
+          });
+          if (!list.children.length) list.appendChild(el('p', 'muted small', query ? 'Ничего не найдено' : 'Фактов пока нет'));
+        } else {
+          const st = await api('GET', '/memory/status');
+          if (!st.configured) { list.replaceChildren(el('p', 'muted small', 'Хранилище заметок не настроено: Панель → Память.')); return; }
+          if (!query) { list.replaceChildren(el('p', 'muted small', 'Введите запрос — заметки ищутся по тексту. Удалять заметки можно в самом хранилище.')); return; }
+          const r = await api('POST', '/memory/search', { query });
+          list.replaceChildren();
+          (r.items || []).forEach((it) => {
+            const row = el('button', 'file-row memory-note'); row.type = 'button';
+            const txt = el('div', 'file-txt'); txt.append(el('b', '', `${it.source || ''}${it.heading ? ' · ' + it.heading : ''}`), el('span', '', String(it.content || '').slice(0, 160)));
+            row.appendChild(txt);
+            row.addEventListener('click', async () => {
+              try { const x = await api('POST', '/memory/expand', { chunk_hash: it.chunk_hash }); view(it.source || 'Заметка', x.content || x.text || it.content || ''); }
+              catch (e) { view(it.source || 'Заметка', it.content || errText(e)); }
+            });
+            list.appendChild(row);
+          });
+          if (!list.children.length) list.appendChild(el('p', 'muted small', 'Ничего не найдено'));
+        }
+      } catch (e) { list.replaceChildren(); err.textContent = errText(e, 'Память недоступна'); err.hidden = false; }
+    };
+    go.addEventListener('click', () => { tap(); load(); });
+    q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); load(); } });
+    main(); load();
+  }
+  $('drawer-files').addEventListener('click', () => { tap(); openProjectFiles(S.project || '_inbox'); });
+  $('drawer-memory').addEventListener('click', () => { tap(); openMemoryBrowser(); });
+  projRender();
 
   renderGauge();
   boot();

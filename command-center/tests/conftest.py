@@ -115,6 +115,13 @@ def _serialize_tests_that_bind_the_fixed_app_port(request):
 
 
 @pytest.fixture(autouse=True)
+def _projects_root_off_the_real_machine(tmp_path, monkeypatch):
+    """Chat sends create the project / `_inbox` folder (features/chat_projects): never in the owner's real
+    %USERPROFILE%\\Bossman\\Projects — every test gets its own tmp root (tests may override it)."""
+    monkeypatch.setenv("BCC_PROJECTS_ROOT", str(tmp_path / "projects-root"))
+
+
+@pytest.fixture(autouse=True)
 def _probe_cache_off(monkeypatch):
     """Health probes are cached in the product (bcc.probe_cache); every test measures its own mocked state."""
     monkeypatch.setenv("BCC_PROBE_CACHE", "off")

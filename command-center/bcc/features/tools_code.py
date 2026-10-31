@@ -155,6 +155,14 @@ async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> P
         own = scratch.for_context(ctx)
         if _within(candidate, [own]):
             return candidate
+        # Owner 31.10 «проекты»: the task's own project folder (chat_projects.workspace_grant: a real project dir,
+        # local model only) is a working root of the tools this agent ALREADY has — that folder only.
+        from .chat_projects import workspace_grant
+        project = await workspace_grant(ctx)
+        if project is not None and _within(candidate, [project]):
+            if not candidate.exists():
+                raise FileNotFoundError(candidate)
+            return candidate
     if not _within(candidate, roots):
         raise PermissionError(
             f"code root {candidate} вне разрешённых корней: "

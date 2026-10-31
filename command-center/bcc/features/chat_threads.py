@@ -1483,6 +1483,9 @@ async def send_turn(thread_id: str, body: SendIn, request: Request):
         raise _fail(409, pre.get("reason") or "исполнитель недоступен",
                     code=pre.get("code") or "BLOCKED_CAPABILITY_UNAVAILABLE", hint=pre.get("hint"))
     agent = {"id": pre["agent"].get("id"), "name": pre["agent"].get("name")}
+    # Проект чата (features/chat_projects): «работай в папке проекта …» и папка для tasks.workspace_path.
+    from .chat_projects import bind_chat_turn, set_task_workspace
+    prompt, workspace = await bind_chat_turn(svc, thread_id, agent["id"], prompt)
 
     # 2. Черновик с тем же client_request_id, что понимает POST /api/tasks.
     title = _collapse(text)[:TASK_TITLE_CHARS] or text[:TASK_TITLE_CHARS]
@@ -1494,6 +1497,7 @@ async def send_turn(thread_id: str, body: SendIn, request: Request):
     task = created["task"]
     if created.get("replayed"):
         return await _replay(request, svc, thread_id, task, text, body.attachments)
+    await set_task_workspace(svc, int(task["id"]), workspace)
 
     # 3. Ход в файл сессии (его увидит и `bossman chat`), затем запуск.
     turn = _new_turn(int(task["id"]), text, attachments)

@@ -766,3 +766,32 @@ body { background:
   margin: 6px 0 4px;
 }
 
+/* проекты, файлы проекта, память (owner 31.10) */
+.project-bar { display: flex; align-items: center; gap: 8px; padding: 0 12px 4px; }
+.project-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; max-width: 100%; padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); font-size: 13px; }
+.project-chip #project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; font-weight: 600; }
+.project-chip .chev { width: 14px; height: 14px; }
+.project-list { display: grid; gap: 8px; margin: 12px 0 4px; }
+.project-opt { display: block; width: 100%; min-height: 44px; text-align: left; padding: 10px 14px; border-radius: 14px; background: var(--bg2); border: 1px solid transparent; }
+.project-opt.sel { border-color: var(--text); }
+.project-opt b { display: block; font-weight: 600; font-size: 15px; }
+.project-opt span { display: block; font-size: 12px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-input.project-input, .sheet-input.memory-q { letter-spacing: normal; font-size: 16px; }
+.project-select { width: 100%; min-height: 44px; margin: 10px 0 2px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line2); background: var(--bg2); color: var(--text); font-size: 16px; }
+.files-path { word-break: break-all; }
+.files-list { display: grid; gap: 6px; margin: 8px 0 12px; }
+.file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 8px 10px; border-radius: 12px; background: var(--bg2); text-align: left; }
+.file-txt { min-width: 0; flex: 1; }
+.file-txt b { display: block; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-txt span { display: block; font-size: 12px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-acts { display: flex; gap: 6px; flex-shrink: 0; }
+.file-acts .btn.small { min-height: 36px; padding: 0 10px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; }
+.memory-tabs { margin: 10px 0 8px; }
+.memory-full { white-space: pre-wrap; word-break: break-word; max-height: 50vh; overflow: auto; padding: 10px; border-radius: 12px; background: var(--bg2); font-size: 14px; }
+.thread-filter { display: flex; gap: 6px; overflow-x: auto; padding: 0 4px 8px; }
+.thread-filter .chip.small { flex-shrink: 0; }
+.thread-filter .chip.small.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.thread-proj { display: block; font-style: normal; font-size: 12px; color: var(--faint); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+

@@ -81,6 +81,10 @@
       </button>
       <button class="icon-btn" id="btn-new" aria-label="Новый чат"><svg><use href="#i-new"/></svg></button>
     </header>
+    <!-- Проект чата (owner 31.10): папка на ПК, где Bossman создаёт файлы этого чата; тап открывает файлы проекта -->
+    <div class="project-bar" id="project-bar">
+      <button type="button" class="project-chip" id="project-chip" aria-label="Проект чата"><span aria-hidden="true">📁</span><span id="project-name">Без проекта</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></button>
+    </div>
     <!-- Шкала контекста чата: сколько окна модели занято и сколько осталось (owner 21.10); тап открывает подробности -->
     <div class="ctx-gauge" id="ctx-gauge" data-level="unknown">
       <div class="ctx-bar" id="ctx-bar" role="progressbar" aria-label="Заполнение контекста чата" aria-valuemin="0" aria-valuemax="100"><i id="ctx-fill"></i></div>
@@ -617,7 +621,12 @@
 <aside class="drawer" id="drawer" aria-label="Чаты" inert aria-hidden="true">
   <div class="drawer-head"><h2 class="serif">Чаты</h2>
     <button class="btn small primary" id="drawer-new"><svg><use href="#i-plus"/></svg>Новый</button></div>
+  <div class="thread-filter" id="thread-filter" role="group" aria-label="Проект" hidden></div>
   <div class="thread-list" id="thread-list"></div>
+  <div class="drawer-tools">
+    <button class="btn ghost" id="drawer-files" type="button">Файлы проектов</button>
+    <button class="btn ghost" id="drawer-memory" type="button">Память</button>
+  </div>
   <button class="btn ghost drawer-archive" id="drawer-archive" type="button">Зашифрованный архив</button>
 </aside>
 

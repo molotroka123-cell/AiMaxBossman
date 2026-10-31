@@ -36,6 +36,7 @@ from .config import Settings
 from .policy import is_photo_model, local_agents, loopback_url, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
 from . import niche, reftags, slash, speech as speech_mod, studio_apps_loader, video, video_timing
+from . import projects as projects_mod
 from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for, warm_models
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -71,6 +72,7 @@ class LoginIn(BaseModel):
 
 class ThreadIn(BaseModel):
     title: str | None = Field(default=None, max_length=200)
+    project: str | None = Field(default=None, max_length=40)       # project slug (features/chat_projects); None = no project
 
 
 class DeleteForeverIn(BaseModel):
@@ -700,7 +702,12 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.post("/m/api/threads", status_code=201)
     async def new_thread(body: ThreadIn, _=Depends(session)):
-        return await call("POST", "/api/chat/threads", json={"title": body.title})
+        payload: dict[str, Any] = {"title": body.title}
+        if body.project:
+            if not projects_mod.SLUG.fullmatch(body.project) or body.project == "_inbox":
+                raise fail(422, "неизвестный проект", "BM_PROJECT")
+            payload["project"] = body.project
+        return await call("POST", "/api/chat/threads", json=payload)
 
     def _tid(thread_id: str) -> str:
         if not THREAD_ID.match(thread_id):
@@ -2368,6 +2375,8 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     @app.websocket("/m/api/terminal/sessions/{session_id}/stream")
     async def m_terminal_ws(ws: WebSocket, session_id: str):
         await _ws(ws, f"api/terminal/sessions/{session_id}/stream")
+
+    projects_mod.register(app, call=call, session=session, fail=fail, bm=bm)   # projects, files, memory browser
 
     @app.api_route("/m/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def m_api_unknown(rest: str):

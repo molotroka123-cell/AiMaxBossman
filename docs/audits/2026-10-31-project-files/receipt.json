@@ -1,0 +1,272 @@
+{
+ "tool": "tools/prove_project_files.py",
+ "at": "2026-10-31T16:11:23-0700",
+ "grants": {
+  "db": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\bcc.db",
+  "agents": [
+   {
+    "id": 44,
+    "name": "GLM 5.3 Flash worker (cloud, read-only code)",
+    "enabled": true,
+    "model": "z-ai/glm-5.3-flash",
+    "model_kind": "cloud",
+    "provider": "OpenRouter",
+    "model_on_this_pc": false,
+    "chat_only": true,
+    "tools_received": [],
+    "file_tools": [],
+    "write_rules": {},
+    "gets_project_folder": false,
+    "permissions_flags": {
+     "cloud_pc_access": false
+    },
+    "verdict": "CANNOT_CREATE_FILES: chat-only (cloud_pc_access is not true) — the model receives NO tools"
+   },
+   {
+    "id": 45,
+    "name": "Qwen 3.8 Flash worker (cloud, read-only review)",
+    "enabled": true,
+    "model": "qwen/qwen3.8-flash",
+    "model_kind": "cloud",
+    "provider": "OpenRouter",
+    "model_on_this_pc": false,
+    "chat_only": true,
+    "tools_received": [],
+    "file_tools": [],
+    "write_rules": {},
+    "gets_project_folder": false,
+    "permissions_flags": {
+     "cloud_pc_access": false
+    },
+    "verdict": "CANNOT_CREATE_FILES: chat-only (cloud_pc_access is not true) — the model receives NO tools"
+   },
+   {
+    "id": 46,
+    "name": "GLM 5.3 Flash Uncensored (7API)",
+    "enabled": true,
+    "model": "glm-5.3-flash-uncensored",
+    "model_kind": "cloud",
+    "provider": "7API",
+    "model_on_this_pc": false,
+    "chat_only": true,
+    "tools_received": [],
+    "file_tools": [],
+    "write_rules": {},
+    "gets_project_folder": false,
+    "permissions_flags": {
+     "mobile_cloud_ok": true,
+     "cloud_pc_access": false
+    },
+    "verdict": "CANNOT_CREATE_FILES: chat-only (cloud_pc_access is not true) — the model receives NO tools"
+   },
+   {
+    "id": 47,
+    "name": "Kimi K3.1 Pro (7API) — сложнейшие задачи",
+    "enabled": true,
+    "model": "kimi-k3.1-pro",
+    "model_kind": "cloud",
+    "provider": "7API",
+    "model_on_this_pc": false,
+    "chat_only": false,
+    "tools_received": [
+     "code.search",
+     "code.expand",
+     "code.status",
+     "code.workspace_map",
+     "terminal.run",
+     "terminal.status",
+     "terminal.stdin",
+     "terminal.kill"
+    ],
+    "file_tools": [
+     "terminal.run"
+    ],
+    "write_rules": {
+     "terminal.run": "host mode: ASK every command; sandbox: AUTO only for the read/build list, writes/redirects ASK"
+    },
+    "gets_project_folder": false,
+    "permissions_flags": {
+     "mobile_cloud_ok": true,
+     "cloud_pc_access": true,
+     "filesystem.read": true,
+     "terminal.read": true
+    },
+    "verdict": "CLOUD_WITH_PC_TOOLS: can run its granted tools inside the owner-configured roots, but gets NO project folder (project grant is for local models only)"
+   },
+   {
+    "id": 48,
+    "name": "Bossman Self-Edit (local Qwen3-Coder)",
+    "enabled": true,
+    "model": "qwen3-coder:30b",
+    "model_kind": "local",
+    "provider": "local-ollama-11434",
+    "model_on_this_pc": true,
+    "chat_only": false,
+    "tools_received": [
+     "code.search",
+     "code.expand",
+     "code.status",
+     "terminal.run",
+     "terminal.status"
+    ],
+    "file_tools": [
+     "terminal.run"
+    ],
+    "write_rules": {
+     "terminal.run": "host mode: ASK every command; sandbox: AUTO only for the read/build list, writes/redirects ASK"
+    },
+    "gets_project_folder": true,
+    "permissions_flags": {
+     "use_memory": false,
+     "filesystem.read": true,
+     "terminal.read": true,
+     "terminal.run": true
+    },
+    "verdict": "TERMINAL_ONLY: local model, project folder is its cwd, but it can create files only through terminal.run commands — every host command asks the owner; grant code.write for direct writes"
+   },
+   {
+    "id": 50,
+    "name": "Strata (Qwen3.8-Flash-Next)",
+    "enabled": true,
+    "model": "qwen3.8-flash-next-iq3_s",
+    "model_kind": "local",
+    "provider": "Strata local (Qwen3.8-Flash-Next IQ3_S)",
+    "model_on_this_pc": true,
+    "chat_only": false,
+    "tools_received": [
+     "computer.observe",
+     "computer.act",
+     "terminal.run",
+     "terminal.status",
+     "terminal.stdin",
+     "terminal.kill",
+     "code.search",
+     "code.expand",
+     "code.status",
+     "code.workspace_map",
+     "opencode.search",
+     "opencode.read_symbol",
+     "opencode.patch",
+     "opencode.run_tests",
+     "opencode.git_diff",
+     "browser.open",
+     "browser.read_dom",
+     "browser.screenshot",
+     "browser.click",
+     "browser.type",
+     "code.read",
+     "code.write",
+     "code.patch",
+     "pc.list_processes",
+     "pc.system_info",
+     "pc.list_windows",
+     "pc.read_file",
+     "pc.list_dir",
+     "pc.record_screen"
+    ],
+    "file_tools": [
+     "code.patch",
+     "code.write",
+     "terminal.run"
+    ],
+    "write_rules": {
+     "code.patch": "AUTO inside allowed roots (agent holds permission terminal.run)",
+     "code.write": "AUTO inside allowed roots (agent holds permission terminal.run)",
+     "terminal.run": "host mode: ASK every command; sandbox: AUTO only for the read/build list, writes/redirects ASK"
+    },
+    "gets_project_folder": true,
+    "permissions_flags": {
+     "cloud_allowed": false,
+     "filesystem.read": true,
+     "terminal.read": true,
+     "browser.read": true,
+     "computer.observe": true,
+     "filesystem.write": true,
+     "terminal.run": true,
+     "computer.control": true,
+     "browser": true
+    },
+    "verdict": "CAN_CREATE_FILES_IN_PROJECT: local model with code.write/code.patch; files land in the project folder (code.write: AUTO inside allowed roots (agent holds permission terminal.run))"
+   },
+   {
+    "id": 52,
+    "name": "LH worker (Gemma 4 local, test folder)",
+    "enabled": true,
+    "model": "gemma4-31b-uncensored-ctx32k:latest",
+    "model_kind": "local",
+    "provider": "local-ollama-11434",
+    "model_on_this_pc": true,
+    "chat_only": false,
+    "tools_received": [
+     "terminal.run",
+     "terminal.status",
+     "terminal.kill",
+     "code.search",
+     "code.expand",
+     "code.status",
+     "chat.share_file"
+    ],
+    "file_tools": [
+     "terminal.run"
+    ],
+    "write_rules": {
+     "terminal.run": "host mode: ASK every command; sandbox: AUTO only for the read/build list, writes/redirects ASK"
+    },
+    "gets_project_folder": true,
+    "permissions_flags": {
+     "use_memory": true,
+     "filesystem.read": true,
+     "terminal.read": true,
+     "terminal.run": true
+    },
+    "verdict": "TERMINAL_ONLY: local model, project folder is its cwd, but it can create files only through terminal.run commands — every host command asks the owner; grant code.write for direct writes"
+   }
+  ]
+ },
+ "write_proof": {
+  "temp_dir": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman-project-proof-dr7zb3ih",
+  "code": "PRJ4TRTD1",
+  "model": "qwen3-coder:30b",
+  "base_url": "http://127.0.0.1:11434/v1",
+  "scripted": false,
+  "tools": [
+   "code.expand",
+   "code.search",
+   "code.status",
+   "code.write",
+   "terminal.run",
+   "terminal.status"
+  ],
+  "permissions": {
+   "use_memory": false,
+   "filesystem.read": true,
+   "terminal.read": true,
+   "terminal.run": true
+  },
+  "approvals": [],
+  "project_folder": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman-project-proof-dr7zb3ih\\Projects\\proof-project-files",
+  "task_id": 1,
+  "status": "completed",
+  "workspace_path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman-project-proof-dr7zb3ih\\Projects\\proof-project-files",
+  "files_in_project": [
+   "hello.py"
+  ],
+  "hello_py": "print('PRJ4TRTD1')",
+  "code_in_file": true,
+  "outside_root": [],
+  "seconds": 33.0,
+  "tool_calls": [
+   {
+    "tool": "code.write",
+    "status": "executed",
+    "effect": "auto"
+   },
+   {
+    "tool": "terminal.run",
+    "status": "error",
+    "effect": "auto"
+   }
+  ],
+  "pass": true
+ }
+}
