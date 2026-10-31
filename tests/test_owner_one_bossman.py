@@ -484,4 +484,3 @@ def test_status_falls_back_to_live_backend_process_when_backend_lock_absent(tmp_
     assert st["backend"] == {"pid": 14400, "port": 8801, "build_sha": "8c3b479d" + "0" * 32}
     assert st["backend_pid_alive"] is True
     assert st["health"]["source_identity"] == "PASS"
-

@@ -974,4 +974,3 @@ async def test_d036_gate_blocks_ungrounded_screen_claim_and_allows_grounded(env)
     assert v2["verdict"] == "FAIL"
     assert v2["reasons"] == "action_contract/ungrounded_screen_claim"
     assert v2.get("requeue") is False
-

@@ -1783,5 +1783,3 @@ def _refusal(what: str, problems: list[dict]) -> OrderError:
     codes = sorted({p["code"] for p in problems})
     return OrderError(409, codes[0] if len(codes) == 1 else "delivery_refused", f"{what}: " + ", ".join(codes),
                       problems)
-
-

@@ -736,4 +736,3 @@ async def verify_criterion_with_proof(
         false_claim_caught=false_claim,
         proof_sha256=proof_hash,
     )
-

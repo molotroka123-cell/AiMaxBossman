@@ -637,4 +637,3 @@ def punch_zoom(beats_ms: list[float], strength: float = 0.08, decay_ms: float = 
         kfs.append({"t": b, "v": 1.0 + strength})
         kfs.append({"t": b + round(decay_ms), "v": 1.0, "ease": "easeOutExpo"})
     return kfs
-

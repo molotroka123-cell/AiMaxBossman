@@ -416,6 +416,3 @@ def test_m4_transfer_report_excludes_pending_and_honestly_reports_transfer_or_no
     assert res_proven["holdout_subset"]["paired_completed_tasks"] == 39
     assert res_proven["verdict"] == "TRANSFER_PROVEN"
     assert res_proven["statistics"]["ci95_pp"][0] > 0.0
-
-
-

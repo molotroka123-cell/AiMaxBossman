@@ -286,4 +286,3 @@ async def test_bossman_memory_seed_and_learn_step_populates_all_four_tables(tmp_
     assert res["db_counts"]["procedures"] >= counts["procedures"] + 1
     assert res["db_counts"]["failures"] >= counts["failures"] + 1
     await db_inst.engine.dispose()
-

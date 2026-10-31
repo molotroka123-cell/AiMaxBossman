@@ -233,5 +233,3 @@ def canonicalize_windows_path_safe(path: str | Any, *, reject_dangerous: bool = 
         return os.path.normpath(os.path.realpath(raw))
     except Exception:
         return os.path.normpath(raw)
-
-

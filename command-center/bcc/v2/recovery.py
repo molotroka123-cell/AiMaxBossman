@@ -176,4 +176,3 @@ class StepStateGuard:
             decision="halt_before_irreversible",
             repaired_state=None,
         )
-

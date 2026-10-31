@@ -452,4 +452,3 @@ async def test_auto_full_owner_card_folder_expiry_action_log_and_off_button(env,
     off = (await env.client.post("/api/approvals/auto-full/revoke", json={"lease_id": lease_id})).json()
     assert off["ok"] is True and off["active"] is False
     assert await scope.consume(env.svc, in_scope, args=in_args, workspace=str(allowed_dir)) is None
-
