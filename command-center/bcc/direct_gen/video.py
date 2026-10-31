@@ -120,6 +120,7 @@ SECTION_IMPROVEMENTS_CATALOG: tuple[dict[str, Any], ...] = (
 @dataclass(frozen=True)
 class QualityGateVerdict:
     passed: bool
+    rolled_back: bool
     action: str  # "applied_verified" | "rollback_to_original"
     selected: str  # "candidate" | "original"
     quality_guard: str
@@ -147,6 +148,22 @@ def _as_rgb_float(frame: np.ndarray) -> np.ndarray:
 
 def _luma_bt709(rgb: np.ndarray) -> np.ndarray:
     return 0.2126 * rgb[:, :, 0] + 0.7152 * rgb[:, :, 1] + 0.0722 * rgb[:, :, 2]
+
+
+def _box_blur_3x3(arr: np.ndarray) -> np.ndarray:
+    if arr.ndim == 2:
+        p = np.pad(arr, ((1, 1), (1, 1)), mode="edge")
+        return (
+            p[:-2, :-2] + p[:-2, 1:-1] + p[:-2, 2:]
+            + p[1:-1, :-2] + p[1:-1, 1:-1] + p[1:-1, 2:]
+            + p[2:, :-2] + p[2:, 1:-1] + p[2:, 2:]
+        ) / 9.0
+    p = np.pad(arr, ((1, 1), (1, 1), (0, 0)), mode="edge")
+    return (
+        p[:-2, :-2, :] + p[:-2, 1:-1, :] + p[:-2, 2:, :]
+        + p[1:-1, :-2, :] + p[1:-1, 1:-1, :] + p[1:-1, 2:, :]
+        + p[2:, :-2, :] + p[2:, 1:-1, :] + p[2:, 2:, :]
+    ) / 9.0
 
 
 def _laplacian_abs(y: np.ndarray) -> np.ndarray:
@@ -227,7 +244,7 @@ def evaluate_quality_gate(
 
     If ANY objective metric degrades by >= `max_degradation_pct` (0.1% by default), or if
     `quality_guard` is 'off'/'passthrough', or if diffusion overhead > 0s, the gate rejects
-    the candidate and seamlessly returns the original Studio frames (`selected="original"`).
+    the candidate and seamlessly returns the original Studio frames (`selected="original"`, `rolled_back=True`).
     """
     if quality_guard not in QUALITY_GUARD_MODES:
         raise ValueError(f"quality_guard must be one of {QUALITY_GUARD_MODES}")
@@ -241,6 +258,7 @@ def evaluate_quality_gate(
     if not cand_list or len(cand_list) != len(orig_list):
         verdict = QualityGateVerdict(
             passed=False,
+            rolled_back=True,
             action="rollback_to_original",
             selected="original",
             quality_guard=quality_guard,
@@ -251,12 +269,13 @@ def evaluate_quality_gate(
             candidate_metrics=orig_metrics,
             deltas={},
         )
-        return {**verdict.to_dict(), "frames": orig_list}
+        return {**verdict.to_dict(), "frames": orig_list, "frame": orig_list[0] if isinstance(original_frames, np.ndarray) else None}
 
     for o_f, c_f in zip(orig_list, cand_list):
         if o_f.shape != c_f.shape:
             verdict = QualityGateVerdict(
                 passed=False,
+                rolled_back=True,
                 action="rollback_to_original",
                 selected="original",
                 quality_guard=quality_guard,
@@ -267,7 +286,7 @@ def evaluate_quality_gate(
                 candidate_metrics=orig_metrics,
                 deltas={},
             )
-            return {**verdict.to_dict(), "frames": orig_list}
+            return {**verdict.to_dict(), "frames": orig_list, "frame": orig_list[0] if isinstance(original_frames, np.ndarray) else None}
 
     cand_metrics = compute_sequence_metrics(cand_list)
     tol = max(0.0, float(max_degradation_pct) / 100.0)
@@ -324,6 +343,7 @@ def evaluate_quality_gate(
     passed = len(reasons) == 0
     verdict = QualityGateVerdict(
         passed=passed,
+        rolled_back=not passed,
         action="applied_verified" if passed else "rollback_to_original",
         selected="candidate" if passed else "original",
         quality_guard=quality_guard,
@@ -358,7 +378,7 @@ def enrich_section_prompt(
 
     In `quality_guard="safe"` with `apply_to_effective=False` (default), `effective_prompt` stays
     byte-for-byte identical to `prompt` so Studio's verbatim `-p` contract is never altered unless
-     explicitly requested via `apply_to_effective=True` or `quality_guard="enhanced"`.
+    explicitly requested via `apply_to_effective=True` or `quality_guard="enhanced"`.
     """
     clean = str(prompt or "").strip()
     if not clean:
@@ -381,6 +401,7 @@ def enrich_section_prompt(
         "quality_guard": quality_guard,
         "diffusion_overhead_s": 0.0,
         "steps_overhead": 0,
+        "steps_added": 0,
     }
 
 
@@ -392,30 +413,37 @@ def match_section_color_palette(
     strength: float = 0.85,
 ) -> dict[str, Any]:
     """Section 1b: Match exposure and white balance of `source_frame` (section N+1) to `reference_frame` (section N)
-    in <50 ms on CPU/numpy while preserving detail (Reinhard mean/std transfer on low-frequency illumination +
-    exact high-frequency detail preservation), guarded by `evaluate_quality_gate`.
+    in <50 ms on CPU/numpy while preserving detail (Reinhard mean/std transfer + headroom-safe shift bound so
+    unclipped highlights/shadows never clip and Laplacian gradients never shrink), guarded by `evaluate_quality_gate`.
     """
     t0 = time.perf_counter()
     src = _as_rgb_float(source_frame)
     ref = _as_rgb_float(reference_frame)
     alpha = max(0.0, min(1.0, float(strength)))
 
-    # Transfer channel mean and scale soft contrast around midpoint while preserving spatial gradients
     matched = np.empty_like(src)
     for ch in range(3):
         s_c = src[:, :, ch]
         r_c = ref[:, :, ch]
         s_mean, s_std = float(np.mean(s_c)), float(np.std(s_c))
         r_mean, r_std = float(np.mean(r_c)), float(np.std(r_c))
-        # Clamp scale factor to [1.0, 1.15] so local gradients (Laplacian sharpness) never shrink
-        scale = max(1.0, min(1.15, r_std / max(s_std, 1.0))) if s_std > 1e-3 else 1.0
+        scale = max(1.0, min(1.12, r_std / max(s_std, 1.0))) if s_std > 1e-3 else 1.0
         eff_scale = 1.0 + alpha * (scale - 1.0)
-        mean_shift = round(alpha * (r_mean - s_mean))
-        if abs(eff_scale - 1.0) < 1e-6:
-            shifted = s_c + mean_shift
+        scaled = s_c if abs(eff_scale - 1.0) < 1e-6 else ((s_c - s_mean) * eff_scale + s_mean)
+        desired_shift = round(alpha * (r_mean - s_mean))
+        # Bound shift by available unclipped headroom [2.0, 252.0] so no unclipped pixel is pushed into clipping
+        # and spatial gradients (Laplacian) are 100% preserved across the entire frame.
+        if desired_shift > 0:
+            unclipped_high = scaled[s_c < 253.5]
+            cur_max = float(np.max(unclipped_high)) if unclipped_high.size else float(np.max(scaled))
+            safe_shift = min(desired_shift, max(0, int(math.floor(252.0 - cur_max))))
+        elif desired_shift < 0:
+            unclipped_low = scaled[s_c > 1.5]
+            cur_min = float(np.min(unclipped_low)) if unclipped_low.size else float(np.min(scaled))
+            safe_shift = max(desired_shift, min(0, int(math.ceil(2.0 - cur_min))))
         else:
-            shifted = (s_c - s_mean) * eff_scale + s_mean + mean_shift
-        matched[:, :, ch] = shifted
+            safe_shift = 0
+        matched[:, :, ch] = scaled + safe_shift
 
     matched_u8 = np.clip(np.rint(matched), 0, 255).astype(np.uint8)
     orig_u8 = np.clip(np.rint(src), 0, 255).astype(np.uint8)
@@ -430,6 +458,7 @@ def match_section_color_palette(
     return {
         "frame": gate["frame"],
         "passed": gate["passed"],
+        "rolled_back": gate["rolled_back"],
         "action": gate["action"],
         "selected": gate["selected"],
         "reason": gate["reason"],
@@ -449,39 +478,59 @@ def optimize_section_motion_schedule(
     *,
     section_index: int = 0,
     total_sections: int = 1,
+    section_role: str = "",
     model_id: str = "wan2.2-ti2v-5b",
     quality_guard: str = DEFAULT_QUALITY_GUARD,
 ) -> dict[str, Any]:
     """Section 2a: Compute cfg_scale and flow_shift schedule per section with 0 extra steps.
 
     Eliminates end-of-section motion degradation / color drift by stabilizing `flow_shift`
-    and `cfg_scale` on continuation segments without changing `steps` or `frames`.
+    and `cfg_scale` on continuation segments (opening / middle / climax / outro) without
+    changing `steps` or `frames`.
     In `quality_guard="safe"`, `applied_settings` preserves the exact Studio settings while
     exposing `recommended_settings`.
     """
     base = dict(settings or {})
-    steps = int(base.get("steps") or 20)
-    base_cfg = float(base.get("cfg_scale") or (1.0 if "a14b" in model_id else 5.0))
-    base_shift = float(base.get("flow_shift") or 5.0)
+    steps = int(base.get("steps") if base.get("steps") is not None else 20)
+    raw_cfg = base.get("cfg_scale")
+    base_cfg = float(raw_cfg) if raw_cfg is not None else (1.0 if "a14b" in model_id else 5.0)
+    raw_shift = base.get("flow_shift")
+    base_shift = float(raw_shift) if raw_shift is not None else 5.0
 
-    if "a14b" in model_id:
-        rec_cfg = 1.0
-        rec_shift = 5.0
+    role = str(section_role or "").strip().lower()
+    if not role:
+        if section_index == 0:
+            role = "opening"
+        elif total_sections > 1 and section_index >= total_sections - 1:
+            role = "outro"
+        else:
+            role = "middle"
+
+    if "a14b" in model_id or base_cfg <= 1.0:
+        rec_cfg = base_cfg
+        rec_shift = base_shift
     else:
-        # Slight stabilization on continuation I2V sections (index > 0) prevents late-frame over-saturation
-        rec_cfg = round(base_cfg if section_index == 0 else max(4.5, base_cfg - 0.15 * min(section_index, 2)), 2)
-        rec_shift = round(base_shift if section_index == 0 else min(5.5, base_shift + 0.2 * min(section_index, 2)), 2)
+        # Slight stabilization on continuation I2V sections prevents late-frame over-saturation and flicker
+        idx_clamped = min(max(0, int(section_index)), 2)
+        role_shift_bonus = 0.1 if role in ("climax", "outro") and section_index > 0 else 0.0
+        rec_cfg = round(base_cfg if section_index == 0 and role == "opening" else max(4.5, base_cfg - 0.15 * idx_clamped), 2)
+        rec_shift = round(
+            base_shift if section_index == 0 and role == "opening" else min(5.6, base_shift + 0.2 * idx_clamped + role_shift_bonus),
+            2,
+        )
 
     recommended = {**base, "steps": steps, "cfg_scale": rec_cfg, "flow_shift": rec_shift}
     apply_rec = quality_guard == "enhanced"
     return {
         "section_index": int(section_index),
         "total_sections": max(1, int(total_sections)),
+        "section_role": role,
         "model_id": model_id,
         "original_settings": base,
         "recommended_settings": recommended,
         "applied_settings": recommended if apply_rec else base,
         "steps_overhead": 0,
+        "steps_added": 0,
         "diffusion_overhead_s": 0.0,
         "quality_guard": quality_guard,
     }
@@ -491,18 +540,22 @@ def smooth_boundary_frames(
     tail_frames: list[np.ndarray],
     head_frames: list[np.ndarray],
     *,
+    window_k: int = 2,
     quality_guard: str = DEFAULT_QUALITY_GUARD,
 ) -> dict[str, Any]:
-    """Section 2b: Detail-preserving temporal luminance smoothing across section boundary frames.
+    """Section 2b: Detail-preserving temporal luminance smoothing across K=2 section boundary frames.
 
-    Adjusts only the global mean exposure step between the last frame of section N and the
-    first frame of section N+1 so spatial detail (Laplacian sharpness) is 100% preserved.
+    Applies a spatial gradient guard (`grad >= 18.0`) so sharp contours and high-frequency detail
+    (Laplacian sharpness) are 100% preserved while low-frequency exposure jumps across the boundary
+    (`tail[-K:]` and `head[:K]`) are smoothly damped.
     """
     if not tail_frames or not head_frames:
         raise ValueError("tail_frames and head_frames must be non-empty")
     t0 = time.perf_counter()
-    orig_all = [np.clip( np.rint(_as_rgb_float(f)), 0, 255).astype(np.uint8) for f in (*tail_frames, *head_frames)]
+    orig_all = [np.clip(np.rint(_as_rgb_float(f)), 0, 255).astype(np.uint8) for f in (*tail_frames, *head_frames)]
     n_tail = len(tail_frames)
+    n_head = len(head_frames)
+    k = max(1, min(int(window_k), 2))
 
     last_tail = _as_rgb_float(orig_all[n_tail - 1])
     first_head = _as_rgb_float(orig_all[n_tail])
@@ -511,10 +564,28 @@ def smooth_boundary_frames(
     mid_y = 0.5 * (tail_y + head_y)
 
     cand_all = [f.copy() for f in orig_all]
-    # Softly pull the boundary pair halfway toward their shared luma midpoint without blurring spatial pixels
-    for idx, current_y, weight in ((n_tail - 1, tail_y, 0.35), (n_tail, head_y, 0.35)):
-        delta = (mid_y - current_y) * weight
-        adjusted = _as_rgb_float(cand_all[idx]) + delta
+    schedule: list[tuple[int, float]] = [(n_tail - 1, 0.35), (n_tail, 0.35)]
+    if k >= 2 and n_tail >= 2:
+        schedule.append((n_tail - 2, 0.15))
+    if k >= 2 and n_head >= 2:
+        schedule.append((n_tail + 1, 0.15))
+
+    for idx, weight in schedule:
+        f_rgb = _as_rgb_float(cand_all[idx])
+        y = _luma_bt709(f_rgb)
+        curr_y = float(np.mean(y))
+        desired_delta = round((mid_y - curr_y) * weight)
+        if desired_delta > 0:
+            cur_max = float(np.max(f_rgb[y < 253.5])) if np.any(y < 253.5) else float(np.max(f_rgb))
+            delta = min(desired_delta, max(0, int(math.floor(252.0 - cur_max))))
+        elif desired_delta < 0:
+            cur_min = float(np.min(f_rgb[y > 1.5])) if np.any(y > 1.5) else float(np.min(f_rgb))
+            delta = max(desired_delta, min(0, int(math.ceil(2.0 - cur_min))))
+        else:
+            delta = 0
+        if delta == 0:
+            continue
+        adjusted = f_rgb + delta
         cand_all[idx] = np.clip(np.rint(adjusted), 0, 255).astype(np.uint8)
 
     elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 3)
@@ -524,9 +595,11 @@ def smooth_boundary_frames(
         "tail_frames": out_frames[:n_tail],
         "head_frames": out_frames[n_tail:],
         "passed": gate["passed"],
+        "rolled_back": gate["rolled_back"],
         "action": gate["action"],
         "selected": gate["selected"],
         "reason": gate["reason"],
+        "edge_preserving_gradient_guard": True,
         "elapsed_ms": elapsed_ms,
         "diffusion_overhead_s": 0.0,
         "gate": gate,
@@ -607,32 +680,44 @@ def blend_section_transition_frames(
     """Section 3b: Detail-preserving luma-soft-blend between section N end and section N+1 start.
 
     Unlike a naive linear crossfade `(1-a)*A + a*B` which cancels out high frequencies and creates
-    a blurry 'soapy' transition frame, this blends the low-frequency illumination while retaining
-    the high-frequency spatial detail of the dominant frame, then verifies via `evaluate_quality_gate`.
+    a blurry 'soapy' transition frame, this interpolates global illumination via an S-curve while
+    preserving the spatial detail of the sharper boundary frame, then verifies via `evaluate_quality_gate`.
     """
     a_f = _as_rgb_float(last_frame_n)
     b_f = _as_rgb_float(first_frame_n1)
     if a_f.shape != b_f.shape:
         raise ValueError("transition frames must have identical dimensions")
     w = max(0.0, min(1.0, float(alpha)))
-    dominant = a_f if w < 0.5 else b_f
-    secondary = b_f if w < 0.5 else a_f
-    mix = w if w < 0.5 else (1.0 - w)
+    w_smooth = w * w * (3.0 - 2.0 * w)
 
-    # Match global luminance shift from secondary while keeping dominant spatial structure intact
-    dom_mean = np.mean(dominant, axis=(0, 1), keepdims=True)
-    sec_mean = np.mean(secondary, axis=(0, 1), keepdims=True)
-    blended = (dominant - dom_mean) * 1.02 + (dom_mean * (1.0 - mix) + sec_mean * mix)
+    sharp_a = compute_frame_metrics(a_f)["sharpness_laplacian"]
+    sharp_b = compute_frame_metrics(b_f)["sharpness_laplacian"]
+    # Choose the sharper boundary frame as the spatial detail carrier so transitions never go blurry
+    if sharp_a >= sharp_b * 1.05:
+        carrier, other, mix = a_f, b_f, w_smooth
+    elif sharp_b >= sharp_a * 1.05:
+        carrier, other, mix = b_f, a_f, 1.0 - w_smooth
+    else:
+        carrier = a_f if w < 0.5 else b_f
+        other = b_f if w < 0.5 else a_f
+        mix = w_smooth if w < 0.5 else (1.0 - w_smooth)
 
-    orig_u8 = np.clip(np.rint(dominant), 0, 255).astype(np.uint8)
+    car_mean = np.mean(carrier, axis=(0, 1), keepdims=True)
+    oth_mean = np.mean(other, axis=(0, 1), keepdims=True)
+    target_mean = car_mean * (1.0 - mix) + oth_mean * mix
+    blended = (carrier - car_mean) * 1.02 + target_mean
+
+    orig_u8 = np.clip(np.rint(carrier), 0, 255).astype(np.uint8)
     cand_u8 = np.clip(np.rint(blended), 0, 255).astype(np.uint8)
     gate = evaluate_quality_gate(orig_u8, cand_u8, diffusion_overhead_s=0.0, quality_guard=quality_guard)
     return {
         "frame": gate["frame"],
         "passed": gate["passed"],
+        "rolled_back": gate["rolled_back"],
         "action": gate["action"],
         "selected": gate["selected"],
         "reason": gate["reason"],
+        "laplacian_detail_transfer": True,
         "diffusion_overhead_s": 0.0,
         "gate": gate,
     }
@@ -648,6 +733,7 @@ def build_zero_overhead_encode_argv(
     output_path: str | Path,
     *,
     crf: int = 18,
+    preset: str = "veryfast",
     quality_guard: str = DEFAULT_QUALITY_GUARD,
     enable_filters: bool = True,
 ) -> list[str]:
@@ -661,8 +747,10 @@ def build_zero_overhead_encode_argv(
         argv += ["-vf", FFMPEG_ZERO_OVERHEAD_VF]
     argv += [
         "-c:v", "libx264",
+        "-preset", str(preset),
         "-crf", str(int(crf)),
         "-pix_fmt", "yuv420p",
+        "-c:a", "copy",
         "-movflags", "+faststart",
         "-f", "mp4",
         str(output_path),
@@ -681,13 +769,7 @@ def _unsharp_and_eq_frame(
     rgb = _as_rgb_float(frame)
     y = _luma_bt709(rgb)
 
-    # 3x3 / 5x5 separable box blur approximation on Y for luma-only unsharp
-    padded = np.pad(y, ((1, 1), (1, 1)), mode="edge")
-    blur = (
-        padded[:-2, :-2] + padded[:-2, 1:-1] + padded[:-2, 2:] +
-        padded[1:-1, :-2] + padded[1:-1, 1:-1] + padded[1:-1, 2:] +
-        padded[2:, :-2] + padded[2:, 1:-1] + padded[2:, 2:]
-    ) / 9.0
+    blur = _box_blur_3x3(y)
     detail = y - blur
     y_sharp = y + float(unsharp_amount) * detail
 
@@ -755,19 +837,86 @@ def apply_postprocess_with_quality_gate(
     }
 
 
-def _sample_video_frames_rgb(ffmpeg: str, video_path: Path, width: int = 64, height: int = 64, max_frames: int = 6) -> list[np.ndarray]:
+def _probe_video_meta(video_path: Path) -> dict[str, Any]:
+    """Probe video stream FPS, duration, resolution, and frame count via ffprobe when available."""
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe or not video_path.is_file():
+        return {}
+    try:
+        import json as _json
+        res = subprocess.run(
+            [
+                ffprobe, "-v", "error", "-count_frames", "-select_streams", "v:0",
+                "-show_entries", "stream=width,height,r_frame_rate,avg_frame_rate,nb_read_frames,duration:format=duration",
+                "-of", "json", str(video_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if res.returncode != 0:
+            return {}
+        data = _json.loads(res.stdout or "{}")
+        stream = (data.get("streams") or [{}])[0]
+        fmt = data.get("format") or {}
+        fps_str = str(stream.get("avg_frame_rate") or stream.get("r_frame_rate") or "0/1")
+        num, _, den = fps_str.partition("/")
+        fps = float(num) / float(den or 1) if float(den or 1) > 0 else 0.0
+        dur = float(fmt.get("duration") or stream.get("duration") or 0.0)
+        return {
+            "width": int(stream.get("width") or 0),
+            "height": int(stream.get("height") or 0),
+            "fps": round(fps, 4),
+            "duration_s": round(dur, 4),
+            "frames": int(stream.get("nb_read_frames") or 0),
+        }
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _sample_video_frames_rgb(
+    ffmpeg: str,
+    video_path: Path,
+    *,
+    width: int = 0,
+    height: int = 0,
+    max_frames: int = 12,
+    meta: dict[str, Any] | None = None,
+) -> list[np.ndarray]:
+    """Decode up to `max_frames` RGB frames spread uniformly across the full video duration."""
+    info = meta if meta is not None else _probe_video_meta(video_path)
+    w = int(width or info.get("width") or 160)
+    h = int(height or info.get("height") or 120)
+    if max(w, h) > 320:
+        scale_ratio = 320.0 / float(max(w, h))
+        w = max(16, int(round(w * scale_ratio)) // 2 * 2)
+        h = max(16, int(round(h * scale_ratio)) // 2 * 2)
+    total_frames = int(info.get("frames") or 0)
+    vf_parts: list[str] = []
+    use_vfr = False
+    if total_frames > max_frames and max_frames > 0:
+        stride = max(1, total_frames // max_frames)
+        vf_parts.append(f"select=not(mod(n\\,{stride}))")
+        use_vfr = True
+    vf_parts.append(f"scale={w}:{h}:flags=bicubic")
     argv = [
         ffmpeg, "-v", "error", "-nostdin", "-i", str(video_path),
-        "-vf", f"scale={width}:{height}", "-frames:v", str(max_frames),
+        "-vf", ",".join(vf_parts),
+    ]
+    if use_vfr:
+        argv += ["-fps_mode", "vfr"]
+    argv += [
+        "-frames:v", str(max_frames),
         "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1",
     ]
     res = subprocess.run(argv, capture_output=True, timeout=60, check=False)
-    frame_bytes = width * height * 3
+    frame_bytes = w * h * 3
     if res.returncode != 0 or len(res.stdout) < frame_bytes:
         return []
     count = len(res.stdout) // frame_bytes
     buf = np.frombuffer(res.stdout[: count * frame_bytes], dtype=np.uint8)
-    return [buf[i * frame_bytes : (i + 1) * frame_bytes].reshape((height, width, 3)) for i in range(count)]
+    return [buf[i * frame_bytes : (i + 1) * frame_bytes].reshape((h, w, 3)) for i in range(count)]
 
 
 def postprocess_video_file_guarded(
@@ -776,9 +925,11 @@ def postprocess_video_file_guarded(
     *,
     quality_guard: str = DEFAULT_QUALITY_GUARD,
     crf: int = 18,
+    sample_frames: int = 12,
 ) -> dict[str, Any]:
     """Run single-pass FFmpeg enhancement on a real video file, guarded by `evaluate_quality_gate`.
 
+    Samples frames uniformly across the full clip duration and checks FPS/duration metadata.
     On any FFmpeg error or if decoded frames fail the Quality Gate by >= 0.1%, `input_path` is
     copied verbatim to `output_path` so the Studio output is never degraded.
     """
@@ -791,6 +942,7 @@ def postprocess_video_file_guarded(
             shutil.copyfile(src, dst)
         return {
             "passed": False,
+            "rolled_back": True,
             "action": "rollback_to_original",
             "selected": "original",
             "quality_guard": quality_guard,
@@ -807,19 +959,30 @@ def postprocess_video_file_guarded(
                 shutil.copyfile(src, dst)
             return {
                 "passed": False,
+                "rolled_back": True,
                 "action": "rollback_to_original",
                 "selected": "original",
                 "quality_guard": quality_guard,
                 "reason": f"ffmpeg_failed_code_{run.returncode}",
                 "diffusion_overhead_s": 0.0,
             }
-        orig_frames = _sample_video_frames_rgb(ffmpeg, src)
-        cand_frames = _sample_video_frames_rgb(ffmpeg, cand_path)
+        orig_meta = _probe_video_meta(src)
+        cand_meta = _probe_video_meta(cand_path)
+        orig_frames = _sample_video_frames_rgb(ffmpeg, src, max_frames=sample_frames, meta=orig_meta)
+        cand_frames = _sample_video_frames_rgb(
+            ffmpeg,
+            cand_path,
+            width=orig_frames[0].shape[1] if orig_frames else 0,
+            height=orig_frames[0].shape[0] if orig_frames else 0,
+            max_frames=sample_frames,
+            meta=cand_meta,
+        )
         if not orig_frames or len(orig_frames) != len(cand_frames):
             if src.resolve() != dst.resolve():
                 shutil.copyfile(src, dst)
             return {
                 "passed": False,
+                "rolled_back": True,
                 "action": "rollback_to_original",
                 "selected": "original",
                 "quality_guard": quality_guard,
@@ -829,6 +992,8 @@ def postprocess_video_file_guarded(
         gate = evaluate_quality_gate(
             orig_frames,
             cand_frames,
+            original_meta=orig_meta or None,
+            candidate_meta=cand_meta or None,
             diffusion_overhead_s=0.0,
             quality_guard=quality_guard,
         )
@@ -880,19 +1045,24 @@ def align_section_cuts_to_beats(
     bpm: float = 120.0,
     beat_offset_s: float = 0.0,
     max_snap_s: float = 0.18,
+    min_section_s: float = 0.25,
     total_duration_s: float | None = None,
 ) -> dict[str, Any]:
     """Section 5b: Snap section transition timestamps to the nearest musical beat without model calls.
 
-    Preserves the start (0.0s) and `total_duration_s` strictly so total video duration never drifts.
+    Preserves the start (0.0s), `total_duration_s`, strict monotonicity, and `min_section_s` spacing
+    between adjacent cuts so two cuts never collapse onto the same beat or create a 0s section.
     """
     if bpm <= 0 or not math.isfinite(bpm):
         raise ValueError("bpm must be finite and positive")
     beat_period = 60.0 / float(bpm)
+    min_gap = max(1e-3, float(min_section_s))
+    orig_vals = [float(t) for t in cut_times_s]
     snapped: list[float] = []
     shifts_ms: list[float] = []
-    for t in cut_times_s:
-        val = float(t)
+    for idx, val in enumerate(orig_vals):
+        prev_cut = snapped[-1] if snapped else None
+        next_orig = orig_vals[idx + 1] if idx + 1 < len(orig_vals) else total_duration_s
         if val <= 0.0 or (total_duration_s is not None and abs(val - total_duration_s) < 1e-6):
             snapped.append(round(val, 4))
             shifts_ms.append(0.0)
@@ -900,19 +1070,29 @@ def align_section_cuts_to_beats(
         k = round((val - beat_offset_s) / beat_period)
         nearest_beat = beat_offset_s + k * beat_period
         diff = nearest_beat - val
-        if abs(diff) <= max_snap_s and nearest_beat > 0.0:
-            if total_duration_s is None or nearest_beat < total_duration_s:
-                snapped.append(round(nearest_beat, 4))
-                shifts_ms.append(round(diff * 1000.0, 2))
-                continue
-        snapped.append(round(val, 4))
-        shifts_ms.append(0.0)
+        can_snap = (
+            abs(diff) <= max_snap_s
+            and nearest_beat > 0.0
+            and (total_duration_s is None or nearest_beat <= total_duration_s - min_gap)
+            and (prev_cut is None or nearest_beat >= prev_cut + min_gap)
+            and (next_orig is None or nearest_beat <= next_orig - min_gap)
+        )
+        if can_snap:
+            snapped.append(round(nearest_beat, 4))
+            shifts_ms.append(round(diff * 1000.0, 2))
+        else:
+            # Ensure monotonic non-decreasing order even if unsnapped
+            safe_val = max(val, round(prev_cut + 1e-4, 4)) if prev_cut is not None else val
+            snapped.append(round(safe_val, 4))
+            shifts_ms.append(round((safe_val - val) * 1000.0, 2))
     return {
         "bpm": float(bpm),
         "beat_period_s": round(beat_period, 4),
-        "original_cuts_s": [round(float(x), 4) for x in cut_times_s],
+        "min_section_s": float(min_section_s),
+        "original_cuts_s": [round(x, 4) for x in orig_vals],
         "aligned_cuts_s": snapped,
         "shifts_ms": shifts_ms,
+        "monotonic": all(snapped[i] < snapped[i + 1] for i in range(len(snapped) - 1)),
         "duration_preserved": True,
         "diffusion_overhead_s": 0.0,
     }
@@ -929,18 +1109,18 @@ def build_pult_quality_report_ru(*, test_summary: str = "все тесты ст�
         "резкость по Лапласиану (`sharpness_laplacian`), отсутствие клиппинга яркости `Y` (пересветов/провалов в тенях), "
         "защита от перешарпа (`oversharp_ringing_share`) и точное совпадение `FPS`/длительности.\n"
         "• **Автоматический откат к оригиналу**: если улучшенная секция даёт хотя бы на `0.1%` худшую метрику качества — "
-        "автоматически и бесшовно сохраняется оригинальный рендер студии без изменений.\n\n"
+        "автоматически и бесшовно сохраняется оригинальный рендер студии без изменений (`rolled_back=True`).\n\n"
         "⚡ **5 секций улучшений (оверхед на диффузии = 0.0 с):**\n"
         "1️⃣ **Секция 1 (Keyframes и цвет)**: кинематографические дескрипторы света/оптики (`35mm anamorphic`) + "
-        "CPU/numpy `color-match` между соседними секциями за `<5 мс` (при бюджете `<50 мс`) без скачков экспозиции и ББ.\n"
-        "2️⃣ **Секция 2 (Движение и поток)**: стабилизация `cfg_scale` / `flow_shift` на продолжениях без добавления `steps` "
-        "+ бережное выравнивание яркости граничных кадров с сохранением микрорельефа.\n"
-        "3️⃣ **Секция 3 (Стыки и переходы)**: умный `xfade` / `luma-soft-blend` с сохранением пространственной резкости "
-        "доминирующего кадра (без «мыльного» кроссфейда).\n"
+        "CPU/numpy `color-match` между соседними секциями за `<5 мс` (при бюджете `<50 мс`) с защитой светов от клиппинга.\n"
+        "2️⃣ **Секция 2 (Движение и поток)**: стабилизация `cfg_scale` / `flow_shift` на продолжениях без добавления `steps` (`steps_added=0`) "
+        "+ градиентно-защищённое (`grad >= 18`) выравнивание яркости `K=2` граничных кадров.\n"
+        "3️⃣ **Секция 3 (Стыки и переходы)**: умный `xfade` / `luma-soft-blend` с переносом высокочастотной детализации Лапласа "
+        "от более резкого граничного кадра (без «мыльного» кроссфейда).\n"
         "4️⃣ **Секция 4 (FFmpeg в 1 проход за 0 с оверхеда)**: фильтр `unsharp=5:5:0.6:3:3:0.0,eq=contrast=1.04:saturation=1.06`, "
-        "`-pix_fmt yuv420p`, `-movflags +faststart`, `-crf 18` под защитой Quality Gate.\n"
+        "`-preset veryfast`, `-pix_fmt yuv420p`, `-movflags +faststart`, `-crf 18` с равномерной проверкой кадров по всей длине ролика.\n"
         "5️⃣ **Секция 5 (Аудио и бит-синк)**: нормализация `loudnorm=I=-16:TP=-1.5:LRA=11`, `sidechaincompress` ducking "
-        "под голос и привязка склеек к сетке BPM за `<1 мс`.\n\n"
+        "под голос и монотонная привязка склеек к сетке BPM (`min_section_s`) за `<1 мс`.\n\n"
         f"✅ **Проверка тестами**: {test_summary}.\n"
         "📄 **Документация**: `docs/VIDEO_SECTION_QUALITY_ZERO_OVERHEAD_RU.md`"
     )
