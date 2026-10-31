@@ -224,4 +224,5 @@ def test_ui_has_the_project_picker_files_and_memory_views():
     for needle in ('id="project-bar"', 'id="drawer-files"', 'id="drawer-memory"', 'id="thread-filter"'):
         assert needle in html, needle
     sw = (UI / "sw.js").read_text(encoding="utf-8")
-    assert "bossman-shell-v39" in sw
+    import re
+    assert int(re.search(r"bossman-shell-v(\d+)", sw).group(1)) >= 39, "the shell cache is bumped past the projects release"
