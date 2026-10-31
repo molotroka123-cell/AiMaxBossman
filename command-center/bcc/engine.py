@@ -1657,8 +1657,17 @@ class TaskEngine:
                                         run_id=run_id, tool=spec.name)
                     continue
                 lease_scope = _scope.scope_for(spec.name, call.arguments, agent=agent, task=task)
-                lease = await _scope.consume(self.services, lease_scope)
+                lease = await _scope.consume(
+                    self.services, lease_scope,
+                    args=call.arguments if isinstance(call.arguments, dict) else None,
+                    workspace=str((task or {}).get("workspace") or ""))
                 if lease is not None:
+                    if (lease.get("effect_class") == _scope.AUTO_FULL
+                            and isinstance(call.arguments, dict)
+                            and not call.arguments.get("cwd")
+                            and not (task or {}).get("workspace")
+                            and lease.get("scope_key")):
+                        call.arguments["cwd"] = str(lease["scope_key"])
                     await self._log(run_id, "info", "tool.lease_used",
                                     f"{spec.name}: покрыт арендой {lease['id']} "
                                     f"({lease['used']}/{lease['max_uses']})")
@@ -2822,7 +2831,8 @@ class TaskEngine:
             return None
         await self._log(run_id, "info", "memory.recalled",
                         f"память: {len(pack['sources'])} записей",
-                        {"sources": pack["sources"][:20], "project_id": pack["project_id"]})
+                        {"sources": pack["sources"][:20], "project_id": pack["project_id"],
+                         "preview": str(pack.get("text") or "")[:4000]})
         return pack["text"]
 
     async def _emit_stream(self, kind: str, /, **data: Any) -> None:

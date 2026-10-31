@@ -432,11 +432,29 @@ def _companion_locked(cfg: Path, fp: str | None) -> bool:
     return lock_held(cfg.parent / "poller.lock") or bool(fp and lock_held(poller_lock_dir() / f"{fp}.lock"))
 
 
+def _resolve_canonical_src(src: Path | None) -> Path | None:
+    """When `current.json` beside this launcher pins a canonical `main` checkout (`src`),
+    redirect legacy `wt-final*` scheduled-task arguments (or missing `--src`) to it."""
+    cur_file = Path(__file__).with_name("current.json")
+    canonical: Path | None = None
+    if cur_file.is_file():
+        with contextlib.suppress(OSError, ValueError):
+            raw = json.loads(cur_file.read_text(encoding="utf-8")).get("src")
+            if raw and Path(raw).is_dir():
+                canonical = Path(raw)
+    if src is None:
+        return canonical
+    p = Path(src)
+    if canonical is not None and ("wt-final" in str(p).lower() or not p.is_dir()):
+        return canonical
+    return p
+
+
 def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: Path | None,
            wait: float = 120.0, out=sys.stdout, ensure: bool = False,
            src: Path | None = None, python: str | None = None) -> int:
     home, data_dir = Path(home), Path(data_dir)
-    src = Path(src) if src else None
+    src = _resolve_canonical_src(Path(src) if src else None)
     state = data_dir / STATE_DIR
     stamp = time.strftime("%Y%m%d-%H%M%S")
     say = lambda m: print(f"[one-bossman] {kind}: {m}", file=out, flush=True)  # noqa: E731

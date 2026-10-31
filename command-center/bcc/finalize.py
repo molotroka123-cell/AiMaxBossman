@@ -98,6 +98,8 @@ def _effectful(row: dict) -> bool:
         # Shell expansions and write-capable git subcommands must not inherit
         # the action classifier's deliberately permissive "read" heuristic.
         if re.search(r"[>$`]|\bgit\s+(?:config|branch|tag|remote|fetch)\b|--output(?:=|\s)"
+                     r"|\b(?:pytest|py\.test|tox|nox)\b"
+                     r"|\bgit\b[^;&|\n]*(?:(?:^|\s)(?:-O\S*|--open-files-in-pager(?:=|\s|$)|--ext-diff\b|--textconv\b|--exec-path(?:=|\s|$)|--config-env(?:=|\s|$)|-c(?:\s|\S)))"
                      r"|(?:^|\s)-(?:delete|exec|execdir|ok|okdir|fprint|fprint0|fprintf|fls)(?:\s|$)"
                      r"|(?:^|\s)--(?:fix(?:-only)?|pre)(?:=|\s|$)"
                      r"|\bruff\b[^;&|\n]*\bformat\b|\b(?:black|isort)\b", command):

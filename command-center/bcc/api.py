@@ -486,6 +486,20 @@ class ApprovalRevoke(BaseModel):
     by: str = "owner"
 
 
+class AutoFullGrantIn(BaseModel):
+    folder: str
+    ttl_seconds: int = 3600
+    max_uses: int = 200
+    task_id: int | None = None
+    agent_id: int | None = None
+    by: str = "owner"
+
+
+class AutoFullRevokeIn(BaseModel):
+    lease_id: int | None = None
+    by: str = "owner"
+
+
 # ---------- приложение ----------
 
 
@@ -1484,6 +1498,35 @@ def _api_router() -> APIRouter:
     async def create_approval(body: ApprovalCreate, svc: Services = Depends(services)):
         return await svc.approvals.create(body.kind, body.preview, task_id=body.task_id,
                                           run_id=body.run_id)
+
+    @router.get("/approvals/auto-full")
+    async def get_auto_full(task_id: int | None = None, limit_log: int = 40,
+                            svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        return await scope.auto_full_status(svc, task_id=task_id, limit_log=limit_log)
+
+    @router.post("/approvals/auto-full")
+    async def enable_auto_full(body: AutoFullGrantIn, svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        try:
+            lease = await scope.grant_auto_full(
+                svc, folder=body.folder, ttl_seconds=body.ttl_seconds,
+                max_uses=body.max_uses, task_id=body.task_id,
+                agent_id=body.agent_id, by=body.by or "owner")
+        except (ValueError, PermissionError) as exc:
+            raise ApiError(str(exc), status=400, code="AUTO_FULL_INVALID_FOLDER") from None
+        status_payload = await scope.auto_full_status(svc, task_id=body.task_id)
+        return {**status_payload, "granted": lease}
+
+    @router.post("/approvals/auto-full/revoke")
+    async def disable_auto_full(body: AutoFullRevokeIn | None = None,
+                                svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        res = await scope.revoke_auto_full(
+            svc, lease_id=body.lease_id if body else None,
+            by=(body.by if body else None) or "owner")
+        status_payload = await scope.auto_full_status(svc)
+        return {**status_payload, **res}
 
     @router.post("/approvals/{approval_id}")
     async def decide_approval(approval_id: int, body: ApprovalIn,

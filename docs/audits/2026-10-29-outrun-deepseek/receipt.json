@@ -1,7 +1,7 @@
 {
  "receipt": "Outrun DeepSeek V4.1 Flash Uncensored in the mobile pult + dialog cost check",
- "date": "2026-10-29",
- "live_build": "fc915317 (:8801, source_identity PASS)",
+ "date": "2026-10-31",
+ "live_build": "7ed4ec2e1ff4 (:8801, source_identity PASS)",
  "model": {
   "id": 109,
   "provider": "Outrun (17)",
@@ -38,9 +38,27 @@
   "difference_usd": -1e-06,
   "verdict": "PASS"
  },
+ "multi_turn_cost_check_2026_10_31": {
+  "tool": "tools/outrun_cost_check.py --agent 51 --turns 4",
+  "live_build": "7ed4ec2e1ff4 (:8801, source_identity PASS)",
+  "turns": 4,
+  "statuses": [
+   "completed",
+   "completed",
+   "completed",
+   "completed"
+  ],
+  "tokens_in": 8413,
+  "tokens_out": 1099,
+  "bossman_cost_usd": 0.007061,
+  "outrun_debited_usd": 0.007052,
+  "balance_before": 10.772544,
+  "balance_after": 10.765492,
+  "difference_usd": -9e-06,
+  "verdict": "PASS"
+ },
  "code_fix": "29f2e28e: cached prompt tokens (prompt_tokens_details.cached_tokens / prompt_cache_hit_tokens) billed at caps.price_cache_read; tests/test_dialog_cost_cache.py",
  "not_proven": [
-  "cache-hit pricing live (this dialog had no cache report); covered by unit tests",
   "DeepSeek V4 Pro Uncensored (model 108): price unknown -> no agent yet"
  ]
 }

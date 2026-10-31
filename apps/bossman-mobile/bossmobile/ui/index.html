@@ -101,11 +101,38 @@
         <button type="button" class="oc-mini-btn" id="btn-oc-term" aria-expanded="false">⌨ Терминал</button>
         <button type="button" class="oc-mini-btn" id="btn-oc-code" aria-expanded="false">🧩 Код / Git</button>
         <button type="button" class="oc-mini-btn" id="btn-oc-pc" aria-expanded="false">🖥 Экран ПК</button>
+        <button type="button" class="oc-mini-btn" id="btn-oc-autofull" aria-expanded="false">🛡 Auto Full</button>
         <span class="oc-cost" id="oc-cost-badge" title="Бюджет сессии">$0.00</span>
       </div>
     </div>
-    <!-- Встроенная панель Web Terminal / OpenCode / PC (раскрывается поверх чата без потери переписки) -->
+    <!-- Встроенная панель Web Terminal / OpenCode / PC / Auto Full (раскрывается поверх чата без потери переписки) -->
     <div class="oc-workbench" id="oc-workbench" hidden>
+      <div class="oc-wb-panel" id="oc-panel-autofull" hidden>
+        <div class="oc-wb-head">
+          <b>Auto Full · Карточка владельца (долгий запуск в выбранной папке)</b>
+          <span class="pill" id="af-status-pill">выключен</span>
+        </div>
+        <div class="af-owner-card" id="af-owner-card">
+          <label class="lbl" for="af-folder-input">Выбранная папка (строго внутри неё)</label>
+          <input id="af-folder-input" class="field mono" placeholder="C:\Users\asd\Bossman\wt-bossman-20-argon" aria-label="Выбранная папка для Auto Full">
+          <div class="oc-presets" id="af-folder-chips"></div>
+          <div class="row" style="gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+            <label class="lbl" for="af-ttl-select" style="margin:0;">Срок:</label>
+            <select id="af-ttl-select" class="field" style="width:auto;min-width:120px;">
+              <option value="1800">30 минут</option>
+              <option value="3600" selected>1 час</option>
+              <option value="7200">2 часа</option>
+              <option value="14400">4 часа (макс.)</option>
+            </select>
+            <button type="button" class="btn primary small" id="btn-af-enable">⚡ Включить Auto Full</button>
+            <button type="button" class="btn danger small" id="btn-af-disable" hidden>⛔ Выключить Auto Full</button>
+            <button type="button" class="btn small" id="btn-af-refresh">Обновить</button>
+          </div>
+          <p class="muted small" id="af-summary-line" style="margin:6px 0;">Auto Full выключен. Жёсткие запреты (ключи, кошельки, git push, pip install, выход за папку) действуют всегда.</p>
+          <div class="lbl" style="margin-top:6px;">Журнал действий по этому разрешению</div>
+          <pre class="oc-term-out mono" id="af-action-log" style="max-height:150px;">Действий по Auto Full пока нет.</pre>
+        </div>
+      </div>
       <div class="oc-wb-panel" id="oc-panel-term" hidden>
         <div class="oc-wb-head">
           <b>Web Terminal (project_host)</b>

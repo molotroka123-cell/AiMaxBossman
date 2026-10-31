@@ -14,6 +14,7 @@ import httpx
 from fastapi import APIRouter
 
 from ..direct_gen import pult as _pult
+from ..plugin_security import redact_text as _ps_redact_text
 from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
 from . import Feature
 
@@ -21,47 +22,158 @@ router = APIRouter()
 MAX_CHARS = 3500
 MAX_PER_HOUR = 12
 _sent: list[float] = []
-_SECRET = re.compile(r"(sk-[A-Za-z0-9_-]{16,}|nvapi-[A-Za-z0-9_-]{16,}|[A-Fa-f0-9]{40,}|"
-                     r"(?i:api[_-]?key|token|secret|password|passwd)\s*[:=]\s*\S+|-----BEGIN [A-Z ]*KEY-----)")
+
+_PEM_BLOCK = re.compile(
+    r"-----BEGIN [A-Z0-9 ]*KEY-----[\s\S]*?-----END [A-Z0-9 ]*KEY-----|"
+    r"-----BEGIN [A-Z0-9 ]*KEY-----"
+)
+_KV_SECRET = re.compile(
+    r"""(?i)\b(api[_-]?key|token|secret|password|passwd|pwd|client[_-]?secret|private[_-]?key|access[_-]?key|auth[_-]?token|pairing[_-]?token)"""
+    r"""(\s*["']?\s*[:=]\s*)(?:"[^"\n]*"|'[^'\n]*'|[^\s,;}"']+)"""
+)
+_BEARER_SECRET = re.compile(
+    r"(?i)(\bAuthorization\s*:\s*Bearer\s+|\bBearer\s+)([A-Za-z0-9._~+/=-]{8,})"
+)
+_TOKEN_PATTERNS = re.compile(
+    r"(?:"
+    r"sk-ant-[A-Za-z0-9_-]{8,}|"
+    r"sk-proj-[A-Za-z0-9_-]{8,}|"
+    r"sk_live_[A-Za-z0-9_-]{8,}|"
+    r"sk_test_[A-Za-z0-9_-]{8,}|"
+    r"sk-[A-Za-z0-9_-]{12,}|"
+    r"nvapi-[A-Za-z0-9_-]{12,}|"
+    r"AKIA[0-9A-Z]{16}|"
+    r"ASIA[0-9A-Z]{16}|"
+    r"gh[pousr]_[A-Za-z0-9_]{12,}|"
+    r"github_pat_[A-Za-z0-9_]{12,}|"
+    r"glpat-[A-Za-z0-9_-]{10,}|"
+    r"xox[baprs]-[A-Za-z0-9-]{10,}|"
+    r"stdl_[A-Za-z0-9_-]{10,}|"
+    r"\b\d{8,12}:[A-Za-z0-9_-]{30,}\b|"
+    r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b|"
+    r"\b[A-Fa-f0-9]{40,}\b"
+    r")"
+)
+
+
+def contains_secret(text: str) -> bool:
+    if not text:
+        return False
+    return redact(text) != str(text)
 
 
 def redact(text: str) -> str:
-    return _SECRET.sub("[скрыто]", text)
+    if not text:
+        return ""
+    cleaned = _PEM_BLOCK.sub("[скрыто]", str(text))
+    cleaned = _BEARER_SECRET.sub(r"\1[скрыто]", cleaned)
+    cleaned = _KV_SECRET.sub(r"\1\2[скрыто]", cleaned)
+    cleaned = _TOKEN_PATTERNS.sub("[скрыто]", cleaned)
+    cleaned = _ps_redact_text(cleaned)
+    return cleaned.replace("***REDACTED***", "[скрыто]")
 
 
-def format_telegram_html(title: str, body: str, agent: str | None = None) -> str:
-    """Format an audit/status report using Telegram HTML (<b>, <blockquote>, <code>) and sign as Argon by default."""
-    safe_title = html.escape(title.strip() or "Отчёт Аргона")
-    sig_name = html.escape((agent or "Аргон").strip())
+def _inline_markup(escaped_line: str) -> str:
+    s = re.sub(r"\*\*([^*\n]+)\*\*", r"<b>\1</b>", escaped_line)
+    s = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", s)
+    return s
 
-    lines = html.escape(body.strip()).splitlines()
-    out_lines: list[str] = []
-    quote_buf: list[str] = []
 
-    def _inline_markup(s: str) -> str:
-        s = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", s)
-        s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
-        return s
+def format_telegram_html(
+    title: str,
+    body: str = "",
+    agent: str | None = None,
+    *,
+    summary: str = "",
+    findings: list[str] | None = None,
+    metrics: dict[str, object] | None = None,
+    quotes: list[str] | None = None,
+    signature: str | None = None,
+    max_chars: int = MAX_CHARS,
+) -> str:
+    """Format an audit/status report using Telegram HTML (<b>, <blockquote>, <code>) and sign as Argon by default.
 
-    def _flush_quote() -> None:
-        if quote_buf:
-            out_lines.append("<blockquote>" + "\n".join(quote_buf) + "</blockquote>")
-            quote_buf.clear()
+    Long reports are truncated BEFORE wrapping lines in HTML tags so every <b>, <code>, and <blockquote> tag is
+    guaranteed closed and valid for Telegram's HTML parser, and the signature footer is always preserved.
+    """
+    clean_title = redact(title or "").strip() or "Отчёт Аргона"
+    body_parts: list[str] = []
+    if body:
+        body_parts.append(str(body))
+    if summary:
+        body_parts.append(str(summary))
+    if findings:
+        for item in findings:
+            body_parts.append(f"• {item}")
+    if metrics:
+        for k, v in metrics.items():
+            body_parts.append(f"• `{k}`: `{v}`")
+    if quotes:
+        for q in quotes:
+            body_parts.append(f"> {q}")
+    clean_body = redact("\n".join(body_parts)).strip()
+    clean_agent = redact(signature or agent or "Аргон").strip() or "Аргон"
 
-    for raw_line in lines:
-        stripped = raw_line.lstrip()
-        if stripped.startswith("&gt;"):
-            quote_buf.append(_inline_markup(stripped[4:].lstrip()))
-        else:
-            _flush_quote()
-            out_lines.append(_inline_markup(raw_line))
-    _flush_quote()
+    safe_title = html.escape(clean_title[:80])
+    sig_name = html.escape(clean_agent[:60])
 
-    formatted_body = "\n".join(out_lines)
     header = f"<b>📋 {safe_title}</b>"
     footer = f"<blockquote>🤖 <b>Подпись:</b> {sig_name}</blockquote>"
-    full = f"{header}\n\n{formatted_body}\n\n{footer}"
-    return full[:MAX_CHARS]
+    overhead = len(header) + len(footer) + 4  # "\n\n" * 2
+    budget = max(64, max_chars - overhead)
+
+    raw_lines = clean_body.splitlines()
+    blocks: list[tuple[bool, str]] = []  # (is_quote, rendered_line)
+    for raw_line in raw_lines:
+        stripped = raw_line.lstrip()
+        if stripped.startswith(">"):
+            content = stripped[1:].lstrip()
+            blocks.append((True, _inline_markup(html.escape(content))))
+        else:
+            blocks.append((False, _inline_markup(html.escape(raw_line))))
+
+    # Group consecutive quote lines into <blockquote>...</blockquote> blocks, respecting budget
+    out_parts: list[str] = []
+    used = 0
+    truncated = False
+    i = 0
+    while i < len(blocks):
+        is_quote, rendered = blocks[i]
+        if is_quote:
+            q_lines = [rendered]
+            i += 1
+            while i < len(blocks) and blocks[i][0]:
+                q_lines.append(blocks[i][1])
+                i += 1
+            candidate = "<blockquote>" + "\n".join(q_lines) + "</blockquote>"
+        else:
+            candidate = rendered
+            i += 1
+
+        sep = 1 if out_parts else 0
+        if used + sep + len(candidate) <= budget:
+            out_parts.append(candidate)
+            used += sep + len(candidate)
+        else:
+            remaining = budget - used - sep
+            if remaining > 30:
+                # Truncate plain text safely without leaving unclosed HTML tags
+                plain_fallback = re.sub(r"</?(?:b|code|blockquote)>", "", html.unescape(candidate))
+                cut_len = max(1, remaining - 28)
+                safe_tail = html.escape(plain_fallback[:cut_len].rstrip()) + "…"
+                if is_quote:
+                    safe_tail = f"<blockquote>{safe_tail}</blockquote>"
+                if len(safe_tail) <= remaining:
+                    out_parts.append(safe_tail)
+            truncated = True
+            break
+
+    if truncated and not out_parts:
+        plain = clean_body[: max(1, budget - 4)].rstrip()
+        out_parts.append(html.escape(plain) + "…")
+
+    formatted_body = "\n".join(out_parts)
+    return f"{header}\n\n{formatted_body}\n\n{footer}"
 
 
 async def _send_text(token: str, chat_id: int, text: str, proxy: str = "", transport=None) -> int | None:

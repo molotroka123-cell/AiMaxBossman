@@ -97,9 +97,9 @@ HARD_DENY = [
     ), "наступательные сетевые инструменты и эксплойты"),
 ]
 ASK_EXTRA = [
-    (re.compile(r"(?i)\b(?:npm|pnpm|yarn|pip|pip3|poetry|uv)\s+(?:install|add)\b"), "установка пакетов"),
-    (re.compile(r"(?i)\bgit\s+push\b"), "публикация изменений"),
-    (re.compile(r"(?i)\bdocker\s+compose\s+(?:up|down|restart)\b"), "управление сервисами"),
+    (re.compile(r"(?i)\b(?:(?:python|python3|py)\s+-m\s+)?(?:npm|pnpm|yarn|pip|pip3|poetry|uv)\s+(?:pip\s+)?(?:install|add)\b"), "установка пакетов"),
+    (re.compile(r"(?i)\bgit\b[^;&|\n]*\bpush\b"), "публикация изменений"),
+    (re.compile(r"(?i)\bdocker\s+compose\s+(?:up|down|restart|build|run|exec)\b"), "управление сервисами"),
     (re.compile(r"(?i)\b(?:sudo|runas|su\s+-)\b"), "повышение прав"),
 ]
 
@@ -141,12 +141,19 @@ def _mgr(svc) -> TerminalManager:
 
 
 async def _roots(svc) -> list[Path]:
+    from .. import approval_scope as _scope
+    auto_dirs = await _scope.active_auto_full_folders(svc)
     async with svc.db.session() as s:
         row = (await s.execute(sa.select(settings_kv.c.value_enc)
                                .where(settings_kv.c.key == ROOTS_KEY))).first()
     if row and row[0]:
         try:
-            return [Path(p) for p in json.loads(svc.vault.decrypt(row[0]))]
+            configured = [Path(p) for p in json.loads(svc.vault.decrypt(row[0]))]
+            for d in reversed(auto_dirs):
+                if d in configured:
+                    configured.remove(d)
+                configured.insert(0, d)
+            return configured
         except Exception:
             pass
     # AP-001: the un-configured default MUST NOT be svc.settings.data_dir — that
@@ -158,7 +165,11 @@ async def _roots(svc) -> list[Path]:
     # writable, per-agent default — it holds no secrets.
     default_root = _scratch_base_dir(svc.settings)
     default_root.mkdir(parents=True, exist_ok=True)
-    return [default_root]
+    out = [default_root]
+    for d in reversed(auto_dirs):
+        if d not in out:
+            out.insert(0, d)
+    return out
 
 
 async def _mode(svc) -> str:

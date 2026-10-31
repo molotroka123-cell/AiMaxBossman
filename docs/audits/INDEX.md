@@ -58,8 +58,9 @@
 | 2026-10-29 | [2026-10-29-t5-swarm](2026-10-29-t5-swarm/) | T5: Песочница роя и самоулучшения (автономный локальный патч D-036 — `NOT_PROVEN`) | `PASS` |
 | 2026-10-29 | [2026-10-29-north-star-long-horizon-claude](2026-10-29-north-star-long-horizon-claude/) | Long-Horizon прогон 15 веток дерева Bossman в бюджете ≤$1.00 с записью уроков в память | `PASS` |
 | 2026-10-30 | [2026-10-30-long-horizon-run-g](2026-10-30-long-horizon-run-g/) | Long-Horizon прогон `lh-20261030-g` | `PASS` |
-| 2026-10-30 | [2026-10-30-weekly-research-benchmarks](2026-10-30-weekly-research-benchmarks/) | Защитные гейты по 4 исследованиям недели (AgentProofBench, CUA-Recovery, TimlMemBench, Data Minimization): юнит-гейты `PASS_UNIT`, живой агентный бенчмарк `NOT_RUN` | `PASS_UNIT` / `NOT_RUN` |
+| 2026-10-30 | [2026-10-30-weekly-research-benchmarks](2026-10-30-weekly-research-benchmarks/) | Защитные гейты по 4 исследованиям недели (AgentProofBench, CUA-Recovery, TimlMemBench, Data Minimization): юнит-гейты `PASS_UNIT` + живой агентный прогон `PASS_LIVE` (`task_id=816`) | `PASS_LIVE` |
 | 2026-10-30 | [2026-10-30-full-project-audit-and-ux](2026-10-30-full-project-audit-and-ux/) | Полный аудит проекта на 30.10.2026, интеграция Freefield Studio Apps (`app.json`), живые UX-скриншоты и отправка в пульт | `PASS` |
+| 2026-10-31 | [2026-10-31-security-autofull-long-horizon](2026-10-31-security-autofull-long-horizon/) | Закрытие 4 дыр безопасности (`1a–1d`), режим «Авто полный» с карточкой владельца, автостарт с `main`, сверка 4-ходового диалога Outrun, Long-Horizon `lh-20261031-autofull-v2` с памятью и отчётом 3/3 | `PASS` |
 | — | [astra-7b1377a](astra-7b1377a/) | Astra forensic audit | в JSON нет поля verdict — см. отчёт |
 
 ## Отдельные файлы

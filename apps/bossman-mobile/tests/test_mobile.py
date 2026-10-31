@@ -48,6 +48,29 @@ def test_rate_limit_is_per_forwarded_client(env):
     assert env.c.post("/m/api/login", json={"token": PAIR}, headers={"X-Forwarded-For": "100.64.0.10"}).status_code == 200
 
 
+def test_global_failed_logins_cannot_lock_out_legitimate_owner(env):
+    """Security audit 31.10 (1d): even if 40+ failed login attempts arrive from other
+    forwarded keys (> old global limit of 30), the owner's client key can still log in."""
+    for idx in range(12):
+        ip = f"100.64.99.{idx + 1}"
+        for _ in range(4):
+            assert env.c.post("/m/api/login", json={"token": "wrong"}, headers={"X-Forwarded-For": ip}).status_code == 401
+    # 48 failed attempts globally; owner's phone (100.64.0.77) must NOT be locked out
+    r = env.c.post("/m/api/login", json={"token": PAIR}, headers={"X-Forwarded-For": "100.64.0.77"})
+    assert r.status_code == 200 and r.json()["ok"] is True
+
+
+def test_mobile_auto_full_card_proxy(authed):
+    """Item 2: Mobile Pult Auto Full Owner Card endpoints (selected folder, expiry, action log, OFF button)."""
+    st = authed.c.get("/m/api/auto-full")
+    assert st.status_code == 200 and st.json()["active"] is True
+    assert len(st.json()["action_log"]) == 1
+    on = authed.post("/m/api/auto-full", json={"folder": "C:\\work\\demo", "ttl_seconds": 1800, "max_uses": 100})
+    assert on.status_code == 200 and on.json()["current"]["folder"] == "C:\\work\\demo"
+    off = authed.post("/m/api/auto-full/revoke", json={"lease_id": 42})
+    assert off.status_code == 200 and off.json()["ok"] is True and off.json()["active"] is False
+
+
 def test_login_cookie_flags(env):
     r = env.c.post("/m/api/login", json={"token": PAIR})
     sc = r.headers["set-cookie"].lower()

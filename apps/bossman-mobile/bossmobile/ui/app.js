@@ -2520,6 +2520,56 @@
     const failed = (c, err) => fill(c, [el('p', 'error-text', `Не загрузилось: ${(err && err.message) || 'нет связи с ПК'}`)]);
     const btn = (text, cls, fn) => { const b = el('button', 'btn small ' + cls, text); b.type = 'button'; b.addEventListener('click', () => { tap(); fn(b); }); return b; };
     const approvals = slot('Ждут вашего решения', 'approvals');
+    const autoFullSlot = slot('Auto Full — карточка владельца', 'auto-full');
+    const renderAutoFullStatusCard = async () => {
+      try {
+        const af = await api('GET', '/auto-full');
+        const cur = af.current;
+        const log = af.action_log || [];
+        const rows = [];
+        if (af.active && cur) {
+          const remMin = Math.max(1, Math.ceil((cur.remaining_seconds || 0) / 60));
+          rows.push(
+            kv('Статус', `ВКЛЮЧЁН (аренда #${cur.id})`),
+            kv('Выбранная папка', cur.folder || cur.scope_key || '—'),
+            kv('Срок действия', `осталось ≈ ${remMin} мин (до ${(cur.expires_at || '').slice(11, 19) || '—'})`),
+            kv('Использовано вызовов', `${cur.used || 0} из ${cur.max_uses || 200}`),
+          );
+          rows.push(btn('⛔ Выключить Auto Full', 'danger', async (b) => {
+            b.disabled = true;
+            try {
+              await api('POST', '/auto-full/revoke', { lease_id: cur.id });
+              toast('Auto Full выключен');
+              refreshAutoFullPanel();
+              renderAutoFullStatusCard();
+            } catch (err) { b.disabled = false; toast('Ошибка: ' + err.message); }
+          }));
+        } else {
+          const defaultDir = (await termCwd()) || 'C:\\Users\\asd\\Bossman\\wt-bossman-20-argon';
+          rows.push(
+            kv('Статус', 'выключен'),
+            kv('Папка по умолчанию', defaultDir),
+          );
+          rows.push(btn('⚡ Включить Auto Full (1 ч)', 'primary', async (b) => {
+            b.disabled = true;
+            try {
+              await api('POST', '/auto-full', { folder: defaultDir, ttl_seconds: 3600, max_uses: 200 });
+              toast('Auto Full включён на 1 ч');
+              refreshAutoFullPanel();
+              renderAutoFullStatusCard();
+            } catch (err) { b.disabled = false; toast('Не удалось включить: ' + err.message); }
+          }));
+        }
+        const logBox = el('pre', 'oc-term-out mono');
+        logBox.style.maxHeight = '140px';
+        logBox.textContent = log.length
+          ? log.slice(0, 12).map((x) => `[${(x.created_at || '').slice(11, 19)} · ${x.status}] $ ${x.command}`).join('\n')
+          : 'Журнал действий по этому разрешению пока пуст.';
+        rows.push(el('div', 'muted small', `Журнал действий (${log.length}):`), logBox);
+        fill(autoFullSlot, rows);
+      } catch (err) { failed(autoFullSlot, err); }
+    };
+    renderAutoFullStatusCard();
     const renderApprovals = async () => {
       try {
         const r = await api('GET', '/approvals'); const items = r.items || [];
@@ -2681,19 +2731,106 @@
     const btn = $(btnId);
     if (!wb || !panel || !btn) return;
     const wasOpen = !wb.hidden && !panel.hidden;
-    ['oc-panel-term', 'oc-panel-code', 'oc-panel-pc'].forEach((id) => { const n = $(id); if (n) n.hidden = true; });
-    ['btn-oc-term', 'btn-oc-code', 'btn-oc-pc'].forEach((id) => { const n = $(id); if (n) n.setAttribute('aria-expanded', 'false'); });
+    ['oc-panel-term', 'oc-panel-code', 'oc-panel-pc', 'oc-panel-autofull'].forEach((id) => { const n = $(id); if (n) n.hidden = true; });
+    ['btn-oc-term', 'btn-oc-code', 'btn-oc-pc', 'btn-oc-autofull'].forEach((id) => { const n = $(id); if (n) n.setAttribute('aria-expanded', 'false'); });
     if (wasOpen) {
       wb.hidden = true;
     } else {
       wb.hidden = false;
       panel.hidden = false;
       btn.setAttribute('aria-expanded', 'true');
+      if (panelId === 'oc-panel-autofull') refreshAutoFullPanel();
     }
   }
   if ($('btn-oc-term')) $('btn-oc-term').addEventListener('click', () => { tap(); toggleWorkbench('oc-panel-term', 'btn-oc-term'); });
   if ($('btn-oc-code')) $('btn-oc-code').addEventListener('click', () => { tap(); toggleWorkbench('oc-panel-code', 'btn-oc-code'); });
   if ($('btn-oc-pc')) $('btn-oc-pc').addEventListener('click', () => { tap(); toggleWorkbench('oc-panel-pc', 'btn-oc-pc'); });
+  if ($('btn-oc-autofull')) $('btn-oc-autofull').addEventListener('click', () => { tap(); toggleWorkbench('oc-panel-autofull', 'btn-oc-autofull'); });
+
+  async function refreshAutoFullPanel() {
+    const inp = $('af-folder-input');
+    const chips = $('af-folder-chips');
+    const pill = $('af-status-pill');
+    const sum = $('af-summary-line');
+    const logEl = $('af-action-log');
+    const btnOn = $('btn-af-enable');
+    const btnOff = $('btn-af-disable');
+    const btnMini = $('btn-oc-autofull');
+    try {
+      const [rootsRes, af] = await Promise.all([
+        api('GET', '/terminal/roots').catch(() => ({ roots: [] })),
+        api('GET', '/auto-full'),
+      ]);
+      const roots = rootsRes.roots || [];
+      const defFolder = (af.current && af.current.folder) || (af.last_lease && af.last_lease.folder) || rootsRes.default || roots[0] || 'C:\\Users\\asd\\Bossman\\wt-bossman-20-argon';
+      if (inp && !inp.value.trim()) inp.value = defFolder;
+      if (chips && !chips.children.length && roots.length) {
+        roots.slice(0, 4).forEach((r) => {
+          const b = el('button', 'chip small', r.split(/[\\/]/).slice(-2).join('/'));
+          b.type = 'button';
+          b.title = r;
+          b.addEventListener('click', () => { tap(); if (inp) inp.value = r; });
+          chips.appendChild(b);
+        });
+      }
+      const cur = af.current;
+      if (af.active && cur) {
+        const remMin = Math.max(1, Math.ceil((cur.remaining_seconds || 0) / 60));
+        if (inp) inp.value = cur.folder || cur.scope_key || inp.value;
+        if (pill) { pill.textContent = `АКТИВЕН · ${remMin} мин`; pill.className = 'pill badge-local'; }
+        if (btnMini) btnMini.textContent = `🛡 Auto Full (${remMin}м)`;
+        if (btnOn) btnOn.textContent = 'Обновить срок';
+        if (btnOff) { btnOff.hidden = false; btnOff.dataset.leaseId = String(cur.id); }
+        if (sum) sum.textContent = `Разрешено в папке: ${cur.folder} · Вызовов: ${cur.used || 0}/${cur.max_uses || 200} · Осталось ≈ ${remMin} мин.`;
+      } else {
+        if (pill) { pill.textContent = 'выключен'; pill.className = 'pill'; }
+        if (btnMini) btnMini.textContent = '🛡 Auto Full';
+        if (btnOn) btnOn.textContent = '⚡ Включить Auto Full';
+        if (btnOff) { btnOff.hidden = true; delete btnOff.dataset.leaseId; }
+        if (sum) sum.textContent = 'Auto Full выключен. Жёсткие запреты (ключи, кошельки, git push, pip install, выход за папку) действуют всегда.';
+      }
+      const log = af.action_log || [];
+      if (logEl) {
+        logEl.textContent = log.length
+          ? log.map((x) => `[${(x.created_at || '').slice(11, 19)} · #${x.task_id ?? '—'} · ${x.status}] $ ${x.command}${x.result_preview ? '\n  → ' + x.result_preview.slice(0, 120) : ''}`).join('\n')
+          : 'Действий по Auto Full пока нет.';
+      }
+    } catch (err) {
+      if (sum) sum.textContent = 'Ошибка чтения Auto Full: ' + err.message;
+    }
+  }
+
+  if ($('btn-af-enable')) {
+    $('btn-af-enable').addEventListener('click', async () => {
+      tap();
+      const folder = ($('af-folder-input') && $('af-folder-input').value.trim()) || '';
+      const ttl = Number(($('af-ttl-select') && $('af-ttl-select').value) || 3600);
+      if (!folder) { toast('Укажите рабочую папку для Auto Full'); return; }
+      $('btn-af-enable').disabled = true;
+      try {
+        await api('POST', '/auto-full', { folder, ttl_seconds: ttl, max_uses: 200 });
+        toast('Auto Full включён для выбранной папки');
+        await refreshAutoFullPanel();
+      } catch (err) { toast(err.message); }
+      finally { $('btn-af-enable').disabled = false; }
+    });
+  }
+  if ($('btn-af-disable')) {
+    $('btn-af-disable').addEventListener('click', async () => {
+      tap();
+      $('btn-af-disable').disabled = true;
+      try {
+        const lid = $('btn-af-disable').dataset.leaseId ? Number($('btn-af-disable').dataset.leaseId) : null;
+        await api('POST', '/auto-full/revoke', lid ? { lease_id: lid } : {});
+        toast('Auto Full выключен');
+        await refreshAutoFullPanel();
+      } catch (err) { toast(err.message); }
+      finally { $('btn-af-disable').disabled = false; }
+    });
+  }
+  if ($('btn-af-refresh')) {
+    $('btn-af-refresh').addEventListener('click', () => { tap(); refreshAutoFullPanel(); });
+  }
 
   function appendTermOut(line) {
     const out = $('oc-term-out');

@@ -99,7 +99,7 @@ def exact_signals(query: str) -> list[str]:
             token = (match if isinstance(match, str) else match[0]).strip()
             if len(token) >= 3 and token.lower() not in {t.lower() for t in found}:
                 found.append(token)
-    return found[:12]
+    return found[:16]
 
 
 # ---------------------------------------------------------------- BM25 (small corpora)
@@ -113,6 +113,7 @@ def bm25_scores(query: str, docs: list[str], *, k1: float = BM25_K1, b: float = 
     lengths = [len(t) or 1 for t in tokenised]
     avgdl = sum(lengths) / len(lengths)
     n_docs = len(docs)
+    eff_n = max(n_docs, 20)
     counts = [{} for _ in tokenised]
     for i, toks in enumerate(tokenised):
         for tok in toks:
@@ -122,7 +123,7 @@ def bm25_scores(query: str, docs: list[str], *, k1: float = BM25_K1, b: float = 
         df = sum(1 for c in counts if term in c)
         if not df:
             continue
-        idf = math.log(1 + (n_docs - df + 0.5) / (df + 0.5))
+        idf = math.log(1 + (eff_n - df + 0.5) / (df + 0.5))
         for i, c in enumerate(counts):
             tf = c.get(term, 0)
             if not tf:
@@ -377,7 +378,7 @@ class UnifiedRetriever:
         if self.notes is None:
             return []
         out: list[Candidate] = []
-        seen: set[str] = set()
+        by_ref: dict[str, Candidate] = {}
         # Exact pass first and independently of the index: a broken or stale index must
         # not be able to hide a literal match.
         if signals:
@@ -385,21 +386,24 @@ class UnifiedRetriever:
                 for ref, text in self.notes.iter_notes():
                     hit = _exact_hit(text, signals)
                     if hit:
-                        seen.add(ref)
-                        out.append(Candidate(layer="note", ref=ref, title=_title_of(text, ref),
-                                             text=_around(text, hit), score=5.0, exact=True,
-                                             applicability="canonical note",
-                                             meta={"exact_match": hit}))
+                        cand = Candidate(layer="note", ref=ref, title=_title_of(text, ref),
+                                         text=_around(text, hit), score=5.0, exact=True,
+                                         applicability="canonical note",
+                                         meta={"exact_match": hit})
+                        by_ref[ref] = cand
+                        out.append(cand)
             except Exception as exc:  # noqa: BLE001
                 degraded.append(f"exact scan over notes failed ({type(exc).__name__})")
         try:
             for hit in self.notes.search(query, top_k=cfg.candidates * 2):
                 ref = str(hit.get("ref") or "")
-                if ref in seen:
+                bm25 = float(hit.get("score") or 0.0)
+                if ref in by_ref:
+                    by_ref[ref].score += bm25
                     continue
                 out.append(Candidate(layer="note", ref=ref,
                                      title=str(hit.get("title") or _title_of(str(hit.get("text") or ""), ref)),
-                                     text=str(hit.get("text") or ""), score=float(hit.get("score") or 0.0),
+                                     text=str(hit.get("text") or ""), score=bm25,
                                      applicability="canonical note", meta={}))
         except Exception as exc:  # noqa: BLE001
             degraded.append(f"notes index unavailable ({type(exc).__name__}: {exc}); exact scan only")

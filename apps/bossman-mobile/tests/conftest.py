@@ -149,6 +149,13 @@ class FakeBossman:
                                               "task_id": 7, "secret": "x"}])
         if path == "/api/approvals/9" and method == "POST":
             return httpx.Response(200, json={"id": 9, "status": "rejected", "kind": "tool", "task_id": 7, "lease": None})
+        if path == "/api/approvals/auto-full" and method == "GET":
+            return httpx.Response(200, json={"active": True, "current": {"id": 42, "folder": "C:\\work", "remaining_seconds": 3500, "used": 2, "max_uses": 200}, "action_log": [{"id": 1, "command": "git status", "status": "executed"}]})
+        if path == "/api/approvals/auto-full" and method == "POST":
+            d = json.loads(body or "{}")
+            return httpx.Response(200, json={"active": True, "current": {"id": 42, "folder": d.get("folder"), "remaining_seconds": d.get("ttl_seconds", 3600), "used": 0, "max_uses": d.get("max_uses", 200)}, "action_log": []})
+        if path == "/api/approvals/auto-full/revoke" and method == "POST":
+            return httpx.Response(200, json={"ok": True, "active": False, "revoked_count": 1, "current": None, "action_log": []})
         if path == "/api/direct-gen/models":
             return httpx.Response(200, json=DG_MODELS)
         if path == "/api/direct-gen/status":

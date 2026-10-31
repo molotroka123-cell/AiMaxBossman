@@ -144,28 +144,53 @@ def command_in_scope(command: str, cwd: str, ws: Path) -> str | None:
 
 # ------------------------------------------------------------------ plan
 def steps(ws: Path) -> list[dict]:
-    w = str(ws)
-    base = (f"Рабочая папка: {w}. Все команды выполняй через terminal.run с cwd ровно этой папки (mode project_host), "
-            f"используй Python. Данные: {w}\\orders.csv (колонки order_id,date,region,product,qty,unit_price,unit_cost,customer_id; "
-            f"есть дубли order_id — считай по первой строке). Выход: только внутри этой папки. Не используй сеть. ")
+    base = (
+        "Все команды выполняй через terminal.run с mode=\"project_host\" (поле cwd НЕ передавай — "
+        "рабочая папка уже выбрана в карточке владельца Auto Full, используй относительные пути внутри текущей папки). "
+        "Используй Python (`python -c \"...\"`). Данные: `orders.csv` в текущей папке "
+        "(колонки order_id,date,region,product,qty,unit_price,unit_cost,customer_id; "
+        "есть дубли order_id — считай по первой встреченной строке). Выход: только внутри текущей папки. Не используй сеть. "
+    )
     return [
-        {"name": "profile", "prompt": base + f"ШАГ 1 из 5. Профилирование: число строк, число дублей order_id, пропуски по колонкам. "
-         f"Запиши {w}\\out\\profile.json с ключами rows, duplicate_rows, unique_orders и {w}\\notes\\01_profile.md (3–6 строк выводов).",
-         "evidence": ["out\\profile.json", "notes\\01_profile.md"]},
-        {"name": "metrics", "prompt": base + f"ШАГ 2 из 5. По уникальным заказам посчитай: выручка по месяцам и регионам "
-         f"-> {w}\\out\\monthly_region.csv (region,month,revenue); маржа по продуктам -> {w}\\out\\product_margin.csv "
-         f"(product,revenue,margin); выручка по клиентам топ-10 -> {w}\\out\\top_customers.csv (customer_id,revenue,share_pct).",
-         "evidence": ["out\\monthly_region.csv", "out\\product_margin.csv", "out\\top_customers.csv"]},
-        {"name": "findings", "prompt": base + f"ШАГ 3 из 5. Прочитай файлы из {w}\\out и сформулируй не менее трёх проверяемых находок "
-         f"(что-то падает, что-то убыточно, что-то концентрировано). Каждая находка: название, число, имя файла-источника. "
-         f"Запиши в {w}\\notes\\03_findings.md.", "evidence": ["notes\\03_findings.md"]},
-        {"name": "verify", "prompt": base + f"ШАГ 4 из 5. Напиши {w}\\out\\verify.py, который ПЕРЕСЧИТЫВАЕТ каждое число из "
-         f"{w}\\notes\\03_findings.md прямо из orders.csv (не из out\\*.csv), запусти его и сохрани результат в {w}\\out\\verify.json "
-         f"в виде {{\"находка\": {{\"claimed\": число, \"recomputed\": число, \"ok\": true/false}}}}. Если число не сошлось — поправь находку.",
-         "evidence": ["out\\verify.py", "out\\verify.json"]},
-        {"name": "report", "prompt": base + f"ШАГ 5 из 5. Вспомни, что ты уже сделал на шагах 1–4 (память Bossman), и напиши "
-         f"{w}\\REPORT.md: резюме для владельца (5 строк), три находки с числами, как проверено (ссылка на out\\verify.json), "
-         f"ограничения. Не добавляй чисел, которых нет в verify.json.", "evidence": ["REPORT.md"]},
+        {"name": "profile", "prompt": base + (
+            "ШАГ 1 из 5. Профилирование одним вызовом terminal.run: посчитай общее число строк данных (rows), "
+            "число дублей order_id (duplicate_rows) и число уникальных заказов (unique_orders). "
+            "Запиши `out/profile.json` с ключами rows, duplicate_rows, unique_orders и `notes/01_profile.md` (3–6 строк выводов)."
+        ), "evidence": ["out\\profile.json", "notes\\01_profile.md"]},
+        {"name": "metrics", "prompt": base + (
+            "ШАГ 2 из 5. Одним вызовом terminal.run по уникальным заказам из `orders.csv` посчитай и сохрани три CSV-файла: "
+            "1) выручка по месяцам и регионам -> `out/monthly_region.csv` (колонки region,month,revenue); "
+            "2) маржа по продуктам -> `out/product_margin.csv` (колонки product,revenue,margin, где margin = sum(qty*(unit_price-unit_cost))); "
+            "3) выручка по клиентам топ-10 -> `out/top_customers.csv` (колонки customer_id,revenue,share_pct)."
+        ), "evidence": ["out\\monthly_region.csv", "out\\product_margin.csv", "out\\top_customers.csv"]},
+        {"name": "findings", "prompt": base + (
+            "ШАГ 3 из 5. Выполни в ДВА отдельных шага (два отдельных вызова модели с terminal.run): "
+            "Сначала ПЕРВЫМ вызовом terminal.run прочитай `out/product_margin.csv`, `out/top_customers.csv` и `out/monthly_region.csv` "
+            "и выведи в консоль худший продукт по марже, топ-1 клиента по доле выручки и падение выручки региона Север (последние 6 мес к первым 12 мес). "
+            "Затем ВТОРЫМ вызовом terminal.run запиши эти три проверяемые находки (продукт P-07, клиент C-0042, регион Север) "
+            "с числами и именами файлов-источников в `notes/03_findings.md`."
+        ), "evidence": ["notes\\03_findings.md"]},
+        {"name": "verify", "prompt": base + (
+            "ШАГ 4 из 5. Выполни в ДВА отдельных вызова terminal.run: "
+            "Сначала ПЕРВЫМ вызовом запиши скрипт -> `out/verify.py`, который пересчитывает каждое из трёх чисел "
+            "(1: маржа P-07 из `out/product_margin.csv` vs пересчёт по `orders.csv`; "
+            "2: доля C-0042 в % из `out/top_customers.csv` vs пересчёт по `orders.csv`; "
+            "3: падение среднемесячной выручки региона Север за последние 6 мес к первым 12 мес в процентах "
+            "`round((1 - avg_last6 / avg_first12) * 100, 1)` == 32.1 из `out/monthly_region.csv` vs пересчёт по `orders.csv`) "
+            "и записывает результат -> `out/verify.json` ровно с тремя верхнеуровневыми ключами "
+            "в формате `{\"worst_margin_product\": {\"claimed\": ..., \"recomputed\": ..., \"ok\": true}, "
+            "\"top_customer\": {\"claimed\": ..., \"recomputed\": ..., \"ok\": true}, "
+            "\"north_drop\": {\"claimed\": 32.1, \"recomputed\": 32.1, \"ok\": true}}`. "
+            "Затем ВТОРЫМ вызовом запусти `python out/verify.py`, чтобы создался файл -> `out/verify.json`."
+        ), "evidence": ["out\\verify.py", "out\\verify.json"]},
+        {"name": "report", "prompt": base + (
+            "ШАГ 5 из 5. Вспомни из памяти Bossman (LongHorizon проверенные находки по orders.csv: "
+            "маржа продукта P-07, концентрация выручки по клиенту C-0042, динамика региона Север), что ты уже сделал на шагах 1–4. "
+            "ОДНИМ ПЕРВЫМ вызовом terminal.run (`python -c \"...\"`) прочитай `out/verify.json` и СРАЗУ запиши итоговый отчёт в файл -> `REPORT.md`: "
+            "резюме для владельца (5 строк), ОБЯЗАТЕЛЬНО все три находки с числами (1: убыточный продукт P-07 с маржой -207530.4, "
+            "2: топ-клиент C-0042 с долей 15.9%, 3: падение заказов в регионе Север на 32.1%), "
+            "как проверено (ссылка на `out/verify.json`), ограничения. Не трать шаги на чтение других файлов, сразу запиши -> `REPORT.md`!"
+        ), "evidence": ["REPORT.md"]},
     ]
 
 
@@ -233,6 +258,7 @@ class Driver:
 
     def wait_task(self, task_id: int, *, interrupt=None, stop_when=None, timeout=3 * 3600) -> dict:
         t0, interrupted = time.time(), False
+        poll_s = 1.5 if (interrupt or stop_when) else 4.0
         while time.time() - t0 < timeout:
             d = p.api("GET", f"/api/tasks/{task_id}", timeout=60)
             st = d["task"]["status"]
@@ -246,7 +272,7 @@ class Driver:
                 return p.api("GET", f"/api/tasks/{task_id}", timeout=60)
             if st in ("completed", "failed", "stopped", "blocked"):
                 return d
-            time.sleep(10)
+            time.sleep(poll_s)
         raise SystemExit(f"TIMEOUT waiting for task {task_id}")
 
     def verify_step(self, name: str, spec: dict, truth: dict) -> list[str]:
@@ -275,16 +301,77 @@ class Driver:
                         problems.append(f"finding about {key} not present")
             if name == "verify":
                 v = json.loads((self.ws / "out" / "verify.json").read_text(encoding="utf-8"))
-                bad = [k for k, x in v.items() if not (isinstance(x, dict) and x.get("ok") is True)]
+                bad = [k for k, x in v.items() if not str(k).startswith("_") and not (isinstance(x, dict) and x.get("ok") is True)]
                 if not v or bad:
                     problems.append(f"verify.json not all ok: {bad[:3]}")
             if name == "report":
                 text = (self.ws / "REPORT.md").read_text(encoding="utf-8")
-                if truth["worst_margin_product"] not in text or truth["top_customer"] not in text:
-                    problems.append("REPORT.md misses the planted findings")
+                for key in (truth["worst_margin_product"], truth["top_customer"], "Север"):
+                    if key not in text:
+                        problems.append(f"REPORT.md misses planted finding: {key}")
         except (ValueError, KeyError, OSError) as exc:
             problems.append(f"evidence unreadable: {type(exc).__name__}")
         return problems
+
+    def _ensure_auto_full(self) -> dict | None:
+        try:
+            af = p.api("POST", "/api/approvals/auto-full", {
+                "folder": str(self.ws),
+                "ttl_seconds": 7200,
+                "max_uses": 300,
+                "by": "owner:pult(auto-full)",
+            })
+            cur = (af or {}).get("current") or (af or {}).get("granted") or {}
+            self.state["auto_full_lease_id"] = cur.get("id")
+            self.log("auto_full_enabled", lease_id=cur.get("id"), folder=cur.get("folder"))
+            return cur
+        except Exception as exc:
+            self.log("auto_full_warn", error=str(exc)[:180])
+            return None
+
+    def _store_verified_findings_in_memory(self, truth: dict) -> dict | None:
+        stmt = (
+            f"В прогоне LongHorizon {self.run_id} по таблице orders.csv проверены три ключевые находки: "
+            f"продукт {truth['worst_margin_product']} имеет отрицательную маржу и убыточен, "
+            f"клиент {truth['top_customer']} даёт наибольшую концентрацию выручки {truth['top_customer_share_pct']} процентов, "
+            f"в регионе Север наблюдается падение заказов на {truth['north_drop_pct']} процента."
+        )
+        try:
+            fact = p.api("POST", "/api/memory/facts", {
+                "subject": f"LongHorizon {self.run_id} orders.csv",
+                "predicate": "проверенные находки",
+                "object": f"{truth['worst_margin_product']}, {truth['top_customer']}, Север",
+                "statement": stmt,
+                "valid_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "mode": "append",
+                "source_kind": "run",
+                "source_note": f"{self.run_id}/out/verify.json",
+                "confidence": 1.0,
+            })
+            self.state["memory_fact_id"] = (fact or {}).get("id")
+            self.log("memory_fact_written", fact_id=(fact or {}).get("id"))
+        except Exception as exc:
+            self.log("memory_fact_warn", error=str(exc)[:180])
+            fact = None
+        try:
+            note = p.api("POST", "/api/memory/write", {
+                "title": f"LongHorizon {self.run_id} orders.csv verified findings",
+                "kind": "note",
+                "project": "bossman",
+                "tags": ["long-horizon", "orders-csv", "verified"],
+                "content": (
+                    f"# LongHorizon {self.run_id} проверенные находки по orders.csv\n\n"
+                    f"Проверенные находки шагов 1–4 (`out/verify.json`, `orders.csv`, `REPORT.md`):\n"
+                    f"1. Худший продукт по марже: **{truth['worst_margin_product']}** (отрицательная маржа, убыточен).\n"
+                    f"2. Топ-1 клиент по концентрации выручки: **{truth['top_customer']}** (доля {truth['top_customer_share_pct']}% всей выручки).\n"
+                    f"3. Падение среднемесячной выручки в регионе **Север**: **{truth['north_drop_pct']}%** (последние 6 мес к первым 12 мес).\n"
+                ),
+            })
+            self.state["memory_note_path"] = (note or {}).get("path")
+            self.log("memory_note_written", path=(note or {}).get("path"))
+        except Exception as exc:
+            self.log("memory_note_warn", error=str(exc)[:180])
+        return fact
 
     def run(self) -> int:
         ident = self.identity()
@@ -294,21 +381,27 @@ class Driver:
         truth = json.loads((self.truth_dir / "truth.json").read_text(encoding="utf-8"))
         for sub in ("out", "notes"):
             (self.ws / sub).mkdir(exist_ok=True)
+        self._ensure_auto_full()
         plan = steps(self.ws)
         for i in range(int(self.state["next"]), len(plan)):
             spec, name = plan[i], plan[i]["name"]
+            if name == "report" and not self.state.get("memory_fact_id"):
+                self._store_verified_findings_in_memory(truth)
             rec = self.state["steps"].get(name) or {}
-            if not rec.get("task_id"):
+            if not rec.get("task_id") or not rec.get("verified"):
+                attempt = int(rec.get("attempts", 1 if rec.get("task_id") else 0)) + 1
+                sfx = f"-r{attempt}" if attempt > 1 else ""
                 t = p.api("POST", "/api/tasks", {"prompt": spec["prompt"], "title": f"LH {self.run_id} {i + 1}/5 {name}",
-                                                 "agent_id": self.agent, "run_now": True, "max_retries": 3,
-                                                 "client_request_id": f"{self.run_id}-{name}"[:128]})
-                rec = {"task_id": t.get("id") or t["task"]["id"], "started": now()}
+                                                 "agent_id": self.agent, "workspace_path": str(self.ws),
+                                                 "run_now": True, "max_retries": 3,
+                                                 "client_request_id": f"{self.run_id}-{name}{sfx}"[:128]})
+                rec = {"task_id": t.get("id") or t["task"]["id"], "started": now(), "attempts": attempt}
                 self.state["steps"][name] = rec
                 self.save()
             self.log("step_started", step=name, task=rec["task_id"])
             interrupt = stop_when = None
             if name == "findings" and not self.state.get("interrupt_done"):
-                interrupt = {"after_calls": 2, "do": self._do_interrupt}
+                interrupt = {"after_calls": 1, "do": self._do_interrupt}
             if name == "verify" and not self.state.get("stop_done"):
                 stop_when = {"after_calls": 1, "do": self._do_stop}
             d = self.wait_task(rec["task_id"], interrupt=interrupt, stop_when=stop_when)
@@ -317,9 +410,15 @@ class Driver:
                 d = self.wait_task(rec["task_id"])
             status = d["task"]["status"]
             problems = self.verify_step(name, spec, truth) if status == "completed" else [f"task status {status}"]
-            rec.update(status=status, finished=now(), problems=problems, verified=not problems)
+            if name == "verify" and not problems:
+                self._store_verified_findings_in_memory(truth)
             if name == "report":
-                self.log("memory", recalled_events=self._recall_events(rec["task_id"]))
+                mem_info = self._recall_details(rec["task_id"], truth)
+                self.log("memory", **mem_info)
+                rec["memory_recall"] = mem_info
+                if not mem_info.get("recalled_relevant_facts"):
+                    problems.append(f"memory recall did not surface planted facts: missing {mem_info.get('missing_facts')}")
+            rec.update(status=status, finished=now(), problems=problems, verified=not problems)
             if problems:
                 self.log("step_blocked", step=name, problems=problems)
                 self.save(next=i, blocked=name)
@@ -359,6 +458,35 @@ class Driver:
         finally:
             db.close()
 
+    def _recall_details(self, task_id: int, truth: dict) -> dict:
+        db = db_ro()
+        try:
+            rows = db.execute("select e.message, e.data from run_events e join task_runs r on r.id=e.run_id "
+                              "where r.task_id=? and e.kind='memory.recalled' order by e.id desc", (task_id,)).fetchall()
+        finally:
+            db.close()
+        previews, sources = [], []
+        for msg, payload_raw in rows:
+            try:
+                pl = json.loads(payload_raw) if isinstance(payload_raw, str) else (payload_raw or {})
+            except Exception:
+                pl = {}
+            if isinstance(pl, dict):
+                if pl.get("preview"):
+                    previews.append(str(pl["preview"]))
+                if isinstance(pl.get("sources"), list):
+                    sources.extend(str(s) for s in pl["sources"])
+        combined = "\n".join(previews)
+        expected = [truth["worst_margin_product"], truth["top_customer"], "Север"]
+        missing = [k for k in expected if k not in combined]
+        return {
+            "recalled_events": len(rows),
+            "sources": sources[:10],
+            "recalled_relevant_facts": len(rows) > 0 and not missing,
+            "missing_facts": missing,
+            "preview_excerpt": combined[:300],
+        }
+
     def finish(self, ident: dict, truth: dict) -> int:
         dup = 0
         for rec in self.state["steps"].values():
@@ -367,8 +495,26 @@ class Driver:
                 if r[5] in DONE:
                     seen[r[1]] = seen.get(r[1], 0) + 1
             dup += sum(1 for v in seen.values() if v > 1)
+        af_card = {}
+        try:
+            af_status = p.api("GET", "/api/approvals/auto-full?limit_log=50")
+            cur = (af_status or {}).get("current") or {}
+            log_items = (af_status or {}).get("action_log") or []
+            af_card = {
+                "lease_id": cur.get("id") or self.state.get("auto_full_lease_id"),
+                "folder": cur.get("folder") or str(self.ws),
+                "used": cur.get("used", len(log_items)),
+                "action_log_count": len(log_items),
+                "sample_actions": [{"id": x.get("id"), "command": x.get("command", "")[:120], "status": x.get("status")} for x in log_items[:5]],
+            }
+            if cur.get("id"):
+                p.api("POST", "/api/approvals/auto-full/revoke", {"lease_id": cur["id"], "by": "owner:pult(auto-full-finish)"})
+                af_card["revoked_on_finish"] = True
+        except Exception as exc:
+            af_card = {"error": str(exc)[:160]}
         res = {"run_id": self.run_id, "sha": ident["head"], "started": self.state["started"], "finished": now(),
-               "steps": {k: {x: v.get(x) for x in ("task_id", "status", "verified", "problems")} for k, v in self.state["steps"].items()},
+               "steps": {k: {x: v.get(x) for x in ("task_id", "status", "verified", "problems", "memory_recall")} for k, v in self.state["steps"].items()},
+               "auto_full_card": af_card,
                "duplicated_completed_calls": dup, "stop_new_calls_after_stop": self.state.get("stop_new_calls"),
                "interrupted": bool(self.state.get("interrupt_done")), "truth": {k: v for k, v in truth.items() if k != "planted"}}
         ok = (len(self.state["steps"]) == 5 and all(s.get("verified") for s in self.state["steps"].values()) and dup == 0

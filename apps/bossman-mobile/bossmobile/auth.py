@@ -182,10 +182,17 @@ def rotate_pairing(data_dir: Path) -> str:
 
 
 class RateLimiter:
-    """Failed attempts in the last 60 s: per key and in total."""
+    """Failed attempts in the last 60 s per client key.
 
-    def __init__(self, per_key: int, total: int, window_s: float = 60.0, clock=time.monotonic):
+    Security audit 31.10 (1d): a global total counter across all keys allowed an
+    unauthenticated noisy client (or spoofed X-Forwarded-For rotation) to lock out
+    the legitimate owner's device. Rate limiting is strictly per client key with
+    bounded key-table eviction so one client can never lock out another."""
+
+    def __init__(self, per_key: int, total: int = 30, window_s: float = 60.0,
+                 clock=time.monotonic, max_keys: int = 1024):
         self.per_key, self.total, self.window, self.clock = per_key, total, window_s, clock
+        self.max_keys = max(32, int(max_keys))
         self._keys: dict[str, deque] = {}
         self._all: deque = deque()
         self._lock = threading.Lock()
@@ -194,25 +201,44 @@ class RateLimiter:
         while q and now - q[0] > self.window:
             q.popleft()
 
+    def _evict_if_needed(self, now: float) -> None:
+        if len(self._keys) < self.max_keys:
+            return
+        stale = [k for k, q in self._keys.items() if not q or (now - q[-1] > self.window)]
+        for k in stale:
+            self._keys.pop(k, None)
+        while len(self._keys) >= self.max_keys:
+            oldest_key = next(iter(self._keys))
+            self._keys.pop(oldest_key, None)
+
     def retry_after(self, key: str) -> float:
-        """0 when an attempt is allowed, else seconds to wait."""
+        """0 when an attempt is allowed for `key`, else seconds to wait."""
         now = self.clock()
         with self._lock:
-            q = self._keys.setdefault(key, deque())
+            q = self._keys.get(key)
+            if not q:
+                return 0.0
             self._trim(q, now)
-            self._trim(self._all, now)
-            waits = []
+            if not q:
+                self._keys.pop(key, None)
+                return 0.0
             if len(q) >= self.per_key:
-                waits.append(self.window - (now - q[0]))
-            if len(self._all) >= self.total:
-                waits.append(self.window - (now - self._all[0]))
-            return max(waits) if waits else 0.0
+                return max(0.0, self.window - (now - q[0]))
+            return 0.0
 
     def failure(self, key: str) -> None:
         now = self.clock()
         with self._lock:
-            self._keys.setdefault(key, deque()).append(now)
+            self._evict_if_needed(now)
+            q = self._keys.setdefault(key, deque())
+            self._trim(q, now)
+            q.append(now)
+            self._trim(self._all, now)
             self._all.append(now)
+
+    def success(self, key: str) -> None:
+        with self._lock:
+            self._keys.pop(key, None)
 
 
 class Sessions:

@@ -519,7 +519,28 @@ def _looks_like_mutation(command: str) -> bool:
                 head = head[:-4]
             tokens = inner_tokens
         if head == "git":
-            sub = next((t.lower() for t in tokens[1:] if not t.startswith("-")), "")
+            # Security audit 31.10: `git grep -O<pager>`, `--open-files-in-pager`, `--ext-diff`, `--textconv`,
+            # `--exec-path`, `--config-env`, `-c <k=v>`, and `--output` execute arbitrary helpers or write files.
+            # Also skip flag arguments (`-C <dir>`, `--git-dir <dir>`, `--work-tree <dir>`) before reading subcommand.
+            sub = ""
+            skip_git_arg = False
+            for tok in tokens[1:]:
+                tl = tok.lower()
+                if skip_git_arg:
+                    skip_git_arg = False
+                    continue
+                if (tok.startswith("-O") or tl.startswith("--open-files-in-pager")
+                        or tl in ("--ext-diff", "--textconv", "-c")
+                        or tl.startswith(("--exec-path", "--config-env", "--output"))
+                        or (tok.startswith("-c") and len(tok) > 2)):
+                    return True
+                if tok in ("-C", "--git-dir", "--work-tree", "--namespace", "--super-prefix"):
+                    skip_git_arg = True
+                    continue
+                if tok.startswith("-"):
+                    continue
+                if not sub:
+                    sub = tl
             if sub not in _READONLY_GIT_SUBCOMMANDS:
                 return True
             continue

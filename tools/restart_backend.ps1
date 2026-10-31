@@ -8,10 +8,15 @@ $env:PYTHONUTF8 = "1"
 $conn = Get-NetTCPConnection -LocalPort 8801 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($conn) { Stop-Process -Id $conn.OwningProcess -Force; Start-Sleep -Seconds 3 }
 $log = Join-Path $env:TEMP "bossman-8801.log"
-Start-Process -FilePath (Get-Command python).Source `
-  -ArgumentList "-m", "uvicorn", "bcc.app:create_app", "--factory", "--host", "127.0.0.1", "--port", "8801" `
-  -WorkingDirectory (Join-Path $repo "command-center") -WindowStyle Hidden `
-  -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+$py = (Get-Command python).Source
+$workDir = Join-Path $repo "command-center"
+$cmdLine = "cmd.exe /c `"set BCC_DATA_DIR=$($env:BCC_DATA_DIR)&& set PYTHONUTF8=1&& `"$py`" -m uvicorn bcc.app:create_app --factory --host 127.0.0.1 --port 8801 > `"$log`" 2> `"$log.err`"`""
+$si = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+  CommandLine = $cmdLine
+  CurrentDirectory = $workDir
+  ProcessStartupInformation = $si
+} | Out-Null
 for ($i = 0; $i -lt 60; $i++) {
   Start-Sleep -Seconds 3
   try { $r = Invoke-RestMethod http://127.0.0.1:8801/health/live -TimeoutSec 3; Write-Output "$($r.status) $($r.build_sha_short) $($r.source_identity)"; exit 0 } catch { }

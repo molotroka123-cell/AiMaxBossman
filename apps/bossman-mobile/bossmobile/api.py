@@ -164,6 +164,22 @@ class ChatAttachmentIn(BaseModel):
 
 class DecideIn(BaseModel):
     approve: bool
+    lease_ttl_s: int | None = Field(default=None, ge=60, le=14400)
+    lease_max_uses: int | None = Field(default=None, ge=1, le=200)
+
+
+class AutoFullMobileIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    folder: str = Field(min_length=1, max_length=500)
+    ttl_seconds: int = Field(default=3600, ge=60, le=14400)
+    max_uses: int = Field(default=200, ge=1, le=500)
+    task_id: int | None = None
+    agent_id: int | None = None
+
+
+class AutoFullMobileRevokeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lease_id: int | None = None
 
 
 class StopAllIn(BaseModel):
@@ -524,6 +540,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if not check_token(body.token, pairing):
             limiter.failure(key)
             raise fail(401, "неверный код сопряжения", "BM_BAD_TOKEN")
+        limiter.success(key)
         sid, row = sessions.create(label=request.headers.get("user-agent", "")[:80])
         resp = JSONResponse({"ok": True, "csrf": row["csrf"], "csrf_header": CSRF_HEADER})
         resp.set_cookie(COOKIE, sid, max_age=st.session_ttl_s, httponly=True, samesite="strict", secure=_https(request),
@@ -892,8 +909,39 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.post("/m/api/approvals/{approval_id}")
     async def decide(approval_id: int, body: DecideIn, _=Depends(session)):
-        row = await call("POST", f"/api/approvals/{approval_id}", json={"approve": body.approve, "by": "owner"})
-        return {k: row.get(k) for k in ("id", "status", "kind", "task_id", "decided_at", "decided_by")} if isinstance(row, dict) else row
+        payload: dict[str, Any] = {"approve": body.approve, "by": "owner"}
+        if body.approve and (body.lease_ttl_s is not None or body.lease_max_uses is not None):
+            payload["lease"] = {
+                "ttl_seconds": body.lease_ttl_s or 900,
+                "max_uses": body.lease_max_uses or 50,
+            }
+        row = await call("POST", f"/api/approvals/{approval_id}", json=payload)
+        return {k: row.get(k) for k in ("id", "status", "kind", "task_id", "decided_at", "decided_by", "lease")} if isinstance(row, dict) else row
+
+    @app.get("/m/api/auto-full")
+    async def get_auto_full(task_id: int | None = None, limit_log: int = 40, _=Depends(session)):
+        params: dict[str, Any] = {"limit_log": max(1, min(int(limit_log), 100))}
+        if task_id is not None:
+            params["task_id"] = int(task_id)
+        return await call("GET", "/api/approvals/auto-full", params=params)
+
+    @app.post("/m/api/auto-full")
+    async def enable_auto_full(body: AutoFullMobileIn, _=Depends(session)):
+        return await call("POST", "/api/approvals/auto-full", json={
+            "folder": body.folder.strip(),
+            "ttl_seconds": body.ttl_seconds,
+            "max_uses": body.max_uses,
+            "task_id": body.task_id,
+            "agent_id": body.agent_id,
+            "by": "owner:mobile",
+        })
+
+    @app.post("/m/api/auto-full/revoke")
+    async def revoke_auto_full(body: AutoFullMobileRevokeIn | None = None, _=Depends(session)):
+        return await call("POST", "/api/approvals/auto-full/revoke", json={
+            "lease_id": body.lease_id if body else None,
+            "by": "owner:mobile",
+        })
 
     # ------------------------------------------------------------------ global STOP from the phone (parity 24.10)
     def _plane_counts(d: Any) -> dict:

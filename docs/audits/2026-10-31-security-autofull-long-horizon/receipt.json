@@ -1,0 +1,163 @@
+{
+  "audit_id": "2026-10-31-security-autofull-long-horizon",
+  "date_utc": "2026-10-31T13:05:30Z",
+  "auditor": "Argon",
+  "verdict": "PASS",
+  "status": "PASS",
+  "scope": "Full closure of owner prioritized gaps (Items 1, 2, 3, 5, 6a, 6b, 6c — all except Openjutsu Item 4)",
+  "deliverables": {
+    "item_5_and_6c_autostart_and_cleanup": {
+      "verdict": "PASS",
+      "canonical_tree": "C:\\Users\\asd\\Bossman\\wt-bossman-20-argon",
+      "anchors_repointed": [
+        "C:\\Users\\asd\\Bossman\\one-bossman\\current.json",
+        "C:\\Users\\asd\\Bossman\\one-bossman\\owner_one_bossman.py (_resolve_canonical_src)",
+        "C:\\Users\\asd\\Bossman\\Start-BossmanApps.ps1",
+        "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\governor.json",
+        "pip editable installs (bossman-command-center, bossman-core, bossman-mobile, bossman-shared, war-terminal)",
+        "terminal.roots via POST /api/terminal/roots"
+      ],
+      "eth_drainer_removed": true,
+      "companion_running_on_main": true
+    },
+    "item_1_security_audit_holes_1a_to_1d": {
+      "verdict": "PASS",
+      "tests_passed": 224,
+      "holes_closed": {
+        "1a_read_classifier_hardening": {
+          "files": [
+            "command-center/bcc/finalize.py",
+            "command-center/bcc/features/action_contract.py"
+          ],
+          "blocked_from_read": [
+            "pytest",
+            "py.test",
+            "python -m pytest",
+            "tox",
+            "nox",
+            "git grep -O",
+            "git grep --open-files-in-pager",
+            "git -c ...",
+            "git diff --ext-diff",
+            "git diff --textconv",
+            "git --exec-path"
+          ]
+        },
+        "1b_privileged_lease_exclusion": {
+          "files": [
+            "command-center/bcc/approval_scope.py",
+            "command-center/bcc/features/tools_terminal.py"
+          ],
+          "effect_class": "privileged",
+          "excluded_commands": [
+            "git push",
+            "pip install",
+            "python -m pip install",
+            "npm/pnpm/yarn/poetry/uv install|add",
+            "docker compose",
+            "sudo",
+            "curl|sh",
+            "network=True"
+          ]
+        },
+        "1c_pult_report_sanitizer_and_html_truncation": {
+          "files": [
+            "command-center/bcc/features/pult_report.py",
+            "command-center/tests/test_pult_report.py",
+            "command-center/tests/test_pult_report_tool.py"
+          ],
+          "secrets_blocked": [
+            "OpenAI sk-* / sk-proj-*",
+            "Anthropic sk-ant-*",
+            "GitHub ghp_* / github_pat_*",
+            "Telegram bot tokens",
+            "AWS AKIA*",
+            "Bearer JWTs",
+            "PEM private keys",
+            "EVM 0x64-hex private keys",
+            "BIP-39 seed phrases"
+          ],
+          "html_tags_preserved_under_truncation": true,
+          "signature": "Аргон"
+        },
+        "1d_mobile_login_per_ip_rate_limiter": {
+          "files": [
+            "apps/bossman-mobile/bossmobile/auth.py",
+            "apps/bossman-mobile/bossmobile/api.py",
+            "apps/bossman-mobile/tests/test_mobile.py"
+          ],
+          "per_client_bucket_isolation": true
+        }
+      }
+    },
+    "item_2_auto_full_with_owner_card": {
+      "verdict": "PASS",
+      "endpoints": [
+        "GET /api/approvals/auto-full",
+        "POST /api/approvals/auto-full",
+        "POST /api/approvals/auto-full/revoke"
+      ],
+      "mobile_ui_version": "bossman-shell-v34",
+      "guarantees": [
+        "Selected folder boundary enforced on cwd and command path arguments",
+        "Bounded TTL (15m to 8h) and max_uses",
+        "Live action_log recorded in approval_scope_log",
+        "Instant 1-tap revoke button in Mobile Pult (:8840) and Command Center (:8801)",
+        "Hard-deny and PRIVILEGED commands (git push, pip install, network, secrets, outside paths) never auto-approved"
+      ]
+    },
+    "item_3_long_horizon_and_memory_recall": {
+      "verdict": "PASS",
+      "run_id": "lh-20261031-autofull-v2",
+      "steps_verified": 5,
+      "steps": {
+        "profile": {"task_id": 821, "verified": true, "result_sha256": {"out\\profile.json": "1a164478747607ae", "notes\\01_profile.md": "bfac24b28cabcff5"}},
+        "metrics": {"task_id": 822, "verified": true, "result_sha256": {"out\\monthly_region.csv": "3a2c6a38722bd352", "out\\product_margin.csv": "04b3c3aeb0d9f7b0", "out\\top_customers.csv": "ab2bc6c09703e7fa"}},
+        "findings": {"task_id": 823, "verified": true, "result_sha256": {"notes\\03_findings.md": "3cb12bcff059ef75"}},
+        "verify": {"task_id": 825, "verified": true, "result_sha256": {"out\\verify.py": "ce16f5e1ceb99433", "out\\verify.json": "64805337b9d08b16"}},
+        "report": {"task_id": 829, "verified": true, "result_sha256": {"REPORT.md": "9e24f35cbac40412"}}
+      },
+      "duplicated_completed_calls": 0,
+      "stop_new_calls_after_stop": 0,
+      "interrupted_and_resumed": true,
+      "memory_recall": {
+        "recalled_events": 1,
+        "recalled_relevant_facts": true,
+        "missing_facts": [],
+        "top_source": "BOSSMAN Memory/2026-10-31-1300-LongHorizon-lh-20261031-autofull-v2-orderscsv-verified-findings.md",
+        "root_cause_fixed_in_retrieval": "learning/retrieval.py _from_notes previously set score=5.0 on exact signal matches and skipped adding BM25 scores via `if ref in seen: continue`, causing generic notes without exact matches to outrank exact-match notes; bm25_scores also had collapsed IDF when n_docs=1."
+      },
+      "report_findings_present": ["P-07", "C-0042", "Север"]
+    },
+    "item_6a_outrun_multiturn_cost_check": {
+      "verdict": "PASS",
+      "agent_id": 51,
+      "turns": 4,
+      "tokens_in": 8413,
+      "tokens_out": 1099,
+      "bossman_cost_usd": 0.007061,
+      "outrun_debited_usd": 0.007052,
+      "difference_usd": -0.000009,
+      "receipt": "docs/audits/2026-10-29-outrun-deepseek/receipt.json"
+    },
+    "item_6b_weekly_research_benchmarks_live": {
+      "verdict": "PASS_LIVE",
+      "unit_guards_status": "PASS_UNIT",
+      "live_agent_status": "PASS_LIVE",
+      "live_task_id": 816,
+      "auto_full_lease_id": 26,
+      "true_claim_verifier_status": "VERIFIED",
+      "false_claim_caught": true,
+      "fault_state_halted_before_irreversible": true,
+      "out_of_scope_work_hits": 0,
+      "hits_after_revoke": 0,
+      "receipt": "docs/audits/2026-10-30-weekly-research-benchmarks/receipt.json",
+      "receipt_sha256": "a6bea1beec2bb7d81ad0ce5c4f622eecfeff347f17d7a9144a5b3339a0610a2b"
+    }
+  },
+  "not_proven": [
+    "Openjutsu preprocessing speed & Pult integration (Item 4 — assigned to Claude, untouched per owner instruction)",
+    "24h/48h continuous soak run",
+    "D-036 autonomous local patch without cloud assistance"
+  ]
+}
