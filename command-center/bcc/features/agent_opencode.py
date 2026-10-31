@@ -2406,6 +2406,10 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                         ) from None
                     agent = {"id": int(chosen["id"]), "name": chosen.get("name")}
 
+            # Project folder of the chat (features/chat_projects): prompt line + tasks.workspace_path (local models only).
+            from .chat_projects import bind_chat_turn
+            prompt, project_ws = await bind_chat_turn(svc, session_id, agent["id"], prompt)
+            async with svc.db.session() as s:
                 with ptrace.span("task.create", mode=effective_mode):
                     now_dt = utcnow()
                     res = await s.execute(sa.insert(tasks_t).values(
@@ -2418,6 +2422,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                         created_at=now_dt,
                         updated_at=now_dt,
                         meta=_task_meta_for_skill(request_id, matched_skill),
+                        workspace_path=str(project_ws)[:500] if project_ws is not None else None,
                     ))
                     task_id = int(res.inserted_primary_key[0])
                     await s.commit()

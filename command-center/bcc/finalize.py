@@ -326,8 +326,8 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
         import time as _time
         t_verify = _time.monotonic()
         try:
-            from .features.tools_terminal import _roots
-            roots = await _roots(svc) if svc is not None else []
+            from .features.chat_projects import verifier_roots      # terminal roots + this task's project folder
+            roots = await verifier_roots(svc, task) if svc is not None else []
         except Exception:  # noqa: BLE001
             roots = []
         await engine.bus.emit("observation.started", task_id=task_id, run_id=run_id, expectations=len(expected))
@@ -403,8 +403,9 @@ async def _override_reason(svc, task: dict, rows: list[dict]) -> str:
         if any(r["status"] in ("pending_approval", "approved") for r in rows):
             reason = "tool call still waiting for approval"
         if expected and not reason:
-            from .features.tools_terminal import _roots
-            status, reason, results = await verify_all(expected, svc=svc, task=task, roots=await _roots(svc))
+            from .features.chat_projects import verifier_roots
+            status, reason, results = await verify_all(expected, svc=svc, task=task,
+                                                       roots=await verifier_roots(svc, task))
             if status == "VERIFIED":
                 reason = ""
                 finished = [r["finished_at"].replace(tzinfo=timezone.utc).timestamp()

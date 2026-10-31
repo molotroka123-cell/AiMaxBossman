@@ -233,6 +233,12 @@ async def _resolve_cwd(ctx, args: dict, *, create_scratch: bool = True) -> tuple
     if str(raw).strip() == SCRATCH_ALIAS:
         own = scratch.for_context(ctx)
         return (scratch.ensure(own) if create_scratch else own.resolve()), roots
+    # Owner 31.10 «проекты»: the task's project folder (chat_projects.workspace_grant: real project dir, local model
+    # only) joins the allowed roots of THIS call — that folder only; TerminalPolicy/ASK rules are unchanged.
+    from .chat_projects import workspace_grant
+    project = await workspace_grant(ctx)
+    if project is not None and project not in roots:
+        roots = [*roots, project]
     # F-009: резолвим ДО авторизации — symlink/junction/../ и кодированные
     # варианты сравниваются с корнями уже как канонический путь.
     return Path(raw).expanduser().resolve(), roots
