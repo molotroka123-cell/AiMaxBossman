@@ -33,4 +33,7 @@ bossman_schemas = ["*.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-pythonpath = [".", "command-center", "bossman-core", "apps/bossman-mobile"]
+# apps/bossblock: tests/test_bossblock.py imports the in-tree package. Without this
+# entry the root suite either fails collection (CI: ModuleNotFoundError, exit 2) or,
+# on a dev PC with a foreign editable install, silently tests another worktree's copy.
+pythonpath = [".", "command-center", "bossman-core", "apps/bossman-mobile", "apps/bossblock"]
