@@ -431,9 +431,11 @@ def test_cross_family_verifier_success():
 def test_cross_family_verifier_uses_a_real_checker_when_given():
     verifier = CrossFamilyVerifierEngine(verifier_family="qwen")
     bad = verifier.verify(subtask_id="s", proposer_family="gemma", proposal={"answer": 41}, custom_checker=lambda p: p["answer"] == 42)
-    assert bad["passed"] is False and bad["kind"] == "custom_checker" and bad["independent"] is True
+    # P0 audit 31.10: this used to assert independent is True — a lambda is not an independent other-family judgement
+    assert bad["passed"] is False and bad["kind"] == "custom_checker" and bad["independent"] is False
+    assert bad["cross_family"] is False
     good = verifier.verify(subtask_id="s", proposer_family="gemma", proposal={"answer": 42}, custom_checker=lambda p: p["answer"] == 42)
-    assert good["passed"] is True and good["independent"] is True
+    assert good["passed"] is True and good["independent"] is False and good["cross_family"] is False
 
 
 def test_cross_family_verifier_violation_raises():
@@ -482,7 +484,10 @@ async def test_swarm_dag_runs_only_what_an_executor_does_and_is_cross_verified_o
 
     checked = await planner.run_dag(goal="g", candidates=_candidates(), executor_fn=executor,
                                     checker_fn=lambda p: str(p.get("output", "")).startswith("did "))
-    assert checked.cross_family_verified is True and checked.verification_kind == "custom_checker"
+    # P0 audit 31.10: this used to assert cross_family_verified is True — a lambda checker calls no other-family model,
+    # so the run is custom-checked (structural_check_passed) but NOT cross-family verified
+    assert checked.cross_family_verified is False and checked.verification_kind == "custom_checker"
+    assert checked.structural_check_passed is True and checked.cross_family_receipts == []
 
     with pytest.raises(SwarmExecutionError):                 # a checker that rejects exhausts the repairs and the DAG fails
         await planner.run_dag(goal="g", candidates=_candidates(), executor_fn=executor, checker_fn=lambda p: False)
