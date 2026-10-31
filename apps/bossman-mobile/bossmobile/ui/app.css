@@ -602,6 +602,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
 .msg-files { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .msg-file-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
   background: var(--surface); border: 1px solid var(--line); font: 600 11px var(--mono); color: var(--text); }
+a.msg-file-pill { text-decoration: none; color: var(--accent); max-width: 100%; overflow-wrap: anywhere; }
+.agent-files { margin: 6px 0 2px; align-items: center; }
+.agent-files-label { font-size: 11px; color: var(--muted); margin-right: 2px; }
 .sc-row.clickable { cursor: pointer; border-radius: 8px; padding-left: 6px; padding-right: 6px; }
 .sc-row.clickable:active { background: var(--accent-soft); }
 

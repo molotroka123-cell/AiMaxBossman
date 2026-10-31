@@ -419,7 +419,8 @@ export function createComposer(ctx) {
       st.speech = { ok: Boolean(ok) && !unsupported, reason: unsupported || reason || 'Распознавание речи не настроено' };
       renderMic();
     },
-    setMaxBytes(n) { if (Number.isFinite(Number(n)) && Number(n) > 0) st.maxBytes = Number(n); },
+    // 0 = no fixed cap (owner 31.10 «без ограничения»): only the server's free-disk reserve refuses
+    setMaxBytes(n) { if (Number(n) === 0) st.maxBytes = Infinity; else if (Number.isFinite(Number(n)) && Number(n) > 0) st.maxBytes = Number(n); },
     setNote,
     addFiles,
     takeInput() {

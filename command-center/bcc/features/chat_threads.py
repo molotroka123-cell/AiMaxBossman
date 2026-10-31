@@ -70,8 +70,15 @@ TASK_TITLE_CHARS = 80
 #: Как Session.add: в файл идёт filter_history_line(text)[:4000].
 TURN_TEXT_CHARS = 4000
 TEXT_MAX_CHARS = 20_000
-MAX_ATTACHMENTS = 8
-ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024
+MAX_ATTACHMENTS = 50
+#: Owner 31.10 «присылать файлы без ограничения, как Claude/ChatGPT»: no fixed size cap (0); the only floor is the
+#: free disk — an upload never leaves less than ATTACHMENT_DISK_RESERVE_BYTES on the data drive. An env value > 0 sets a cap.
+ATTACHMENT_MAX_BYTES = int(os.environ.get("BCC_CHAT_ATTACHMENT_MAX_BYTES") or 0)
+ATTACHMENT_DISK_RESERVE_BYTES = 2 * 1024 ** 3
+#: Bigger files are stored and downloadable as-is; text/doc extraction and vision run only up to this size.
+ATTACHMENT_ANALYZE_MAX_BYTES = 64 * 1024 * 1024
+#: Files an agent handed to the owner (`chat.share_file`), per task: <data_dir>/chat/agent-files/<task_id>.json
+AGENT_FILES_DIR = "agent-files"
 IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif"})
 PHOTO_EDIT_TOOL = "photo.edit"   # bcc.features.tools_photo_edit
 ATTACHMENT_TEXT_CHARS = 40_000
@@ -1019,8 +1026,11 @@ def _read_attachment_meta(svc: Any, attachment_id: str) -> dict:
 
 
 def _attachment_public(meta: dict) -> dict:
-    return {k: meta.get(k) for k in ("id", "name", "size", "mime", "kind", "sha256", "text_chars",
-                                     "thread_id", "created_at")}
+    out = {k: meta.get(k) for k in ("id", "name", "size", "mime", "kind", "sha256", "text_chars",
+                                    "thread_id", "created_at")}
+    if meta.get("origin"):
+        out.update(origin=meta["origin"], note=meta.get("note") or "")
+    return out
 
 
 def _resolve_attachments(svc: Any, ids: list[str], thread_id: str) -> list[dict]:
@@ -1219,6 +1229,9 @@ async def get_thread(thread_id: str, request: Request):
                 "run": view["run"] if view else None}
         if isinstance(turn.get("attachments"), list):
             item["attachments"] = [a for a in turn["attachments"] if isinstance(a, dict)]
+        files = await asyncio.to_thread(_agent_files, svc, int(turn["task_id"]))
+        if files:
+            item["files"] = files          # what the agent handed over with chat.share_file — downloadable
         if _is_note(turn):
             item.update(kind=NOTE_KIND, note=turn["note"])
         items.append(item)
@@ -1624,6 +1637,9 @@ def _classify(path: Path, name: str, declared: str | None) -> tuple[str, str, in
             and declared != "application/octet-stream":
         mime = declared
     mime = mime or "application/octet-stream"
+    with contextlib.suppress(OSError):
+        if path.stat().st_size > ATTACHMENT_ANALYZE_MAX_BYTES:
+            return "binary", mime, None     # stored and downloadable; too big to read into the model's context
     if ext in TEXT_EXTENSIONS or mime.startswith("text/"):
         chars = _utf8_chars(path)
         if chars is not None:
@@ -1645,6 +1661,85 @@ def _classify(path: Path, name: str, declared: str | None) -> tuple[str, str, in
 def _too_large() -> HTTPException:
     limit_mib = ATTACHMENT_MAX_BYTES / (1024 * 1024)
     return _fail(413, f"Максимальный размер вложения — {limit_mib:g} МиБ", code="CHAT_ATTACHMENT_TOO_LARGE")
+
+
+def _disk_full() -> HTTPException:
+    reserve_gib = ATTACHMENT_DISK_RESERVE_BYTES / 1024 ** 3
+    return _fail(507, f"на диске Bossman не хватает места: после файла осталось бы меньше {reserve_gib:g} ГиБ",
+                 code="CHAT_ATTACHMENT_DISK_FULL", hint="освободите место на диске и пришлите файл снова")
+
+
+def _upload_budget(root: Path) -> int:
+    """Bytes one upload may take: the fixed cap if set, else free disk minus the reserve."""
+    import shutil
+    room = shutil.disk_usage(root).free - ATTACHMENT_DISK_RESERVE_BYTES
+    return min(room, ATTACHMENT_MAX_BYTES) if ATTACHMENT_MAX_BYTES > 0 else room
+
+
+def _over_budget(size: int, budget: int) -> HTTPException:
+    return _too_large() if 0 < ATTACHMENT_MAX_BYTES < size else _disk_full()
+
+
+def _store_attachment_meta(svc: Any, folder: Path, target: Path, *, attachment_id: str, name: str, size: int,
+                           sha: str, thread_id: str | None, declared: str | None, extra: dict | None = None) -> dict:
+    kind, mime, text_chars = _classify(target, name, declared)
+    meta = {"id": attachment_id, "name": name, "size": size, "mime": mime, "kind": kind, "sha256": sha,
+            "text_chars": text_chars, "thread_id": thread_id, "created_at": _iso(time.time()), **(extra or {})}
+    _write_json_atomic(folder / "meta.json", meta)
+    return meta
+
+
+def share_file_into_chat(svc: Any, src: Path, *, task_id: int, note: str = "") -> dict:
+    """`chat.share_file`: copy a file the agent made into chat attachments so the owner can download it from the
+    pult/window, and list it under the agent's turn. A hard link when on the same drive, else a copy. Sync — call in a thread."""
+    import shutil
+    src = Path(src).resolve()
+    size = src.stat().st_size
+    root = _attachments_dir(svc)
+    root.mkdir(parents=True, exist_ok=True)
+    if size > _upload_budget(root):
+        raise _over_budget(size, _upload_budget(root))
+    digest = hashlib.sha256()
+    with open(src, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    sha = digest.hexdigest()
+    attachment_id = sha[:16] + secrets.token_hex(3)
+    folder = _attachment_folder(svc, attachment_id)
+    folder.mkdir(parents=True, exist_ok=False)
+    name = safe_filename(src.name)
+    target = folder / name
+    try:
+        os.link(src, target)
+    except OSError:
+        shutil.copyfile(src, target)
+    meta = _store_attachment_meta(svc, folder, target, attachment_id=attachment_id, name=name, size=size, sha=sha,
+                                  thread_id=None, declared=None,
+                                  extra={"origin": "agent", "task_id": int(task_id), "note": note[:300]})
+    index = root.parent / AGENT_FILES_DIR / f"{int(task_id)}.json"
+    index.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        ids = json.loads(index.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        ids = []
+    ids = [i for i in ids if isinstance(i, str)] + [attachment_id]
+    _write_json_atomic(index, ids)
+    return _attachment_public(meta)
+
+
+def _agent_files(svc: Any, task_id: int) -> list[dict]:
+    index = _attachments_dir(svc).parent / AGENT_FILES_DIR / f"{int(task_id)}.json"
+    if not index.is_file():
+        return []
+    out = []
+    try:
+        ids = json.loads(index.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    for attachment_id in ids if isinstance(ids, list) else []:
+        with contextlib.suppress(HTTPException):
+            out.append(_attachment_public(_read_attachment_meta(svc, str(attachment_id))))
+    return out
 
 
 
@@ -1688,10 +1783,15 @@ async def upload_attachment(request: Request, filename: str | None = Query(defau
             declared_size = int(length)
         except ValueError:
             raise _fail(400, "некорректный размер файла", code="CHAT_ATTACHMENT_BAD_LENGTH") from None
-        if declared_size < 0 or declared_size > ATTACHMENT_MAX_BYTES:
-            raise _too_large()
+        if declared_size < 0:
+            raise _fail(400, "некорректный размер файла", code="CHAT_ATTACHMENT_BAD_LENGTH")
+    else:
+        declared_size = 0
     root = _attachments_dir(svc)
     root.mkdir(parents=True, exist_ok=True)
+    budget = _upload_budget(root)
+    if declared_size > budget:
+        raise _over_budget(declared_size, budget)
     part = root / f".upload-{secrets.token_hex(8)}.part"
     digest = hashlib.sha256()
     size = 0
@@ -1699,8 +1799,8 @@ async def upload_attachment(request: Request, filename: str | None = Query(defau
         with open(part, "wb") as fh:
             if json_bytes is not None:
                 size = len(json_bytes)
-                if size > ATTACHMENT_MAX_BYTES:
-                    raise _too_large()
+                if size > budget:
+                    raise _over_budget(size, budget)
                 digest.update(json_bytes)
                 fh.write(json_bytes)
             else:
@@ -1708,8 +1808,8 @@ async def upload_attachment(request: Request, filename: str | None = Query(defau
                     if not chunk:
                         continue
                     size += len(chunk)
-                    if size > ATTACHMENT_MAX_BYTES:
-                        raise _too_large()
+                    if size > budget:
+                        raise _over_budget(size, budget)
                     digest.update(chunk)
                     fh.write(chunk)
         if size == 0:
@@ -1739,6 +1839,26 @@ async def upload_attachment(request: Request, filename: str | None = Query(defau
 async def get_attachment(attachment_id: str, request: Request):
     """Метаданные вложения. Содержимое файла этот маршрут не отдаёт."""
     return _attachment_public(_read_attachment_meta(_svc(request), attachment_id))
+
+
+@router.get("/chat/attachments/{attachment_id}/file")
+async def download_attachment(attachment_id: str, request: Request, inline: bool = False):
+    """Содержимое вложения — скачать (owner 31.10 «возможность скачать»): файл владельца или файл, который агент
+    отдал через `chat.share_file`. Отдаётся потоком (Range поддерживается), имя — исходное."""
+    from fastapi.responses import FileResponse
+    svc = _svc(request)
+    meta = _read_attachment_meta(svc, attachment_id)
+    folder = _attachment_folder(svc, attachment_id)
+    path = folder / str(meta.get("name") or "")
+    if not meta.get("name") or path.resolve().parent != folder.resolve() or not path.is_file():
+        raise _fail(404, f"файл вложения «{meta.get('name')}» пропал", code="CHAT_ATTACHMENT_NOT_FOUND")
+    mime = str(meta.get("mime") or "application/octet-stream")
+    # inline only for types a browser shows without running them (no html/svg: they would execute in our origin)
+    safe_inline = inline and (mime.startswith(("image/", "video/", "audio/")) and mime != "image/svg+xml"
+                              or mime in ("application/pdf", "text/plain"))
+    return FileResponse(path, media_type=mime, filename=str(meta["name"]),
+                        content_disposition_type="inline" if safe_inline else "attachment",
+                        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600"})
 
 
 # ======================================================================

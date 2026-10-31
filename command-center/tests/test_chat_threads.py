@@ -369,7 +369,7 @@ async def _upload(env, filename: str, content, **params):
 
 
 async def test_attachment_size_limit_is_enforced_while_streaming(env, monkeypatch):
-    assert ct.ATTACHMENT_MAX_BYTES == 20 * 1024 * 1024
+    assert ct.ATTACHMENT_MAX_BYTES == 0, "owner 31.10: no fixed cap, only the free-disk reserve"
     monkeypatch.setattr(ct, "ATTACHMENT_MAX_BYTES", 1024)
     root = env.settings.data_dir / "chat" / "attachments"
     ok = await _upload(env, "a.txt", b"x" * 1024)
@@ -562,7 +562,7 @@ async def test_options_on_a_fresh_install(env, monkeypatch):
     assert body["memory"] == {"configured": False, "recall_enabled": True}
     assert body["search"] == {"enabled": False}
     limits = body["limits"]
-    assert limits["attachment_max_bytes"] == 20 * 1024 * 1024 and limits["attachment_text_chars"] == 40000
+    assert limits["attachment_max_bytes"] == 0 and limits["attachment_text_chars"] == 40000
     assert limits["prompt_max_chars"] == 64000 and limits["context_turns"] == 3 and limits["context_chars"] == 1500
     assert body["unavailable"] == {}
     await env.client.get("/api/chat/options")

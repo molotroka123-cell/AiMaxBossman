@@ -773,14 +773,35 @@
     const m = el('div', 'msg user'); const bub = el('div', 'bubble');
     if (Array.isArray(files) && files.length) {
       const strip = el('div', 'msg-files');
-      files.forEach((f) => {
-        const pill = el('span', 'msg-file-pill', `📎 ${f.name || f.id || 'файл'}`);
-        strip.appendChild(pill);
-      });
+      files.forEach((f) => strip.appendChild(filePill(f)));
       bub.appendChild(strip);
     }
     bub.appendChild(document.createTextNode(text || ''));
     m.appendChild(bub); msgs.appendChild(m); autoScroll(true); return m;
+  }
+  /* Owner 31.10 «как у тебя и чата гпт: присылать файлы без ограничения и скачивать»: every chat file is a link that
+     downloads it (the owner's own upload or a file the agent handed over with chat.share_file). */
+  function filePill(f) {
+    const label = `📎 ${f.name || f.id || 'файл'}${f.size ? ' · ' + fmtBytes(f.size) : ''}`;
+    if (!f.id) return el('span', 'msg-file-pill', label);
+    const a = el('a', 'msg-file-pill', label); a.href = `/m/api/chat/attachments/${encodeURIComponent(f.id)}/file`;
+    a.setAttribute('download', f.name || ''); a.setAttribute('aria-label', `Скачать ${f.name || 'файл'}`);
+    return a;
+  }
+  function showAgentFiles(b, files) {
+    if (!Array.isArray(files) || !files.length) return;
+    if (b.filesRow) b.filesRow.remove();
+    const row = el('div', 'msg-files agent-files'); row.appendChild(el('span', 'agent-files-label', 'Файлы от Bossman:'));
+    files.forEach((f) => row.appendChild(filePill(f)));
+    b.m.insertBefore(row, b.meta); b.filesRow = row;
+  }
+  async function loadAgentFiles(b, taskId) {
+    if (!S.threadId || !taskId) return;
+    try {
+      const t = await api('GET', `/threads/${encodeURIComponent(S.threadId)}`);
+      const turn = (t.turns || []).find((x) => Number(x.task_id) === Number(taskId));
+      if (turn) showAgentFiles(b, turn.files);
+    } catch { /* files are optional; the answer is already shown */ }
   }
   function addBot(prompt) {
     $('chat-empty').hidden = true;
@@ -971,6 +992,7 @@
         if (b.photo) { b.text = turn.result || ''; restorePhotoTurn(b, turn); continue; }
         if (turn.result) { b.text = turn.result; rich(b.ans, turn.result); } else if (turn.failure_summary || turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.failure_summary || turn.error; }
         b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
+        showAgentFiles(b, turn.files);
         if (turn.result) msgActions(b);
         if (turns.indexOf(turn) >= turns.length - 6) {
           api('GET', `/tasks/${turn.task_id}/history`).then((h) => (h.events || []).forEach((ev) => { if (ev.kind.startsWith('run.tool') || ev.kind.startsWith('approval') || ev.kind === 'tool.denied') applyEvent(b, ev, false); })).catch(() => {});
@@ -1117,7 +1139,7 @@
       const chip = el('div', 'chat-file-chip');
       const ic = icon('clip'); ic.setAttribute('aria-hidden', 'true');
       const nm = el('span', 'chat-file-name', f.name || f.id);
-      const kb = f.size ? `${Math.max(1, Math.round(f.size / 1024))} КБ` : (f.busy ? 'загрузка…' : '');
+      const kb = f.busy ? `загрузка ${f.pct || 0}%` : (f.size ? fmtBytes(f.size) : '');
       const meta = el('span', 'chat-file-meta', kb);
       const rm = el('button', 'chat-file-rm'); rm.type = 'button'; rm.setAttribute('aria-label', `Убрать файл ${f.name || ''}`);
       const rmi = icon('close'); rmi.setAttribute('aria-hidden', 'true'); rm.appendChild(rmi);
@@ -1128,29 +1150,34 @@
       box.appendChild(chip);
     });
   }
-  function fileToRawB64(file) {
+  const CHAT_MAX_FILES = 50;
+  /* The file goes as a raw stream (no base64, no size cap: Bossman refuses only if the PC disk would run out). */
+  function uploadChatFile(file, onUp) {
+    const q = new URLSearchParams({ filename: file.name || 'file' }); if (S.threadId) q.set('thread_id', S.threadId);
     return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => {
-        const s = String(r.result || '');
-        const i = s.indexOf(',');
-        resolve(i >= 0 ? s.slice(i + 1) : s);
+      const x = new XMLHttpRequest(); x.open('POST', '/m/api/chat/upload?' + q.toString()); x.withCredentials = true;
+      x.setRequestHeader('X-BM-CSRF', S.csrf); x.setRequestHeader('Accept', 'application/json');
+      x.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      if (onUp) x.upload.onprogress = (e) => { if (e.lengthComputable) onUp(e.loaded / e.total); };
+      x.onerror = () => reject(new ApiError(0, { detail: { message: 'нет связи с ПК' } }));
+      x.onload = () => {
+        let data = null; try { data = JSON.parse(x.responseText); } catch { /* */ }
+        if (x.status === 401) { showLogin(); reject(new ApiError(401, data)); return; }
+        if (x.status < 200 || x.status >= 300) { reject(new ApiError(x.status, data)); return; }
+        resolve(data);
       };
-      r.onerror = () => reject(new Error('Не удалось прочитать файл'));
-      r.readAsDataURL(file);
+      x.send(file);
     });
   }
   async function attachChatFiles(fileList) {
     const arr = Array.from(fileList || []);
     if (!arr.length) return;
     for (const file of arr) {
-      if ((S.chatFiles || []).length >= 8) { toast('Не больше 8 файлов в одном сообщении'); break; }
-      if (file.size > 8 * 1024 * 1024) { toast(`Файл ${file.name} больше 8 МБ`); continue; }
-      const slot = { id: '', name: file.name, size: file.size, busy: true };
+      if ((S.chatFiles || []).length >= CHAT_MAX_FILES) { toast(`Не больше ${CHAT_MAX_FILES} файлов в одном сообщении`); break; }
+      const slot = { id: '', name: file.name, size: file.size, busy: true, pct: 0 };
       S.chatFiles.push(slot); renderChatFiles();
       try {
-        const b64 = await fileToRawB64(file);
-        const res = await api('POST', '/chat/attachments', { name: file.name, data_b64: b64, thread_id: S.threadId || undefined });
+        const res = await uploadChatFile(file, (p) => { slot.pct = Math.round(p * 100); renderChatFiles(); });
         const att = (res && res.attachment) || {};
         if (!att.id) throw new Error('Сервер не вернул ID вложения');
         slot.id = att.id; slot.name = att.name || file.name; slot.size = att.size || file.size; slot.busy = false;
@@ -1309,6 +1336,7 @@
     const total = b.t0 ? (performance.now() - b.t0) / 1000 : null; const first = b.first && b.t0 ? (b.first - b.t0) / 1000 : null;
     b.meta.replaceChildren(el('span', 'badge-local', 'локально'), el('span', '', [b.model, taskId ? `#${taskId}` : '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
     if (b.photo) photoAfterPrompt(b, status, error); else if (b.text) msgActions(b);
+    if (!b.photo) loadAgentFiles(b, taskId || b.taskId);
     loadThreads(); autoScroll(); refreshContext().catch(() => {}); refreshCost();
   }
 

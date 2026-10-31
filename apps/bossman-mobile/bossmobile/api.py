@@ -76,6 +76,9 @@ class DeleteForeverIn(BaseModel):
 
 
 CHAT_ATTACH_MAX_BYTES = 8 * 1024 * 1024
+#: Owner 31.10 «без ограничения»: files go through POST /m/api/chat/upload as a raw stream (no base64, no size cap here -
+#: Bossman keeps only a free-disk reserve). The JSON/base64 route above stays for old app builds.
+CHAT_ATTACH_MAX_FILES = 50
 CHAT_ATTACH_SUFFIXES = (
     ".txt", ".md", ".markdown", ".json", ".jsonl", ".yaml", ".yml", ".toml", ".ini", ".cfg",
     ".csv", ".tsv", ".log", ".py", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".html", ".css",
@@ -88,7 +91,7 @@ class SendIn(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
     agent_id: int | None = None
     client_request_id: str | None = Field(default=None, min_length=8, max_length=128, pattern=REQ_ID)
-    attachments: list[str] = Field(default_factory=list, max_length=8)
+    attachments: list[str] = Field(default_factory=list, max_length=CHAT_ATTACH_MAX_FILES)
 
 
 AGENT_MODES = ("CHAT", "AGENT", "AUTO", "CODE", "COMPUTER", "SELF-IMPROVE")
@@ -103,7 +106,7 @@ class AgentMessageIn(BaseModel):
     mode: Literal["CHAT", "AGENT", "AUTO", "CODE", "COMPUTER", "SELF-IMPROVE"]
     agent_id: int
     client_request_id: str | None = Field(default=None, min_length=8, max_length=128, pattern=REQ_ID)
-    attachments: list[str] = Field(default_factory=list, max_length=8)
+    attachments: list[str] = Field(default_factory=list, max_length=CHAT_ATTACH_MAX_FILES)
 
 
 # Repo root of the checkout this pult runs from (apps/bossman-mobile/bossmobile/api.py -> repo). The web terminal used
@@ -730,7 +733,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if body.client_request_id:
             payload["client_request_id"] = body.client_request_id
         if body.attachments:
-            payload["attachments"] = [str(a)[:64] for a in body.attachments[:8] if str(a).strip()]
+            payload["attachments"] = [str(a)[:64] for a in body.attachments[:CHAT_ATTACH_MAX_FILES] if str(a).strip()]
         return await call("POST", f"/api/chat/threads/{tid}/send", json=payload, timeout=120)
 
     @app.post("/m/api/speech/transcribe")
@@ -779,6 +782,67 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         att = res.get("attachment") if isinstance(res, dict) and isinstance(res.get("attachment"), dict) else (res if isinstance(res, dict) else {})
         keep = ("id", "name", "kind", "mime", "size", "sha256", "text_chars", "created_at")
         return {"ok": True, "attachment": {k: att.get(k) for k in keep if k in att}}
+
+    @app.post("/m/api/chat/upload", status_code=201)
+    async def chat_upload_stream(request: Request, filename: str, thread_id: str | None = None, _=Depends(session)):
+        """Any file, any size (owner 31.10 «как у тебя и чата гпт … без ограничения»): the body is streamed to Bossman
+        as it arrives - nothing is buffered here, no base64. Bossman refuses only when the disk would run out."""
+        name = filename.strip()[:255]
+        if not name:
+            raise fail(422, "не указано имя файла", "BM_CHAT_ATTACH_NAME")
+        params: dict[str, Any] = {"filename": name}
+        if thread_id:
+            params["thread_id"] = _tid(thread_id)
+        hdrs = {"content-type": request.headers.get("content-type") or "application/octet-stream"}
+        if request.headers.get("content-length", "").isdigit():
+            hdrs["content-length"] = request.headers["content-length"]
+        try:
+            r = await bm.send("POST", "/api/chat/attachments", params=params, content=request.stream(), headers=hdrs,
+                              timeout=httpx.Timeout(60, read=3600, write=3600))
+        except BossmanUnavailable as exc:
+            raise fail(502, str(exc), "BOSSMAN_UNAVAILABLE") from None
+        try:
+            res = r.json()
+        except ValueError:
+            res = {}
+        if r.status_code >= 400:
+            err = (res.get("error") or res.get("detail") or {}) if isinstance(res, dict) else {}
+            msg = err.get("message") if isinstance(err, dict) else str(err)
+            raise fail(r.status_code, msg or "файл не принят", (err.get("code") if isinstance(err, dict) else None) or "BM_UPLOAD")
+        att = res.get("attachment") if isinstance(res, dict) and isinstance(res.get("attachment"), dict) else res
+        keep = ("id", "name", "kind", "mime", "size", "sha256", "text_chars", "created_at")
+        return {"ok": True, "attachment": {k: att.get(k) for k in keep if k in att}}
+
+    @app.get("/m/api/chat/attachments/{attachment_id}/file")
+    async def chat_attachment_file(attachment_id: str, request: Request, inline: bool = False, _=Depends(session)):
+        """Download a chat file - the owner's own or one the agent handed over (chat.share_file). Streamed, Range kept."""
+        if not re.fullmatch(r"[0-9a-f]{22}", attachment_id):
+            raise fail(404, "файл не найден", "BM_NOT_FOUND")
+        rng = request.headers.get("range", "")
+        hdrs = {"range": rng} if re.fullmatch(r"bytes=\d*-\d*", rng) else None
+        try:
+            r = await bm.send("GET", f"/api/chat/attachments/{attachment_id}/file", params={"inline": "true"} if inline else None,
+                              headers=hdrs, stream=True, timeout=httpx.Timeout(60, read=3600))
+        except BossmanUnavailable as exc:
+            raise fail(502, str(exc), "BOSSMAN_UNAVAILABLE") from None
+        if r.status_code not in (200, 206):
+            await r.aread()
+            await r.aclose()
+            raise fail(404 if r.status_code == 404 else r.status_code, "файл недоступен", "BM_NOT_FOUND")
+        out = {"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff", "Accept-Ranges": "bytes"}
+        for k in ("content-disposition", "content-range", "content-length"):
+            if r.headers.get(k):
+                out[k] = r.headers[k]
+
+        async def gen():
+            try:
+                async for chunk in r.aiter_bytes():
+                    yield chunk
+            finally:
+                await r.aclose()
+
+        return StreamingResponse(gen(), status_code=r.status_code,
+                                 media_type=r.headers.get("content-type", "application/octet-stream"), headers=out)
 
     @app.post("/m/api/chat/unload")
     async def chat_unload(body: UnloadIn, _=Depends(session)):
@@ -1902,7 +1966,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if body.client_request_id:
             payload["client_request_id"] = body.client_request_id
         if body.attachments:
-            payload["attachments"] = [str(a)[:64] for a in body.attachments[:8] if str(a).strip()]
+            payload["attachments"] = [str(a)[:64] for a in body.attachments[:CHAT_ATTACH_MAX_FILES] if str(a).strip()]
         return await call("POST", f"/api/agent/sessions/{tid}/messages", json=payload, timeout=180)
 
     @app.get("/m/api/agent/sessions/{session_id}/cost")
