@@ -1265,6 +1265,79 @@ async def _before_run(svc):
     return before_run
 
 
+# ----------------------------------------------------------------- D-036: ungrounded_screen_claim
+
+OBSERVE_TOOLS: frozenset[str] = frozenset({
+    "computer.observe",
+    "pc.screenshot",
+    "pc.record_screen",
+    "pc.list_windows",
+    "browser.screenshot",
+    "browser.read_dom",
+    "browser.active_tab_info",
+})
+
+_SCREEN_DENIAL_OR_HEDGE_RE = re.compile(
+    r"(?:"
+    r"\bне\s+(?:вижу|видел\w*|смотрел\w*|могу\s+(?:увидеть|посмотреть))\b"
+    r"|\b(?:сначала\s+)?нужно\s+(?:вызвать|сделать\s+скриншот|посмотреть)\b"
+    r"|\bмогу\s+посмотреть\b"
+    r"|\bесли\s+разрешите\b"
+    r"|\bинструмент\s+наблюдения\s+не\s+вызывался\b"
+    r"|\b(?:can't|cannot|do\s+not|don't|did\s+not|didn't)\s+(?:see|look)\b"
+    r"|\bwithout\s+(?:taking\s+a\s+screenshot|observing|looking)\b"
+    r")",
+    re.I | re.U,
+)
+
+_SCREEN_CLAIM_RE = re.compile(
+    r"(?:"
+    r"\bна\s+(?:экране|скриншоте|снимке\s+экрана)\s+(?:я\s+)?(?:вижу|видно|отобража\w+|открыт\w*|показан\w*)\b"
+    r"|\b(?:я\s+)?(?:вижу|увидел\w*|посмотрел\w*|глянул\w*)\s+на\s+(?:экран\w*|скриншот\w*)\b"
+    r"|\bвижу\s+на\s+(?:экране|скриншоте)\b"
+    r"|\b(?:i\s+(?:can\s+)?see|i\s+looked\s+at)\s+(?:on\s+)?(?:the|your)\s+(?:screen|screenshot)\b"
+    r"|\b(?:the|your)\s+(?:screen|screenshot)\s+(?:shows|displays)\b"
+    r"|\bon\s+(?:the|your)\s+(?:screen|screenshot)\s+i\s+(?:can\s+)?see\b"
+    r")",
+    re.I | re.U,
+)
+
+
+def ungrounded_screen_claim(answer: str, tools_called: object = ()) -> bool:
+    """D-036 guard: True when ``answer`` asserts first-hand sight of the screen or a screenshot
+    while none of ``tools_called`` is a visual/DOM observation tool."""
+    if not isinstance(answer, str) or not answer.strip():
+        return False
+    called: set[str] = set()
+    if isinstance(tools_called, (list, tuple, set, frozenset)):
+        for item in tools_called:
+            if isinstance(item, str) and item.strip():
+                called.add(item.strip())
+    if called & OBSERVE_TOOLS:
+        return False
+    # Strip quoted lines (`> ...`) so quoting the owner's prompt is not flagged
+    unquoted_lines = [
+        ln for ln in answer.splitlines()
+        if not ln.lstrip().startswith(">")
+    ]
+    text = "\n".join(unquoted_lines).strip()
+    if not text:
+        return False
+    if _SCREEN_DENIAL_OR_HEDGE_RE.search(text):
+        return False
+    return bool(_SCREEN_CLAIM_RE.search(text))
+
+
+async def _executed_tool_names(svc, run_id: int) -> list[str]:
+    async with svc.db.session() as s:
+        rows = (await s.execute(
+            sa.select(tool_calls_t.c.tool)
+            .where(tool_calls_t.c.run_id == run_id)
+            .where(tool_calls_t.c.status.in_(("ok", "executed", "completed", "success", "done")))
+        )).all()
+    return [str(r[0]) for r in rows if r and r[0]]
+
+
 # ----------------------------------------------------------------- gate_completion
 
 async def _gate(svc):
@@ -1278,6 +1351,19 @@ async def _gate(svc):
                 if attempts == 0:
                     await _bump_attempts(svc, task["id"], meta)
                     return _verdict("FAIL", rule=str(policy["rule"]), requeue=True, feedback=policy_feedback)
+
+        executed_tools = await _executed_tool_names(svc, run_id)
+        if ungrounded_screen_claim(str(answer or ""), executed_tools):
+            attempts, meta = await _attempts(svc, task["id"])
+            feedback = (
+                "Ответ утверждает, что ты видишь экран или скриншот, но ни один инструмент наблюдения "
+                "(computer.observe, pc.screenshot, browser.screenshot, browser.read_dom и др.) не вызывался. "
+                "Сначала вызови инструмент наблюдения или честно скажи, что не смотрел на экран."
+            )
+            if attempts == 0:
+                await _bump_attempts(svc, task["id"], meta)
+                return _verdict("FAIL", rule="ungrounded_screen_claim", requeue=True, feedback=feedback)
+            return _verdict("FAIL", rule="ungrounded_screen_claim", requeue=False, status="failed", feedback=feedback)
 
         caps = classify_all(prompt_text)
         if not caps:

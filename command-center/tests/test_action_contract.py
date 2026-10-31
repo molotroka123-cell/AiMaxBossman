@@ -920,3 +920,58 @@ def test_real_schedule_requests_are_still_caught():
                    "Поставь на автомат ежедневную сводку"):
         got = ac.classify(prompt)
         assert got is not None and got.name == "SCHEDULES_ACTION", prompt
+
+
+# ----------------------------------------------------------------- D-036: ungrounded_screen_claim
+
+@pytest.mark.parametrize("claim", [
+    "На экране я вижу окно Блокнота с текстом.",
+    "Я посмотрел на экран: открыт Chrome с вкладкой Пульта.",
+    "Вижу на экране три окна, активно окно терминала.",
+    "На скриншоте видно диалог установки.",
+    "I can see on the screen a Notepad window.",
+    "The screen shows a browser with the Pult open.",
+    "I looked at your screen and the terminal is open.",
+])
+def test_d036_ungrounded_screen_claim_flagged_without_observe_tool(claim):
+    assert ac.ungrounded_screen_claim(claim, []) is True
+    assert ac.ungrounded_screen_claim(claim, ["terminal.run"]) is True
+    for obs in ac.OBSERVE_TOOLS:
+        assert ac.ungrounded_screen_claim(claim, ["terminal.run", obs]) is False
+
+
+@pytest.mark.parametrize("safe_answer", [
+    "Готово, файл сохранён.",
+    "Я не вижу экран: инструмент наблюдения не вызывался.",
+    "Не смотрел на экран, сначала нужно вызвать observe.",
+    "I can't see the screen without taking a screenshot first.",
+    "Могу посмотреть экран, если разрешите.",
+    "> На экране я вижу окно Блокнота\nСначала вызову computer.observe.",
+    "",
+])
+def test_d036_denials_hedges_and_quotes_not_flagged(safe_answer):
+    assert ac.ungrounded_screen_claim(safe_answer, []) is False
+    for bad in (None, 42, b"bytes", ["x"]):
+        assert ac.ungrounded_screen_claim(bad, None) is False
+
+
+async def test_d036_gate_blocks_ungrounded_screen_claim_and_allows_grounded(env):
+    stack = await make_stack(env.client, prompt="Что сейчас на экране?", max_steps=4)
+    async with env.svc.db.session() as s:
+        task = dict((await s.execute(sa.select(dbm.tasks).where(
+            dbm.tasks.c.id == stack["task"]["id"]))).first()._mapping)
+        run = dict((await s.execute(sa.select(dbm.task_runs).where(
+            dbm.task_runs.c.task_id == stack["task"]["id"]))).first()._mapping)
+
+    gate = await ac._gate(env.svc)
+    v1 = await gate(task, run["id"], "На экране я вижу окно Блокнота с текстом.")
+    assert v1["verdict"] == "FAIL"
+    assert v1["reasons"] == "action_contract/ungrounded_screen_claim"
+    assert v1.get("requeue") is True
+
+    task["meta"] = await ac._meta(env.svc, task["id"])
+    v2 = await gate(task, run["id"], "На экране я вижу окно Блокнота с текстом.")
+    assert v2["verdict"] == "FAIL"
+    assert v2["reasons"] == "action_contract/ungrounded_screen_claim"
+    assert v2.get("requeue") is False
+

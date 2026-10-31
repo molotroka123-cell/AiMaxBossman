@@ -619,10 +619,25 @@ def _mobile_health(port: int = 8840) -> dict[str, Any] | None:
 def status(data_dir: Path, companion_config: Path | None, mobile_port: int = 8840) -> dict[str, Any]:
     data_dir = Path(data_dir)
     holder = backend_holder(data_dir)
+    health_8801 = None
+    if holder and holder.get("port"):
+        health_8801 = _health(int(holder["port"]))
+    else:
+        health_8801 = _health(8801)
+        if health_8801:
+            with contextlib.suppress(Exception):
+                for proc in find_processes(data_dir):
+                    if proc.get("kind") == "backend":
+                        holder = {
+                            "pid": proc.get("pid"),
+                            "port": (proc.get("ports") or [8801])[0],
+                            "build_sha": health_8801.get("build_sha"),
+                        }
+                        break
     out: dict[str, Any] = {"data_dir": str(data_dir), "backend": holder,
                            "backend_pid_alive": bool(holder and holder.get("pid") and _pid_alive(int(holder["pid"])))}
-    if holder and holder.get("port"):
-        out["health"] = _health(int(holder["port"]))
+    if health_8801 is not None:
+        out["health"] = health_8801
     out["mobile"] = _mobile_health(mobile_port)
     out["jeff_poller_lock_held"] = lock_held(data_dir / PIT_HOME / "poller.lock")
     if companion_config:
@@ -759,12 +774,16 @@ def _same_path(a: str, b: Path) -> bool:
 
 def process_kind(line: str) -> str | None:
     """Which Bossman process a command line is (None: not one of ours)."""
-    if re.search(r"-m\s+bcc(\.app)?(\s|$)", line):
+    if re.search(r"-m\s+bcc(\.app|\.main)?(\s|$)", line) or re.search(r"uvicorn\s+bcc(\.main|\.app)?:(app|create_app)\b", line):
         return "backend"
     if "bcc.pit.cli" in line and re.search(r"\s(start|watch)(\s|$)", line):
         return "jeff"
     if "bcc.telegram_companion" in line:
         return "companion"
+    if "bcc.governor" in line:
+        return "governor"
+    if re.search(r"\bbossmobile(\.main|\.app)?:app\b", line) or re.search(r"-m\s+bossmobile\b", line):
+        return "mobile"
     if "bcc.desktop" in line or "bcc.jeff_desktop" in line:
         return "window"
     return None
@@ -784,7 +803,7 @@ def find_processes(data_dir: Path) -> list[dict[str, Any]]:
     """Every Bossman process that serves or polls ``data_dir`` (needs psutil: system Python).
 
     A backend is matched by its BCC_DATA_DIR (or the default root when unset and it is an
-    installed build), a Jeff/companion by ``--data-dir``/``--config`` on its command line."""
+    installed or source-checkout build), a Jeff/companion by ``--data-dir``/``--config`` on its command line."""
     import psutil  # noqa: PLC0415 — optional, only the system Python has it
     found = []
     for p in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
@@ -800,12 +819,15 @@ def find_processes(data_dir: Path) -> list[dict[str, Any]]:
         except (psutil.Error, OSError):
             env = {}
         mine = _same_path(env.get("BCC_DATA_DIR", ""), data_dir)
-        if not env.get("BCC_DATA_DIR") and "\\runtime\\python" in cmd[0].lower() and env.get("LOCALAPPDATA"):
-            # an installed build without BCC_DATA_DIR serves %LOCALAPPDATA%\Bossman\CommandCenter
-            mine = mine or _same_path(str(Path(env["LOCALAPPDATA"]) / "Bossman" / "CommandCenter"), data_dir)
         arg = data_dir_arg(cmd)
         if arg:
             mine = mine or _same_path(arg, data_dir)
+        if not env.get("BCC_DATA_DIR") and not arg:
+            local_app = env.get("LOCALAPPDATA") or os.environ.get("LOCALAPPDATA")
+            if local_app and kind in ("backend", "mobile", "governor", "companion"):
+                # Without an explicit BCC_DATA_DIR or --data-dir, bcc/bossmobile/governor/companion
+                # serve the default %LOCALAPPDATA%\Bossman\CommandCenter root.
+                mine = mine or _same_path(str(Path(local_app) / "Bossman" / "CommandCenter"), data_dir)
         if not mine:
             continue
         ports = []

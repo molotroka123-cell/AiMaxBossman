@@ -462,3 +462,26 @@ def test_limits_out_orchestra_preflight_and_cross_family_guard(tmp_path):
     )
     cf_diff = orch.cross_family_check(ev_diff)
     assert cf_diff["ok"] is True
+
+
+def test_process_kind_recognises_uvicorn_backend_mobile_and_governor():
+    assert ob.process_kind("python.exe -m uvicorn bcc.main:app --host 127.0.0.1 --port 8801") == "backend"
+    assert ob.process_kind("python.exe -m uvicorn bcc.app:create_app --factory --host 127.0.0.1 --port 8801") == "backend"
+    assert ob.process_kind("python.exe -m bcc --host 127.0.0.1 --port 8801") == "backend"
+    assert ob.process_kind("python.exe -m uvicorn bossmobile.main:app --host 127.0.0.1 --port 8840") == "mobile"
+    assert ob.process_kind("python.exe -m bossmobile --port 8840") == "mobile"
+    assert ob.process_kind("python.exe -m bcc.governor --config governor.json") == "governor"
+
+
+def test_status_falls_back_to_live_backend_process_when_backend_lock_absent(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "backend_holder", lambda d: None)
+    monkeypatch.setattr(ob, "_health", lambda port: {"alive": True, "build_sha": "8c3b479d" + "0" * 32, "source_identity": "PASS"})
+    monkeypatch.setattr(ob, "find_processes", lambda d: [{"pid": 14400, "kind": "backend", "ports": [8801]}])
+    monkeypatch.setattr(ob, "_pid_alive", lambda pid: pid == 14400)
+    monkeypatch.setattr(ob, "_mobile_health", lambda port: {"ok": True})
+
+    st = ob.status(tmp_path, None, mobile_port=8840)
+    assert st["backend"] == {"pid": 14400, "port": 8801, "build_sha": "8c3b479d" + "0" * 32}
+    assert st["backend_pid_alive"] is True
+    assert st["health"]["source_identity"] == "PASS"
+

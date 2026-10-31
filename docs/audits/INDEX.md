@@ -61,6 +61,7 @@
 | 2026-10-30 | [2026-10-30-weekly-research-benchmarks](2026-10-30-weekly-research-benchmarks/) | Защитные гейты по 4 исследованиям недели (AgentProofBench, CUA-Recovery, TimlMemBench, Data Minimization): юнит-гейты `PASS_UNIT` + живой агентный прогон `PASS_LIVE` (`task_id=816`) | `PASS_LIVE` |
 | 2026-10-30 | [2026-10-30-full-project-audit-and-ux](2026-10-30-full-project-audit-and-ux/) | Полный аудит проекта на 30.10.2026, интеграция Freefield Studio Apps (`app.json`), живые UX-скриншоты и отправка в пульт | `PASS` |
 | 2026-10-31 | [2026-10-31-security-autofull-long-horizon](2026-10-31-security-autofull-long-horizon/) | Закрытие 4 дыр безопасности (`1a–1d`), режим «Авто полный» с карточкой владельца, автостарт с `main`, сверка 4-ходового диалога Outrun, Long-Horizon `lh-20261031-autofull-v2` с памятью и отчётом 3/3 | `PASS` |
+| 2026-10-31 | [2026-10-31-main-bugfix-pass](2026-10-31-main-bugfix-pass/) | Закрытие багов `main` по ТЗ `B1–B4` без новых функций (`D-036` `ungrounded_screen_claim` 32/32 holdout, `owner_one_bossman.py find/status` для `uvicorn`/`:8801`/`:8840`, очистка устаревших моделей и `waiting_approval` в `bcc.db`) | `PASS` |
 | — | [astra-7b1377a](astra-7b1377a/) | Astra forensic audit | в JSON нет поля verdict — см. отчёт |
 
 ## Отдельные файлы

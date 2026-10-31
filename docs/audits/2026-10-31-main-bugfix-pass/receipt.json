@@ -1,0 +1,54 @@
+{
+  "schema": "bossman.audit.main_bugfix_pass.v1",
+  "date": "2026-10-31",
+  "verdict": "PASS",
+  "scope": "Zero new features — closure of 4 existing bugs on main (B1..B4)",
+  "bugs_closed": {
+    "B1_d036_ungrounded_screen_claim": {
+      "status": "PASS",
+      "file": "command-center/bcc/features/action_contract.py",
+      "holdout_script": "tools/tree_holdout/ungrounded_screen_claim.py",
+      "holdout_result": "32/32 passed",
+      "all_5_tree_holdouts": {
+        "atomic_json_replace.py": "10/10 passed",
+        "cli_task_paging.py": "7/7 passed",
+        "discovery_nonfinite.py": "72/72 passed",
+        "goal_budget_nonfinite.py": "9/9 passed",
+        "ungrounded_screen_claim.py": "32/32 passed",
+        "total": "130/130 passed"
+      }
+    },
+    "B2_owner_one_bossman_find_process_kind": {
+      "status": "PASS",
+      "file": "tools/owner_one_bossman.py",
+      "detail": "process_kind now matches uvicorn bcc(.main|.app)?:(app|create_app), bossmobile, and bcc.governor; find_processes matches default %LOCALAPPDATA%\\Bossman\\CommandCenter for source-checkout processes",
+      "live_find_count": 3,
+      "live_kinds_found": ["backend", "mobile", "companion"]
+    },
+    "B3_owner_one_bossman_status_uvicorn_fallback": {
+      "status": "PASS",
+      "file": "tools/owner_one_bossman.py",
+      "detail": "status() falls back to live :8801 /health/live + find_processes('backend') when backend.lock is absent under uvicorn",
+      "backend_pid_alive": true,
+      "source_identity": "PASS"
+    },
+    "B4_live_db_models_and_approvals_cleanup": {
+      "status": "PASS",
+      "agents_repointed": {
+        "9": {"name": "YT-FIX-LING-PATCH-ONLY", "before_model_id": 7, "after_model_id": 6},
+        "12": {"name": "YT-FIX-NEX-VERIFIER", "before_model_id": 5, "after_model_id": 6}
+      },
+      "models_pricing_fixed": {
+        "68": {"name": "z-ai/glm-5.3", "before": [0.0, 0.0], "after": [0.15, 0.5]},
+        "69": {"name": "z-ai/glm-5.3-flash", "before": [0.0, 0.0], "after": [0.15, 0.5]}
+      },
+      "orphaned_pending_approvals_closed": [334],
+      "remaining_pending_approvals": 0
+    }
+  },
+  "pytest": {
+    "command": "python -m pytest command-center/tests/test_action_contract.py -k d036 tests/test_owner_one_bossman.py -q",
+    "passed": 15,
+    "failed": 0
+  }
+}
