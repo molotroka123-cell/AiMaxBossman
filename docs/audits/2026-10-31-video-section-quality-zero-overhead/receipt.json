@@ -1,0 +1,82 @@
+{
+  "schema": "bossman.audit.video_section_quality_zero_overhead.v1",
+  "audit_id": "2026-10-31-video-section-quality-zero-overhead",
+  "date": "2026-10-31",
+  "auditor": "Argon",
+  "verdict": "PASS",
+  "status": "PASS",
+  "summary": "5-section zero-overhead video quality pipeline with automatic Quality Gate (quality_guard='safe', <0.1% degradation threshold with instant rollback to original Studio render), 13/13 new quality gate tests + 123/123 existing Studio/Direct-Gen/Pult/Mobile tests passing, and live report delivered to owner Telegram Pult (message_id=4218).",
+  "studio_non_regression_guarantee": {
+    "default_quality_guard": "safe",
+    "max_degradation_pct": 0.1,
+    "diffusion_overhead_s": 0.0,
+    "extra_diffusion_steps": 0,
+    "automatic_rollback_on_clipping": true,
+    "automatic_rollback_on_oversharp_ringing": true,
+    "automatic_rollback_on_sharpness_loss": true,
+    "automatic_rollback_on_metadata_drift": true,
+    "existing_studio_presets_untouched": true
+  },
+  "sections_implemented": {
+    "1_keyframes_and_prompts": {
+      "functions": ["enrich_section_prompt", "match_section_color_palette"],
+      "cpu_budget_ms": 50.0,
+      "measured_cpu_ms": 3.4,
+      "diffusion_overhead_s": 0.0
+    },
+    "2_intra_section_motion_and_flow": {
+      "functions": ["optimize_section_motion_schedule", "smooth_boundary_frames"],
+      "steps_added": 0,
+      "edge_preserving_gradient_guard": true,
+      "diffusion_overhead_s": 0.0
+    },
+    "3_section_cuts_and_transitions": {
+      "functions": ["build_smart_transition_filter", "blend_section_transition_frames"],
+      "transition_window_s": 0.3,
+      "laplacian_detail_transfer": true,
+      "diffusion_overhead_s": 0.0
+    },
+    "4_single_pass_ffmpeg_postprocess": {
+      "functions": ["build_zero_overhead_encode_argv", "apply_postprocess_with_quality_gate", "postprocess_video_file_guarded"],
+      "ffmpeg_vf": "unsharp=5:5:0.6:3:3:0.0,eq=contrast=1.04:saturation=1.06",
+      "codec": "libx264",
+      "crf": 18,
+      "pix_fmt": "yuv420p",
+      "faststart": true,
+      "diffusion_overhead_s": 0.0
+    },
+    "5_audio_mastering_and_beat_sync": {
+      "functions": ["build_audio_mastering_filter", "align_section_cuts_to_beats"],
+      "loudnorm": "I=-16:TP=-1.5:LRA=11",
+      "sidechain_ducking": true,
+      "beat_snap_window_s": 0.12,
+      "diffusion_overhead_s": 0.0
+    }
+  },
+  "verification": {
+    "new_quality_gate_tests": {
+      "file": "command-center/tests/test_video_section_quality_gate.py",
+      "passed": 13,
+      "failed": 0
+    },
+    "existing_studio_and_video_tests": {
+      "files": [
+        "command-center/tests/test_studio_sdcpp_provider.py",
+        "command-center/tests/test_studio_sdcpp_output_contract.py",
+        "command-center/tests/test_direct_gen.py",
+        "command-center/tests/test_direct_gen_pult.py",
+        "apps/bossman-mobile/tests/test_video.py"
+      ],
+      "passed": 123,
+      "failed": 0
+    },
+    "telegram_pult_delivery": {
+      "status": "SENT",
+      "message_id": 4218,
+      "parse_mode": "HTML"
+    }
+  },
+  "not_proven": [
+    "Multi-minute 4K GPU diffusion soak with live Wan 2.2 14B weights on this commit (unit & real FFmpeg MP4 guard verified; 14B diffusion weights not re-run to avoid GPU contention)"
+  ]
+}

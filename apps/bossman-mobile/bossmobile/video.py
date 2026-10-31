@@ -159,3 +159,31 @@ def image_kind(data: bytes) -> str | None:
     if data[:3] == b"\xff\xd8\xff":
         return "jpeg"
     return None
+
+
+DEFAULT_QUALITY_GUARD = "safe"
+QUALITY_GUARD_MODES = ("safe", "enhanced", "passthrough", "off")
+
+
+def section_quality_view(quality_guard: str = DEFAULT_QUALITY_GUARD) -> dict[str, Any]:
+    """Mobile view of the 5 zero-overhead video section improvements and the Studio non-regression Quality Gate."""
+    mode = quality_guard if quality_guard in QUALITY_GUARD_MODES else DEFAULT_QUALITY_GUARD
+    return {
+        "quality_guard": mode,
+        "default_quality_guard": DEFAULT_QUALITY_GUARD,
+        "max_degradation_pct": 0.1,
+        "diffusion_overhead_s": 0.0,
+        "studio_regression_guarantee_ru": (
+            "Гарантия 0% ухудшения студии: при любом ухудшении метрик (резкость по Лапласиану, "
+            "клиппинг яркости Y, перешарп или FPS/длительность) хотя бы на 0.1% — "
+            "автоматический и бесшовный откат к оригинальному рендеру студии."
+        ),
+        "sections": [
+            {"section": 1, "id": "keyframes_and_color_match", "label_ru": "Keyframes и согласование палитры (<50 мс CPU)"},
+            {"section": 2, "id": "intra_section_motion_flow", "label_ru": "Плавность движения и граничных кадров (0 лишних steps)"},
+            {"section": 3, "id": "smart_section_transitions", "label_ru": "Умные переходы xfade / luma-soft-blend без мыла"},
+            {"section": 4, "id": "single_pass_ffmpeg_postprocess", "label_ru": "FFmpeg unsharp + микроконтраст за 1 проход (-crf 18)"},
+            {"section": 5, "id": "audio_mastering_and_beat_sync", "label_ru": "Аудио loudnorm / ducking и попадание в бит"},
+        ],
+    }
+

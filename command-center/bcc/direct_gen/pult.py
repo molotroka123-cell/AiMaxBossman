@@ -150,3 +150,24 @@ async def send_document(token: str, chat_id: int, path: Path, name: str, caption
         code = body.get("error_code") if isinstance(body, dict) else None
         raise PultError(502, "pult_rejected", f"Telegram не принял файл (код {code or response.status_code}) — в Пульт не отправлено")
     return (body.get("result") or {}).get("message_id")
+
+
+async def send_message(token: str, chat_id: int, text: str, *, parse_mode: str = "",
+                       proxy: str = "", transport: httpx.AsyncBaseTransport | None = None) -> Any:
+    """sendMessage to the owner's Пульт. Returns the Telegram message id. Never echoes the token or the chat id."""
+    from ..telegram_companion.adapters import bot_api_url
+    payload: dict[str, Any] = {"chat_id": str(chat_id), "text": str(text)[:4096]}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60, connect=15), follow_redirects=False, trust_env=False,
+                                     proxy=(proxy or None) if transport is None else None, transport=transport) as client:
+            response = await client.post(bot_api_url(token, "sendMessage"), json=payload)
+        body = response.json()
+    except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+        raise PultError(502, "pult_unreachable", "Telegram недоступен с этого ПК — в Пульт не отправлено, попробуйте ещё раз") from None
+    if not isinstance(body, dict) or body.get("ok") is not True:
+        code = body.get("error_code") if isinstance(body, dict) else None
+        raise PultError(502, "pult_rejected", f"Telegram не принял сообщение (код {code or response.status_code}) — в Пульт не отправлено")
+    return (body.get("result") or {}).get("message_id")
+

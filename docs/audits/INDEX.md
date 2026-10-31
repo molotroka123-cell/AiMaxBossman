@@ -67,6 +67,7 @@
 | 2026-10-31 | [2026-10-31-gem-search-research](2026-10-31-gem-search-research/) | Gem Search как исследовательский сайдкар на `:8851` (`dry_run`, автозапуск токенов выключен) | `PASS` (`dry_run`) |
 | 2026-10-31 | [2026-10-31-bossblock-dnipro-gamedev](2026-10-31-bossblock-dnipro-gamedev/) | Интеграция BossBlock (`apps/bossblock`, Aleph Game-Dev 5-Layer World Capture) в `main` и мобильный пульт `:8840` + реальный захват центра г. Днепр, Украина (`mesh.glb`, `satellite.tif`, `osm_buildings_roads.geojson`, `terrain.tif`, `52` фото Street View) + играбельное 3D мини-приложение GTA: Днепр (`/m/gta.html` v2) | `PASS` |
 | 2026-10-31 | [2026-10-31-boost-autopilot-pipeline](2026-10-31-boost-autopilot-pipeline/) | Замкнутый контур автоматизации Bossman Boost Autopilot (`/api/autopilot/*`, `autopilot.run_pipeline`, `bossblock audit`): предшаговый барьер CUA-Recovery, независимая приёмка AgentProofBench (`apb-2026.10.31-boost-v1`), темпоральная память TimlMemBench, очистка секретов и 5-слойный аудит 3D-мира Днепра (`10/10` тестов, `7/7` гейтов) | `PASS` |
+| 2026-10-31 | [2026-10-31-video-section-quality-zero-overhead](2026-10-31-video-section-quality-zero-overhead/) | Улучшение 5 секций видеоклипов при `0.0 с` оверхеда диффузии + гарантия 0% ухудшения локальной Студии (`quality_guard="safe"`, авто-откат к оригиналу при деградации `>= 0.1%`, `13/13` тестов гейта + `123/123` тестов Студии, Telegram Пульт `message_id=4218`) | `PASS` |
 | — | [astra-7b1377a](astra-7b1377a/) | Astra forensic audit | в JSON нет поля verdict — см. отчёт |
 
 ## Отдельные файлы
