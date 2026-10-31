@@ -1,0 +1,407 @@
+{
+  "schema": "bossman.web_trend_teacher.live_run_receipt.v1",
+  "rule_version": "apb-2026.10.31-trend-teacher-v1",
+  "verdict": "VERIFIED",
+  "audit": {
+    "schema": "bossman.web_trend_teacher.audit.v1",
+    "audited_at": "2026-10-31T23:49:08Z",
+    "web_research_backends_total": 9,
+    "keyless_https_backends": [
+      "wikipedia-opensearch-ru",
+      "wikipedia-opensearch-en",
+      "stackexchange",
+      "hn-algolia",
+      "openalex",
+      "pypi",
+      "crates-io"
+    ],
+    "web_tools_registered": [],
+    "teacher_tools_registered": [
+      "teacher.learn_web_trends",
+      "teacher.trend_status",
+      "teacher.recall_trends"
+    ],
+    "fact_store_standard": "I-1 (15..80 words, 0 pronouns, anchored ISO date, proper tokens)",
+    "cua_recovery_guard": "StepStateGuard.verify_before_next_action",
+    "agent_proof_bench": "verify_criterion_with_proof (apb-2026.10.31-trend-teacher-v1)",
+    "gaps_closed": [
+      "GAP-WEB-01: Автономный сбор свежих трендов по HTTPS (HN Algolia, OpenAlex, PyPI)",
+      "GAP-TEACH-02: Дистилляция карточек Учителя (TrendLessonCard) в самодостаточные факты И-1 без местоимений",
+      "GAP-EXAM-03: Контрольный экзамен усвоения (Mastery Exam >= 0.85) перед записью в темпоральную память FactStore"
+    ],
+    "audit_verdict": "READY_FOR_LIVE_WEB_LEARNING"
+  },
+  "session": {
+    "session_id": "tt-1793490548-ba7515",
+    "session_date": "2026-10-31",
+    "status": "COMPLETED",
+    "verifier_status": "VERIFIED",
+    "proof_sha256": "047bc38cd372e9c04053bc59beaf13c5689b86a5a3734bb0b8a7dc9a10962d90",
+    "average_mastery_score": 1.0,
+    "live_signals_fetched": 24,
+    "lessons_count": 4,
+    "facts_written_count": 5,
+    "cua_recovery": {
+      "matched": true,
+      "detected_fault": "none",
+      "mismatched_keys": [],
+      "decision": "proceed",
+      "repaired": false
+    },
+    "lessons": [
+      {
+        "lesson_id": "lesson-ai_agents_and_llms-2026-10-31",
+        "domain": "ai_agents_and_llms",
+        "domain_title_ru": "Автономные ИИ-агенты, память и верификация",
+        "live_fetched": true,
+        "live_signals_count": 6,
+        "source_backend": "hn-algolia",
+        "headline": "Show HN: Jointter A daily word puzzle using dots and lines",
+        "source_url": "https://www.jointter.com/",
+        "published_date": "2026-10-31",
+        "all_signals": [
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: Jointter A daily word puzzle using dots and lines",
+            "raw_title": "Show HN: Jointter – A daily word puzzle using dots and lines",
+            "url": "https://www.jointter.com/",
+            "published_date": "2026-10-31"
+          },
+          {
+            "source_backend": "hn-algolia",
+            "title": "Ask HN: If AI agents can run 24/7 why is almost nothing",
+            "raw_title": "Ask HN: If AI agents can run 24/7, why is almost nothing shipped overnight?",
+            "url": "https://news.ycombinator.com/item?id=50315898",
+            "published_date": "2026-10-31"
+          },
+          {
+            "source_backend": "hn-algolia",
+            "title": "Where AI agents social boundaries break: 5 LLMs try to form a",
+            "raw_title": "Where AI agents' social boundaries break: 5 LLMs try to form a government",
+            "url": "https://judgementlabs.app/blog/the-coalition-room",
+            "published_date": "2026-10-31"
+          },
+          {
+            "source_backend": "pypi",
+            "title": "Пакет pydantic версия 2.14.2 Data validation using Python type hints",
+            "raw_title": "pydantic 2.14.2: Data validation using Python type hints",
+            "url": "https://pypi.org/project/pydantic/2.14.2/",
+            "published_date": "2026-10-31"
+          }
+        ],
+        "teacher_brief_ru": "Учитель разобрал свежий интернет-сигнал из hn-algolia («Show HN: Jointter A daily word puzzle using dots and lines») и привязал к архитектуре Bossman: Применение в Bossman Command Center (:8801) и Boost Autopilot: предшаговый контроль CUA-Recovery, независимая проверка артефактов AgentProofBench и темпоральная память FactStore без галлюцинаций.",
+        "actionable_studio_recipe_ru": "Перед каждым необратимым действием сверять чекпойнт StepStateGuard, проверять результат через verify_criterion_with_proof с криптографическим отпечатком proof_sha256 и записывать подтверждённый факт в FactStore.",
+        "temporal_fact": {
+          "subject": "trend:ai_agents_and_llms",
+          "predicate": "current_internet_trend",
+          "object": "hn-algolia:2026-10-31",
+          "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:ai_agents_and_llms из проверенного источника hn-algolia:2026-10-31 по теме Show HN: Jointter A daily word puzzle using dots and lines для внедрения в студию Bossman Command Center и мобильный пульт управления."
+        },
+        "mastery_exam": {
+          "question_ru": "Как Bossman применяет актуальный тренд верификации ИИ-агентов и темпоральной памяти в продакшене?",
+          "expected_keywords": [
+            "StepStateGuard",
+            "verify_criterion_with_proof",
+            "FactStore",
+            "proof_sha256"
+          ],
+          "matched_keywords": [
+            "StepStateGuard",
+            "verify_criterion_with_proof",
+            "FactStore",
+            "proof_sha256"
+          ],
+          "bossman_answer_ru": "Усвоено по направлению «Автономные ИИ-агенты, память и верификация» (источник hn-algolia, сигнал: Show HN: Jointter A daily word puzzle using dots and lines): Применение в Bossman Command Center (:8801) и Boost Autopilot: предшаговый контроль CUA-Recovery, независимая проверка артефактов AgentProofBench и темпоральная память FactStore без галлюцинаций. Практический рецепт: Перед каждым необратимым действием сверять чекпойнт StepStateGuard, проверять результат через verify_criterion_with_proof с криптографическим отпечатком proof_sha256 и записывать подтверждённый факт в FactStore.",
+          "mastery_score": 1.0,
+          "passed": true
+        }
+      },
+      {
+        "lesson_id": "lesson-generative_video_and_cinema-2026-10-31",
+        "domain": "generative_video_and_cinema",
+        "domain_title_ru": "Генеративное видео и студийный пайплайн без потерь",
+        "live_fetched": true,
+        "live_signals_count": 6,
+        "source_backend": "hn-algolia",
+        "headline": "Show HN: The New Way to Make AI UGC Ads in 2026",
+        "source_url": "https://www.aivideosugc.com/ai-video-generation",
+        "published_date": "2026-10-28",
+        "all_signals": [
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: The New Way to Make AI UGC Ads in 2026",
+            "raw_title": "Show HN: The New Way to Make AI UGC Ads in 2026",
+            "url": "https://www.aivideosugc.com/ai-video-generation",
+            "published_date": "2026-10-28"
+          },
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: How to Make AI UGC Ads in 2026 Using an",
+            "raw_title": "Show HN: How to Make AI UGC Ads in 2026 Using an AI Video Generator",
+            "url": "https://www.aivideosugc.com/",
+            "published_date": "2026-10-28"
+          },
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: Risphai picks the AI model tools and prompt for each",
+            "raw_title": "Show HN: Risphai – picks the AI model, tools and prompt for each request",
+            "url": "https://risphai.com",
+            "published_date": "2026-10-18"
+          },
+          {
+            "source_backend": "pypi",
+            "title": "Пакет imageio версия 2.38.1 Read and write images and video across all",
+            "raw_title": "imageio 2.38.1: Read and write images and video across all major formats. Supports scientific and volumetric data.",
+            "url": "https://pypi.org/project/imageio/2.38.1/",
+            "published_date": "2026-10-31"
+          }
+        ],
+        "teacher_brief_ru": "Учитель разобрал свежий интернет-сигнал из hn-algolia («Show HN: The New Way to Make AI UGC Ads in 2026») и привязал к архитектуре Bossman: Применение в Bossman Cinema Studio и Мобильном Пульте (:8840): 5-секционное улучшение роликов (Hook, Scene, Transitions, Pacing, Loop) с защитным гейтом evaluate_quality_gate (0% деградации студии).",
+        "actionable_studio_recipe_ru": "Использовать postprocess_video_file_guarded с порогом MAX_DEGRADATION_PCT=0.1%, выполнять автоматический откат к оригиналу при малейшей просадке метрик и выравнивать тон с запасом 2% до клиппинга.",
+        "temporal_fact": {
+          "subject": "trend:generative_video_and_cinema",
+          "predicate": "current_internet_trend",
+          "object": "hn-algolia:2026-10-31",
+          "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:generative_video_and_cinema из проверенного источника hn-algolia:2026-10-31 по теме Show HN: The New Way to Make AI UGC Ads in 2026 для внедрения в студию Bossman Command Center и мобильный пульт управления."
+        },
+        "mastery_exam": {
+          "question_ru": "Какой защитный механизм гарантирует 0% ухудшения видеороликов при пост-обработке в студии Bossman?",
+          "expected_keywords": [
+            "evaluate_quality_gate",
+            "postprocess_video_file_guarded",
+            "MAX_DEGRADATION_PCT",
+            "откат"
+          ],
+          "matched_keywords": [
+            "evaluate_quality_gate",
+            "postprocess_video_file_guarded",
+            "MAX_DEGRADATION_PCT",
+            "откат"
+          ],
+          "bossman_answer_ru": "Усвоено по направлению «Генеративное видео и студийный пайплайн без потерь» (источник hn-algolia, сигнал: Show HN: The New Way to Make AI UGC Ads in 2026): Применение в Bossman Cinema Studio и Мобильном Пульте (:8840): 5-секционное улучшение роликов (Hook, Scene, Transitions, Pacing, Loop) с защитным гейтом evaluate_quality_gate (0% деградации студии). Практический рецепт: Использовать postprocess_video_file_guarded с порогом MAX_DEGRADATION_PCT=0.1%, выполнять автоматический откат к оригиналу при малейшей просадке метрик и выравнивать тон с запасом 2% до клиппинга.",
+          "mastery_score": 1.0,
+          "passed": true
+        }
+      },
+      {
+        "lesson_id": "lesson-webgl_3d_and_world_gen-2026-10-31",
+        "domain": "webgl_3d_and_world_gen",
+        "domain_title_ru": "WebGL 3D-миры, реконструкция городов и браузерные движки",
+        "live_fetched": true,
+        "live_signals_count": 6,
+        "source_backend": "hn-algolia",
+        "headline": "Browser-first 3D games: a shared launcher on Three.js and WebGL",
+        "source_url": "https://insights.sempermade.com/case-studies/semperplay-browser-first-3d-games/",
+        "published_date": "2026-10-22",
+        "all_signals": [
+          {
+            "source_backend": "hn-algolia",
+            "title": "Browser-first 3D games: a shared launcher on Three.js and WebGL",
+            "raw_title": "Browser-first 3D games: a shared launcher on Three.js and WebGL",
+            "url": "https://insights.sempermade.com/case-studies/semperplay-browser-first-3d-games/",
+            "published_date": "2026-10-22"
+          },
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: A guided 3D Leonardo da Vinci museum built in code",
+            "raw_title": "Show HN: A guided 3D Leonardo da Vinci museum, built in code",
+            "url": "https://museumofages.org/w/vinci",
+            "published_date": "2026-10-14"
+          },
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: GSS Write 3D scenes in CSS compiled to a raymarching",
+            "raw_title": "Show HN: GSS – Write 3D scenes in CSS, compiled to a raymarching shader",
+            "url": "https://www.gss-lang.dev/",
+            "published_date": "2026-10-06"
+          },
+          {
+            "source_backend": "pypi",
+            "title": "Пакет trimesh версия 5.2.0 Import export process analyze and view triangular meshes",
+            "raw_title": "trimesh 5.2.0: Import, export, process, analyze and view triangular meshes.",
+            "url": "https://pypi.org/project/trimesh/5.2.0/",
+            "published_date": "2026-10-31"
+          }
+        ],
+        "teacher_brief_ru": "Учитель разобрал свежий интернет-сигнал из hn-algolia («Browser-first 3D games: a shared launcher on Three.js and WebGL») и привязал к архитектуре Bossman: Применение в BossBlock 3D и мини-приложении GTA Днепр 3D (/m/gta.html): 5-слойный захват реальных кварталов (OSM, рельеф, фасады, 3D-меш GLB) и скелетная анимация персонажа с PBR-материалами в реальном времени.",
+        "actionable_studio_recipe_ru": "Проверять полноту 3D-ассетов через audit_capture_folder и рендерить Draco-модели с ACESFilmicToneMapping и привязкой экипировки к костям скелета.",
+        "temporal_fact": {
+          "subject": "trend:webgl_3d_and_world_gen",
+          "predicate": "current_internet_trend",
+          "object": "hn-algolia:2026-10-31",
+          "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:webgl_3d_and_world_gen из проверенного источника hn-algolia:2026-10-31 по теме Browser-first 3D games: a shared launcher on Three.js and WebGL для внедрения в студию Bossman Command Center и мобильный пульт управления."
+        },
+        "mastery_exam": {
+          "question_ru": "Как Bossman объединяет реальные геоданные города и браузерный 3D-рендеринг в мини-приложении?",
+          "expected_keywords": [
+            "BossBlock",
+            "audit_capture_folder",
+            "ACESFilmicToneMapping",
+            "GLB"
+          ],
+          "matched_keywords": [
+            "BossBlock",
+            "audit_capture_folder",
+            "ACESFilmicToneMapping",
+            "GLB"
+          ],
+          "bossman_answer_ru": "Усвоено по направлению «WebGL 3D-миры, реконструкция городов и браузерные движки» (источник hn-algolia, сигнал: Browser-first 3D games: a shared launcher on Three.js and WebGL): Применение в BossBlock 3D и мини-приложении GTA Днепр 3D (/m/gta.html): 5-слойный захват реальных кварталов (OSM, рельеф, фасады, 3D-меш GLB) и скелетная анимация персонажа с PBR-материалами в реальном времени. Практический рецепт: Проверять полноту 3D-ассетов через audit_capture_folder и рендерить Draco-модели с ACESFilmicToneMapping и привязкой экипировки к костям скелета.",
+          "mastery_score": 1.0,
+          "passed": true
+        }
+      },
+      {
+        "lesson_id": "lesson-python_and_devtools-2026-10-31",
+        "domain": "python_and_devtools",
+        "domain_title_ru": "Экосистема Python, FastAPI, асинхронный стек и безопасность",
+        "live_fetched": true,
+        "live_signals_count": 6,
+        "source_backend": "hn-algolia",
+        "headline": "Show HN: TowerPanic a family party game on a small FastAPI realtime",
+        "source_url": "https://towerpanic.com/",
+        "published_date": "2026-10-15",
+        "all_signals": [
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: TowerPanic a family party game on a small FastAPI realtime",
+            "raw_title": "Show HN: TowerPanic – a family party game on a small FastAPI realtime engine",
+            "url": "https://towerpanic.com/",
+            "published_date": "2026-10-15"
+          },
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: ProgressCove calm and smart to-do app with Home Assistant integration",
+            "raw_title": "Show HN: ProgressCove, calm and smart to-do app with Home Assistant integration",
+            "url": "https://progresscove.com/",
+            "published_date": "2026-09-29"
+          },
+          {
+            "source_backend": "hn-algolia",
+            "title": "Show HN: Seisin a desktop app turns job search into analytics",
+            "raw_title": "Show HN: Seisin – a desktop app that turns your job search into analytics",
+            "url": "https://getseisin.com",
+            "published_date": "2026-08-12"
+          },
+          {
+            "source_backend": "pypi",
+            "title": "Пакет fastapi версия 0.162.0 FastAPI framework high performance easy to learn fast",
+            "raw_title": "fastapi 0.162.0: FastAPI framework, high performance, easy to learn, fast to code, ready for production",
+            "url": "https://pypi.org/project/fastapi/0.162.0/",
+            "published_date": "2026-10-31"
+          }
+        ],
+        "teacher_brief_ru": "Учитель разобрал свежий интернет-сигнал из hn-algolia («Show HN: TowerPanic a family party game on a small FastAPI realtime») и привязал к архитектуре Bossman: Применение в ядре Bossman: неблокирующий asyncio-контур, строгая HTTPS-валидация внешних источников OSIRIS и автоматическая очистка секретов pult_report.redact.",
+        "actionable_studio_recipe_ru": "Выполнять сетевые запросы только по HTTPS с таймаутом, пропускать внешние тексты через redact() и сериализовать запись состояния под asyncio.Lock.",
+        "temporal_fact": {
+          "subject": "trend:python_and_devtools",
+          "predicate": "current_internet_trend",
+          "object": "hn-algolia:2026-10-31",
+          "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:python_and_devtools из проверенного источника hn-algolia:2026-10-31 по теме Show HN: TowerPanic a family party game on a small FastAPI realtime для внедрения в студию Bossman Command Center и мобильный пульт управления."
+        },
+        "mastery_exam": {
+          "question_ru": "Какие правила безопасности соблюдает Bossman при выходе в интернет за новыми трендами?",
+          "expected_keywords": [
+            "HTTPS",
+            "OSIRIS",
+            "redact",
+            "asyncio"
+          ],
+          "matched_keywords": [
+            "HTTPS",
+            "OSIRIS",
+            "redact",
+            "asyncio"
+          ],
+          "bossman_answer_ru": "Усвоено по направлению «Экосистема Python, FastAPI, асинхронный стек и безопасность» (источник hn-algolia, сигнал: Show HN: TowerPanic a family party game on a small FastAPI realtime): Применение в ядре Bossman: неблокирующий asyncio-контур, строгая HTTPS-валидация внешних источников OSIRIS и автоматическая очистка секретов pult_report.redact. Практический рецепт: Выполнять сетевые запросы только по HTTPS с таймаутом, пропускать внешние тексты через redact() и сериализовать запись состояния под asyncio.Lock.",
+          "mastery_score": 1.0,
+          "passed": true
+        }
+      }
+    ]
+  },
+  "recalled_from_memory": {
+    "active_trend_facts_count": 4,
+    "sample_facts": [
+      {
+        "id": 1,
+        "subject": "trend:ai_agents_and_llms",
+        "predicate": "current_internet_trend",
+        "object": "hn-algolia:2026-10-31",
+        "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:ai_agents_and_llms из проверенного источника hn-algolia:2026-10-31 по теме Show HN: Jointter A daily word puzzle using dots and lines для внедрения в студию Bossman Command Center и мобильный пульт управления.",
+        "valid_at": "2026-10-31 23:49:10.457211",
+        "invalid_at": null,
+        "created_at": "2026-10-31 23:49:10.461720",
+        "expired_at": null,
+        "superseded_by": null,
+        "source_kind": "tool",
+        "source_run_id": null,
+        "source_note": "url=https://www.jointter.com/ proof=047bc38cd372e9c0",
+        "confidence": 1.0,
+        "scope": "work",
+        "status": "active",
+        "status_ru": "действующий",
+        "current": true
+      },
+      {
+        "id": 2,
+        "subject": "trend:generative_video_and_cinema",
+        "predicate": "current_internet_trend",
+        "object": "hn-algolia:2026-10-31",
+        "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:generative_video_and_cinema из проверенного источника hn-algolia:2026-10-31 по теме Show HN: The New Way to Make AI UGC Ads in 2026 для внедрения в студию Bossman Command Center и мобильный пульт управления.",
+        "valid_at": "2026-10-31 23:49:10.469229",
+        "invalid_at": null,
+        "created_at": "2026-10-31 23:49:10.471229",
+        "expired_at": null,
+        "superseded_by": null,
+        "source_kind": "tool",
+        "source_run_id": null,
+        "source_note": "url=https://www.aivideosugc.com/ai-video-generation proof=047bc38cd372e9c0",
+        "confidence": 1.0,
+        "scope": "work",
+        "status": "active",
+        "status_ru": "действующий",
+        "current": true
+      },
+      {
+        "id": 3,
+        "subject": "trend:webgl_3d_and_world_gen",
+        "predicate": "current_internet_trend",
+        "object": "hn-algolia:2026-10-31",
+        "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:webgl_3d_and_world_gen из проверенного источника hn-algolia:2026-10-31 по теме Browser-first 3D games: a shared launcher on Three.js and WebGL для внедрения в студию Bossman Command Center и мобильный пульт управления.",
+        "valid_at": "2026-10-31 23:49:10.478229",
+        "invalid_at": null,
+        "created_at": "2026-10-31 23:49:10.480233",
+        "expired_at": null,
+        "superseded_by": null,
+        "source_kind": "tool",
+        "source_run_id": null,
+        "source_note": "url=https://insights.sempermade.com/case-studies/semperplay-browser-first-3d-games/ proof=047bc38cd372e9c0",
+        "confidence": 1.0,
+        "scope": "work",
+        "status": "active",
+        "status_ru": "действующий",
+        "current": true
+      },
+      {
+        "id": 4,
+        "subject": "trend:python_and_devtools",
+        "predicate": "current_internet_trend",
+        "object": "hn-algolia:2026-10-31",
+        "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:python_and_devtools из проверенного источника hn-algolia:2026-10-31 по теме Show HN: TowerPanic a family party game on a small FastAPI realtime для внедрения в студию Bossman Command Center и мобильный пульт управления.",
+        "valid_at": "2026-10-31 23:49:10.485747",
+        "invalid_at": null,
+        "created_at": "2026-10-31 23:49:10.488750",
+        "expired_at": null,
+        "superseded_by": null,
+        "source_kind": "tool",
+        "source_run_id": null,
+        "source_note": "url=https://towerpanic.com/ proof=047bc38cd372e9c0",
+        "confidence": 1.0,
+        "scope": "work",
+        "status": "active",
+        "status_ru": "действующий",
+        "current": true
+      }
+    ]
+  }
+}

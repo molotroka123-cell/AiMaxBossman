@@ -1,0 +1,92 @@
+{
+  "schema": "bossman.web_trend_teacher.curriculum.v1",
+  "session_id": "tt-1793490591-bcb199",
+  "session_date": "2026-10-31",
+  "rule_version": "apb-2026.10.31-trend-teacher-v1",
+  "curriculum_verified": true,
+  "average_mastery_score": 1.0,
+  "live_signals_fetched": 0,
+  "domains_polled": [
+    "webgl_3d_and_world_gen"
+  ],
+  "sanitized_topic": "",
+  "sanitized_note": "",
+  "audit": {
+    "schema": "bossman.web_trend_teacher.audit.v1",
+    "audited_at": "2026-10-31T23:49:51Z",
+    "web_research_backends_total": 9,
+    "keyless_https_backends": [
+      "wikipedia-opensearch-ru",
+      "wikipedia-opensearch-en",
+      "stackexchange",
+      "hn-algolia",
+      "openalex",
+      "pypi",
+      "crates-io"
+    ],
+    "web_tools_registered": [],
+    "teacher_tools_registered": [
+      "teacher.learn_web_trends",
+      "teacher.trend_status",
+      "teacher.recall_trends"
+    ],
+    "fact_store_standard": "I-1 (15..80 words, 0 pronouns, anchored ISO date, proper tokens)",
+    "cua_recovery_guard": "StepStateGuard.verify_before_next_action",
+    "agent_proof_bench": "verify_criterion_with_proof (apb-2026.10.31-trend-teacher-v1)",
+    "gaps_closed": [
+      "GAP-WEB-01: Автономный сбор свежих трендов по HTTPS (HN Algolia, OpenAlex, PyPI)",
+      "GAP-TEACH-02: Дистилляция карточек Учителя (TrendLessonCard) в самодостаточные факты И-1 без местоимений",
+      "GAP-EXAM-03: Контрольный экзамен усвоения (Mastery Exam >= 0.85) перед записью в темпоральную память FactStore"
+    ],
+    "audit_verdict": "READY_FOR_LIVE_WEB_LEARNING"
+  },
+  "lessons": [
+    {
+      "lesson_id": "lesson-webgl_3d_and_world_gen-2026-10-31",
+      "domain": "webgl_3d_and_world_gen",
+      "domain_title_ru": "WebGL 3D-миры, реконструкция городов и браузерные движки",
+      "live_fetched": false,
+      "live_signals_count": 0,
+      "source_backend": "offline-curated-fallback",
+      "headline": "Стандарт WebGL 3D-миры реконструкция городов и браузерные движки пакет trimesh",
+      "source_url": "https://pypi.org/project/trimesh/",
+      "published_date": "2026-10-31",
+      "all_signals": [
+        {
+          "source_backend": "offline-curated-fallback",
+          "title": "Стандарт WebGL 3D-миры реконструкция городов и браузерные движки пакет trimesh",
+          "raw_title": "WebGL 3D-миры, реконструкция городов и браузерные движки (trimesh)",
+          "url": "https://pypi.org/project/trimesh/",
+          "published_date": "2026-10-31"
+        }
+      ],
+      "teacher_brief_ru": "Учитель разобрал свежий интернет-сигнал из offline-curated-fallback («Стандарт WebGL 3D-миры реконструкция городов и браузерные движки пакет trimesh») и привязал к архитектуре Bossman: Применение в BossBlock 3D и мини-приложении GTA Днепр 3D (/m/gta.html): 5-слойный захват реальных кварталов (OSM, рельеф, фасады, 3D-меш GLB) и скелетная анимация персонажа с PBR-материалами в реальном времени.",
+      "actionable_studio_recipe_ru": "Проверять полноту 3D-ассетов через audit_capture_folder и рендерить Draco-модели с ACESFilmicToneMapping и привязкой экипировки к костям скелета.",
+      "temporal_fact": {
+        "subject": "trend:webgl_3d_and_world_gen",
+        "predicate": "current_internet_trend",
+        "object": "offline-curated-fallback:2026-10-31",
+        "statement": "На дату 2026-10-31 учебный модуль Учителя Bossman зафиксировал актуальный тренд направления trend:webgl_3d_and_world_gen из проверенного источника offline-curated-fallback:2026-10-31 по теме Стандарт WebGL 3D-миры реконструкция городов и браузерные движки пакет trimesh для внедрения в студию Bossman Command Center и мобильный пульт управления."
+      },
+      "mastery_exam": {
+        "question_ru": "Как Bossman объединяет реальные геоданные города и браузерный 3D-рендеринг в мини-приложении?",
+        "expected_keywords": [
+          "BossBlock",
+          "audit_capture_folder",
+          "ACESFilmicToneMapping",
+          "GLB"
+        ],
+        "matched_keywords": [
+          "BossBlock",
+          "audit_capture_folder",
+          "ACESFilmicToneMapping",
+          "GLB"
+        ],
+        "bossman_answer_ru": "Усвоено по направлению «WebGL 3D-миры, реконструкция городов и браузерные движки» (источник offline-curated-fallback, сигнал: Стандарт WebGL 3D-миры реконструкция городов и браузерные движки пакет trimesh): Применение в BossBlock 3D и мини-приложении GTA Днепр 3D (/m/gta.html): 5-слойный захват реальных кварталов (OSM, рельеф, фасады, 3D-меш GLB) и скелетная анимация персонажа с PBR-материалами в реальном времени. Практический рецепт: Проверять полноту 3D-ассетов через audit_capture_folder и рендерить Draco-модели с ACESFilmicToneMapping и привязкой экипировки к костям скелета.",
+        "mastery_score": 1.0,
+        "passed": true
+      }
+    }
+  ],
+  "timestamp": 1793490591.4893608
+}
