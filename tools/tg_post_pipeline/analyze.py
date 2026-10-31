@@ -75,8 +75,13 @@ def main() -> int:
         time.sleep(8)
     first = answer.splitlines()[0][:140] if answer else ""
     m = re.search(r"ПОСТ_ОТКРЫТ:\s*(да|нет)\s*;\s*ВИДЕО:\s*(\d+)", first, re.I)
+    # Python 3.11 (CI matrix, requires-python >= 3.11) rejects same-quote nesting inside an
+    # f-string (PEP 701 is 3.12+), so the pieces are computed first.
+    post_open = m.group(1) if m else "?"
+    videos = m.group(2) if m else "?"
+    screen = (re.search(r"ЭКРАН:\s*([a-zа-я_]+)", first, re.I) or [None, "?"])[1]
     print(f"status={status} answer_chars={len(answer)} service_line_ok={bool(m)} "
-          f"post_open={m.group(1) if m else '?'} videos={m.group(2) if m else "?"} screen={(re.search(r"ЭКРАН:s*([a-zа-я_]+)", first) or [None, "?"])[1]} seconds={round(time.time() - t0)}")
+          f"post_open={post_open} videos={videos} screen={screen} seconds={round(time.time() - t0)}")
     if status == "completed" and m and m.group(1).lower() == "да":
         out = HERE / "pipeline_answer.txt"          # not printed, not read by Claude
         out.write_text(f"Пайплайн по посту Telegram — Gemma 4 локально (ПК-агент записал экран, задача {task_id})\n\n{answer}",
