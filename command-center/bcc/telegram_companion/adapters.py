@@ -614,7 +614,10 @@ class Telegram:
 
     async def send(self, person: Person, text: str, keyboard=None,
                     reply_to_message_id: int | None = None,
-                    parse_mode: str | None = None):
+                    parse_mode: str | None = "HTML"):
+        # Owner 31.10: every pult message is Telegram-formatted by default (bold headings, tap-to-copy ```code```,
+        # quotes); to_telegram_html escapes everything first and the send falls back to plain text if Telegram
+        # still refuses to parse. Pass parse_mode=None for a deliberately raw message.
         clean = scrub(text, (self.settings.bot_token, self.settings.core_token,
                             self.settings.cloud_token, self.settings.local_token))
         from bossman.notifications.telegram_transport import _egress_guard_text
@@ -1156,8 +1159,11 @@ class Core:
             raise CompanionError("EXECUTOR_CHANGED_REVIEW_AGAIN")
         if before_submit is not None:
             before_submit()
+        from .formatting import TELEGRAM_STYLE_GUIDE
+        title = "Telegram: " + prompt[:60]
+        prompt = prompt.rstrip() + "\n\n[Ответ уйдёт в Telegram-пульт владельца]\n" + TELEGRAM_STYLE_GUIDE
         payload = {
-            "prompt": prompt, "title": "Telegram: " + prompt[:60],
+            "prompt": prompt, "title": title,
             "agent_id": person.agent_id, "run_now": True, "max_retries": 0,
         }
         if client_request_id:

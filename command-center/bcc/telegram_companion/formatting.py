@@ -16,6 +16,18 @@ from __future__ import annotations
 import html
 import re
 
+#: Owner 31.10: «обязуй все модели, кто работает в пульте, использовать Telegram-форматирование — удобно копировать
+#: код, подпись внизу, жирный заголовок, чтобы не резало глаза». Given to every model whose text reaches the pult
+#: (companion chat, tasks delegated from Telegram, pult.report); `to_telegram_html` renders exactly this subset.
+TELEGRAM_STYLE_GUIDE = (
+    "Оформление ответа для Telegram-пульта (обязательно):\n"
+    "- первая строка — короткий заголовок **жирным**;\n"
+    "- код, команды, логи и всё, что владелец будет копировать, — только в блоке ```…``` "
+    "(в Telegram копируется одним нажатием); пути, имена файлов, SHA и числа — в `коде`;\n"
+    "- списки через «- », разделы — подзаголовками **жирным**; без таблиц и HTML-тегов;\n"
+    "- цитаты и важные предупреждения — строками, начинающимися с «> »;\n"
+    "- коротко, без воды; последняя строка — подпись: «— <твоё имя или модель>».")
+
 _FENCE_RE = re.compile(r"```[^\n]*\n?(.*?)```", re.DOTALL)
 _BOLD_RE = re.compile(r"\*\*(?=\S)(.+?)(?<=\S)\*\*", re.DOTALL)
 _CODE_RE = re.compile(r"`([^`\n]+)`")

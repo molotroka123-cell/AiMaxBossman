@@ -16,6 +16,7 @@ from fastapi import APIRouter
 from ..direct_gen import pult as _pult
 from ..plugin_security import redact_text as _ps_redact_text
 from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
+from ..telegram_companion.formatting import TELEGRAM_STYLE_GUIDE
 from . import Feature
 
 router = APIRouter()
@@ -124,8 +125,24 @@ def format_telegram_html(
 
     raw_lines = clean_body.splitlines()
     blocks: list[tuple[bool, str]] = []  # (is_quote, rendered_line)
-    for raw_line in raw_lines:
+    idx = 0
+    while idx < len(raw_lines):
+        raw_line = raw_lines[idx]
+        idx += 1
         stripped = raw_line.lstrip()
+        if stripped.startswith("```"):
+            # Owner 31.10: code the owner copies goes in <pre> (tap-to-copy in Telegram), kept as ONE block
+            code: list[str] = []
+            while idx < len(raw_lines) and not raw_lines[idx].lstrip().startswith("```"):
+                code.append(raw_lines[idx])
+                idx += 1
+            idx += 1                                   # the closing fence (or end of text)
+            blocks.append((False, "<pre>" + html.escape("\n".join(code)) + "</pre>"))
+            continue
+        heading = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", raw_line)
+        if heading:
+            blocks.append((False, "<b>" + html.escape(heading.group(1)) + "</b>"))
+            continue
         if stripped.startswith(">"):
             content = stripped[1:].lstrip()
             blocks.append((True, _inline_markup(html.escape(content))))
@@ -158,7 +175,7 @@ def format_telegram_html(
             remaining = budget - used - sep
             if remaining > 30:
                 # Truncate plain text safely without leaving unclosed HTML tags
-                plain_fallback = re.sub(r"</?(?:b|code|blockquote)>", "", html.unescape(candidate))
+                plain_fallback = re.sub(r"</?(?:b|code|pre|blockquote)>", "", html.unescape(candidate))
                 cut_len = max(1, remaining - 28)
                 safe_tail = html.escape(plain_fallback[:cut_len].rstrip()) + "…"
                 if is_quote:
@@ -218,7 +235,8 @@ async def setup(svc) -> None:
     REGISTRY.register(ToolSpec(
         name="pult.report",
         description="Отправить владельцу в Пульт короткий ТЕКСТОВЫЙ отчёт (до 3500 символов): что сделано, результат, что дальше. "
-                    "Адресат один — владелец; секреты вырезаются; не больше 12 отчётов в час.",
+                    "Адресат один — владелец; секреты вырезаются; не больше 12 отчётов в час. "
+                    + TELEGRAM_STYLE_GUIDE,
         handler=_report, category="send", source="builtin", default_effect="auto", timeout_seconds=40, idempotent=False,
         input_schema={"title": {"type": "string", "maxLength": 80, "description": "Заголовок"},
                       "text": {"type": "string", "maxLength": MAX_CHARS, "description": "Текст отчёта"}},
