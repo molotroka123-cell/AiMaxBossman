@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "d21bddc0457cc702effc25013f30d518077588c7",
+ "head": "b4557cdb0bede60b3efed17c193ba6e26ba899f2",
  "leaves": [
   {
    "id": "jeff",
@@ -8979,8 +8979,8 @@
    "label": "Выполнение планов",
    "zone_parent": "skills",
    "source": ".agents/skills/plan-execution/SKILL.md",
-   "sha": "9937d4054924243eced617ccf5d9c5fb8e306a7d",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "prepared",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -9087,7 +9087,7 @@
    "label": "3D-модели для игр",
    "zone_parent": "skills",
    "source": ".agents/skills/game-3d-model/SKILL.md",
-   "sha": "ce7dd09d17e7a9de8330be56f7e624a5eb3fffc2",
+   "sha": "11ec4a6a04f12be763d7162acd075f42105c78de",
    "integration_status": "recorded",
    "levels": {
     "code": {
@@ -29930,7 +29930,7 @@
    "label": "Движок навыков · загрузка, каталог, оценка",
    "zone_parent": "skills",
    "source": "command-center/bcc/features/skills.py",
-   "sha": "5259af138031d314d8368169e23c1ec0b6b31d57",
+   "sha": "4b41a62eb1ccb5f59f166e658573c9ee6c9b8f04",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -32684,8 +32684,8 @@
    "label": "Управление окнами Windows по точному handle",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-01/SKILL.md",
-   "sha": "d21ed543e887867dc5521dedc69aba42a87d5b25",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32720,8 +32720,8 @@
    "label": "Управление браузером через Chrome DevTools",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-02/SKILL.md",
-   "sha": "07d9a753c06422e41c48e48c49e385796b53a4a1",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32756,8 +32756,8 @@
    "label": "Скриншоты \"до\" и \"после\" для отчётов",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-03/SKILL.md",
-   "sha": "754f44e75a125288f96d3793704d335c6d8b6144",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32792,8 +32792,8 @@
    "label": "Сначала чтение состояния ПК, потом действия",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-04/SKILL.md",
-   "sha": "15eebdad1cca87cf1c4efd422bf10b1f9e1417e0",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32828,8 +32828,8 @@
    "label": "Остановка процессов только по pid после бэкапа",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-05/SKILL.md",
-   "sha": "a27d44fd1129a71cf855b529d2b0714a4d7e6775",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32864,8 +32864,8 @@
    "label": "Планировщик Windows: повтор каждые 10 минут",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-06/SKILL.md",
-   "sha": "99585366d17d6f978e80feba14914b070e54370e",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32900,8 +32900,8 @@
    "label": "Гигиена секретов: ключи не попадают в логи",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-07/SKILL.md",
-   "sha": "e59ec56776622dea28a8ec71a6d06f25510ef5a7",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32936,8 +32936,8 @@
    "label": "Подтверждение владельца для необратимых действий",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-08/SKILL.md",
-   "sha": "1b08a797e0e76ab02e158c74de6d19ebdfe5e06f",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32972,8 +32972,8 @@
    "label": "Защита от ловушек Windows: CRLF, cp1251, пути",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-09/SKILL.md",
-   "sha": "1f6346ef0455364bc18d38295389da4b778c1bcf",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -33008,8 +33008,8 @@
    "label": "Квитанция после каждого действия: код, sha256",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-top-10/SKILL.md",
-   "sha": "f518639e6b6df1823a315e9ec3e24562c14eed34",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -33044,8 +33044,8 @@
    "label": "Эволюция промптов по метрике · gepa",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-oss-1/SKILL.md",
-   "sha": "c9e1e6165b9e067961b990ff7931c2264a2b039d",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -33080,8 +33080,8 @@
    "label": "Регрессионные проверки промптов и навыков",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-oss-2/SKILL.md",
-   "sha": "38ecb74099912719ff3eb03e41199f67234e64b5",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -33116,8 +33116,8 @@
    "label": "LiteLLM proxy: единый прокси для моделей и лимитов",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-oss-3/SKILL.md",
-   "sha": "d413230b8fd0eda0faec9b14a764ae399c5bd0fa",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -33152,8 +33152,8 @@
    "label": "mini-swe-agent: минимальный bash-агент для воркеров",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-oss-4/SKILL.md",
-   "sha": "c0557f6399ca750363d42fa7a38edf49807b74a3",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -33188,8 +33188,8 @@
    "label": "OpenHands: лёгкий SDK агента для Windows",
    "zone_parent": "skills",
    "source": ".agents/skills/s0710-oss-5/SKILL.md",
-   "sha": "86df0ca3208052353d3995d8c130712b503ae501",
-   "integration_status": "recorded",
+   "sha": "13c26e9f5791eb1c78eb6d9d33252b9e5b8557a0",
+   "integration_status": "idea",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -36029,8 +36029,8 @@
   }
  ],
  "proven_through_counts": {
-  "none": 84,
-  "code": 362,
+  "none": 67,
+  "code": 379,
   "tests": 485
  },
  "note": "tests = a recorded run in the cloud; ci = green on the stated SHA only when a CI evidence file is supplied; owner_pc only from an owner evidence file."
