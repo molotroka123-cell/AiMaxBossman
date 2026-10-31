@@ -133,7 +133,7 @@ async def run_boost_verification() -> dict[str, Any]:
                 )
 
                 # 5. Secret redaction check
-                fake_sk = "sk-proj-" + ("9f8e7d6c" * 4)
+                fake_sk = "sk-proj-" + ("9f8e7d6c" * 4)  # ci-secret-scan: allow
                 r_sec = await client.post(
                     "/api/autopilot/run",
                     json={
@@ -143,6 +143,30 @@ async def run_boost_verification() -> dict[str, Any]:
                 )
                 sec_res = r_sec.json()["result"]
 
+                # 6. Negative control: incomplete 3D world fails AgentProofBench post-state
+                inc_dir = tmp_path / "incomplete_world"
+                inc_dir.mkdir(exist_ok=True)
+                r_inc = await client.post(
+                    "/api/autopilot/run",
+                    json={
+                        "pipeline": "bossblock_world_audit",
+                        "target_folder": str(inc_dir),
+                        "agent_claim_text": "Готово: 3D-мир полностью готов.",
+                    },
+                )
+                inc_res = r_inc.json()["result"]
+
+                # 7. Concurrent pipeline='all' runs (FactStore lock serialization) & durable STATE_KEY check
+                c1, c2 = await asyncio.gather(
+                    client.post("/api/autopilot/run", json={"pipeline": "all", "scope": "work"}),
+                    client.post("/api/autopilot/run", json={"pipeline": "all", "scope": "work"}),
+                )
+                conc_ok = all(
+                    sub.get("verifier_status") == "VERIFIED" and sub.get("memory_fact") is not None
+                    for resp in (c1.json()["result"], c2.json()["result"])
+                    for sub in resp["results"]
+                )
+                delattr(svc, "_autopilot_state")
                 r_status = await client.get("/api/autopilot/status")
                 status_body = r_status.json()
         finally:
@@ -155,6 +179,9 @@ async def run_boost_verification() -> dict[str, Any]:
             false_res["verifier_status"] == "FAILED"
             and false_res["false_claim_caught"] is True
             and false_res["memory_fact"] is None
+            and inc_res["verifier_status"] == "FAILED"
+            and inc_res["false_claim_caught"] is True
+            and inc_res["memory_fact"] is None
         ),
         "cua_recovery_auto_repaired": bool(
             repair_res["cua_recovery"]["decision"] == "rollback_and_retry"
@@ -173,6 +200,7 @@ async def run_boost_verification() -> dict[str, Any]:
             and f1["id"] != f2["id"]
             and len(revoked) == 1
             and len(after_revoke) == 0
+            and conc_ok
         ),
         "secret_redacted_before_persist": bool(
             sec_res["secret_redacted"] is True
@@ -183,6 +211,7 @@ async def run_boost_verification() -> dict[str, Any]:
             all_res["results"][1]["payload_summary"]["world_audit"]["core_3d_ready"] is True
             and all_res["results"][1]["payload_summary"]["world_audit"]["layers"]["osm"]["buildings"] == 67
             and all_res["results"][1]["payload_summary"]["world_audit"]["layers"]["streetview"]["photos_count"] == 52
+            and status_body["metrics"]["verified_runs"] >= 12
         ),
     }
     all_passed = all(checks.values())

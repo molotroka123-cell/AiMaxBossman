@@ -10,6 +10,7 @@ Covers:
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from bcc.features import boost_autopilot as ba
@@ -24,6 +25,7 @@ async def test_autopilot_all_pipelines_and_status_api(env):
     assert st["ok"] is True
     assert st["rule_version"] == ba.RULE_VERSION
     assert set(st["available_pipelines"]) == set(ba.PIPELINES)
+    assert st["metrics"]["total_runs"] == 0
 
     # Run all 3 pipelines at once
     r_run = await env.client.post("/api/autopilot/run", json={"pipeline": "all", "note": "boost check"})
@@ -42,9 +44,17 @@ async def test_autopilot_all_pipelines_and_status_api(env):
         assert item["memory_fact"] is not None
         assert item["memory_fact"]["status_ru"] == "действующий"
 
+    # Verify GET /api/autopilot/runs and durable STATE_KEY restoration after cache clear
+    delattr(env.svc, "_autopilot_state")
+    r_runs = await env.client.get("/api/autopilot/runs?limit=5")
+    assert r_runs.status_code == 200
+    assert len(r_runs.json()["runs"]) == 3
+    r_status_after = await env.client.get("/api/autopilot/status")
+    assert r_status_after.json()["metrics"]["verified_runs"] == 3
 
-async def test_autopilot_agent_proof_bench_catches_false_claim(env):
-    # Negative control: agent claims success, but artifact was not written to disk
+
+async def test_autopilot_agent_proof_bench_catches_false_claim_and_verify_artifact(env, tmp_path: Path):
+    # 1. Negative control: agent claims success, but artifact was not written to disk
     r = await env.client.post(
         "/api/autopilot/run",
         json={
@@ -61,6 +71,52 @@ async def test_autopilot_agent_proof_bench_catches_false_claim(env):
     assert res["false_claim_caught"] is True
     # Must NOT record an unverified claim into temporal memory
     assert res["memory_fact"] is None
+
+    # 2. Negative control: bossblock_world_audit on an incomplete folder fails post-state verification
+    incomplete_dir = tmp_path / "incomplete_world"
+    incomplete_dir.mkdir()
+    r_inc = await env.client.post(
+        "/api/autopilot/run",
+        json={
+            "pipeline": "bossblock_world_audit",
+            "target_folder": str(incomplete_dir),
+            "agent_claim_text": "Готово: 3D-мир полностью готов к игре.",
+        },
+    )
+    assert r_inc.status_code == 200
+    inc_res = r_inc.json()["result"]
+    assert inc_res["payload_summary"]["world_audit"]["verdict"] == "INCOMPLETE"
+    assert inc_res["verifier_status"] == "FAILED"
+    assert inc_res["false_claim_caught"] is True
+    assert inc_res["memory_fact"] is None
+
+    # 3. Nonexistent explicit target_folder raises HTTP 400 instead of silently falling back to dnipro_assets
+    r_missing = await env.client.post(
+        "/api/autopilot/run",
+        json={
+            "pipeline": "bossblock_world_audit",
+            "target_folder": str(tmp_path / "does_not_exist"),
+        },
+    )
+    assert r_missing.status_code == 400
+
+    # 4. POST /api/autopilot/verify-artifact without initial_snapshot records pre_status=UNVERIFIED (not VERIFIED)
+    runs_dir = ba._runs_dir(env.svc)
+    sample_file = runs_dir / "custom_check.json"
+    sample_file.write_text('{"ok": true, "bytes_check": 123456}', encoding="utf-8")
+    r_ver = await env.client.post(
+        "/api/autopilot/verify-artifact",
+        json={
+            "target": str(sample_file),
+            "expect": {"exists": True, "contains": '"ok": true', "min_bytes": 10},
+            "agent_claim_text": "Готово: файл сохранён.",
+        },
+    )
+    assert r_ver.status_code == 200
+    rec = r_ver.json()["receipt"]
+    assert rec["verifier_status"] == "VERIFIED"
+    assert rec["initial_snapshot"]["pre_status"] == "UNVERIFIED"
+    assert rec["false_claim_caught"] is False
 
 
 async def test_autopilot_cua_recovery_repair_and_halt(env):
@@ -100,7 +156,7 @@ async def test_autopilot_cua_recovery_repair_and_halt(env):
     assert res_halt["memory_fact"] is None
 
 
-async def test_autopilot_timl_memory_scope_supersede_and_revoke(env):
+async def test_autopilot_timl_memory_scope_supersede_revoke_and_concurrency(env):
     store = FactStore(env.svc)
 
     # First run in 'personal' scope
@@ -140,9 +196,21 @@ async def test_autopilot_timl_memory_scope_supersede_and_revoke(env):
     after_revoke = await store.search(subject="autopilot:daily_digest_and_proof", caller_scope="personal")
     assert len(after_revoke) == 0
 
+    # Concurrent runs with pipeline='all' must serialize FactStore writes cleanly without FactWriteError
+    c1, c2 = await asyncio.gather(
+        env.client.post("/api/autopilot/run", json={"pipeline": "all", "scope": "work"}),
+        env.client.post("/api/autopilot/run", json={"pipeline": "all", "scope": "work"}),
+    )
+    assert c1.status_code == 200 and c2.status_code == 200
+    for resp in (c1.json()["result"], c2.json()["result"]):
+        assert resp["verdict"] == "VERIFIED"
+        for sub in resp["results"]:
+            assert sub["verifier_status"] == "VERIFIED"
+            assert sub["memory_fact"] is not None
+
 
 async def test_autopilot_secret_redaction_and_tools_and_tick(env):
-    fake_secret = "sk-proj-" + ("A1b2C3d4" * 4)
+    fake_secret = "sk-proj-" + ("A1b2C3d4" * 4)  # ci-secret-scan: allow
     r = await env.client.post(
         "/api/autopilot/run",
         json={"pipeline": "daily_digest_and_proof", "note": f"token={fake_secret} do not leak"},
@@ -162,25 +230,29 @@ async def test_autopilot_secret_redaction_and_tools_and_tick(env):
 
     ctx = ToolContext(svc=env.svc, task={"id": 1}, run_id=1, agent={"name": "Argon"})
     cfg_res = await ba._tool_configure(
-        {"enabled": True, "interval_minutes": 15, "default_pipeline": "bossblock_world_audit"},
+        {"enabled": True, "interval_minutes": 15, "default_pipeline": "all"},
         ctx,
     )
     assert not cfg_res.error
     assert cfg_res.data["config"]["interval_minutes"] == 15
+    assert cfg_res.data["config"]["default_pipeline"] == "all"
 
     tool_run = await ba._tool_run_pipeline({"pipeline": "bossblock_world_audit", "note": "via tool"}, ctx)
     assert not tool_run.error
     assert tool_run.data["verifier_status"] == "VERIFIED"
 
-    # Background tick executes default pipeline when interval has elapsed
+    # Background tick executes default_pipeline='all' (all 3 pipelines) when interval has elapsed
+    before_st = await ba._tool_status({}, ctx)
+    before_verified = before_st.data["metrics"]["verified_runs"]
     ba._last_tick_ts = 0.0
     await ba._tick(env.svc)
     st_res = await ba._tool_status({}, ctx)
     assert not st_res.error
-    assert st_res.data["metrics"]["verified_runs"] >= 2
+    assert st_res.data["metrics"]["verified_runs"] == before_verified + 3
 
     # Invalid pipeline & invalid config return HTTP 400
     bad_run = await env.client.post("/api/autopilot/run", json={"pipeline": "non_existent_pipeline"})
     assert bad_run.status_code == 400
     bad_cfg = await env.client.post("/api/autopilot/config", json={"scope": "invalid_scope"})
     assert bad_cfg.status_code == 400
+

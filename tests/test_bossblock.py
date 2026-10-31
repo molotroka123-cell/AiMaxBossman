@@ -2,7 +2,12 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+
+_BOSSBLOCK_PKG = str(Path(__file__).resolve().parent.parent / "apps" / "bossblock")
+if _BOSSBLOCK_PKG not in sys.path:
+    sys.path.insert(0, _BOSSBLOCK_PKG)
 
 from bossblock import capture, game_export, geo, osm
 
@@ -123,7 +128,7 @@ def test_bossblock_autopilot_audit_dnipro_and_negative_control(tmp_path: Path):
     assert receipt["layers"]["streetview"]["photos_count"] == 52
     assert len(receipt["receipt_sha256"]) == 64
 
-    # Negative control: empty/corrupted folder must return INCOMPLETE and valid_glb=False
+    # Negative control 1: non-GLB magic must return INCOMPLETE and valid_glb=False
     empty_dir = tmp_path / "empty_capture"
     empty_dir.mkdir()
     (empty_dir / "mesh.glb").write_bytes(b"NOT_A_GLB_FILE")
@@ -132,5 +137,15 @@ def test_bossblock_autopilot_audit_dnipro_and_negative_control(tmp_path: Path):
     assert bad_receipt["core_3d_ready"] is False
     assert bad_receipt["layers"]["mesh"]["valid_glb"] is False
     assert (empty_dir / "world_readiness_receipt.json").is_file()
+
+    # Negative control 2: truncated GLB (valid 20-byte header + valid JSON chunk, but file shorter than total_len)
+    trunc_dir = tmp_path / "truncated_capture"
+    trunc_dir.mkdir()
+    real_glb = (dnipro_dir / "mesh.glb").read_bytes()
+    # Keep 20-byte header + 15032-byte JSON chunk + 100 bytes, cutting off binary geometry buffer
+    (trunc_dir / "mesh.glb").write_bytes(real_glb[:15152])
+    trunc_receipt = audit_capture_folder(trunc_dir, write_receipt=False)
+    assert trunc_receipt["layers"]["mesh"]["valid_glb"] is False
+    assert "truncated GLB" in trunc_receipt["layers"]["mesh"]["reason"]
 
 

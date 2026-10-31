@@ -2,9 +2,9 @@
   "schema": "bossman.audit.boost_autopilot.v1",
   "date": "2026-10-31",
   "verdict": "PASS",
-  "source_sha": "3f18ff4745d65535481be0ce498a7601127ec611",
+  "source_sha": "55d4d902d156dfae9638e040709a7f59e51fff43",
   "rule_version": "apb-2026.10.31-boost-v1",
-  "elapsed_ms": 4759.85,
+  "elapsed_ms": 6126.27,
   "checks": {
     "all_3_pipelines_verified": true,
     "agent_proof_bench_false_claim_caught": true,
@@ -15,32 +15,32 @@
     "bossblock_dnipro_3d_ready": true
   },
   "metrics": {
-    "total_runs": 9,
-    "verified_runs": 7,
-    "false_claims_caught": 1,
+    "total_runs": 16,
+    "verified_runs": 13,
+    "false_claims_caught": 2,
     "cua_recoveries_triggered": 1,
     "cua_halts_before_irreversible": 1,
-    "memory_facts_recorded": 7,
+    "memory_facts_recorded": 13,
     "secrets_redacted_count": 1
   },
   "pipelines_verified": [
     {
       "pipeline": "system_health_and_hygiene",
-      "run_id": "ap-1793482151-42bff2",
+      "run_id": "ap-1793482948-d507b1",
       "verifier_status": "VERIFIED",
-      "proof_sha256": "c20624ee0bf90c75764956a588d75298f06a1bbca7583609435486b59dfe3ad4"
+      "proof_sha256": "bf501ceb0bd7d10ca05e06dee4524a75f78877c5da84db33090a1dfd205dc381"
     },
     {
       "pipeline": "bossblock_world_audit",
-      "run_id": "ap-1793482151-d3d0d0",
+      "run_id": "ap-1793482948-564451",
       "verifier_status": "VERIFIED",
-      "proof_sha256": "c0a0825978b4bbfc4f6e787c2a4294d96df0feaa8cbb1d8ede14bba6799d67a7"
+      "proof_sha256": "5bb3eeaa59899f240f44832cc0f9c973f10da2ea5b8bfcb6344a6ffcce0ad4ef"
     },
     {
       "pipeline": "daily_digest_and_proof",
-      "run_id": "ap-1793482151-0a906f",
+      "run_id": "ap-1793482948-54dc73",
       "verifier_status": "VERIFIED",
-      "proof_sha256": "5d76700e6986c210f6bf846083b6901ce5ecfe4563338e2b13c9c95e4049a07b"
+      "proof_sha256": "cbd4868df4efb5f6bc84a669204238364dbd17c3e011256c912543e50ca14d24"
     }
   ],
   "negative_controls": {
@@ -48,7 +48,7 @@
       "verifier_status": "FAILED",
       "false_claim_caught": true,
       "memory_polluted": false,
-      "proof_sha256": "75b4cd7f42c1c9538ef5aa69d3384ffaebcaab86ffd2d78bd5e2dfcc48215d43"
+      "proof_sha256": "f156e41d83618c65031c285bf102d8577902f6b1821a5d0bac88a285a2b250d0"
     },
     "cua_recovery_fault_injection": {
       "repair_decision": "rollback_and_retry",
@@ -79,5 +79,5 @@
     "Tier 5 self-improvement holdout transfer across 48h soak",
     "Live commercial revenue from external customers"
   ],
-  "receipt_sha256": "f05093ab0f641b362022e4f2e358a902753c8ee7555b723e0548c869f4d109e6"
+  "receipt_sha256": "380e04a064f17721ec7858dcb4b5378f44d1cf757bb00d23aaaa7aec61809c66"
 }

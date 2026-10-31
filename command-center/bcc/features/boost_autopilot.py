@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import sys
 import time
 import uuid
 from dataclasses import asdict
@@ -58,17 +59,23 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     "scope": "work",
 }
 
+
+def _empty_metrics() -> dict[str, int]:
+    return {
+        "total_runs": 0,
+        "verified_runs": 0,
+        "false_claims_caught": 0,
+        "cua_recoveries_triggered": 0,
+        "cua_halts_before_irreversible": 0,
+        "memory_facts_recorded": 0,
+        "secrets_redacted_count": 0,
+    }
+
+
 _memory_runs: list[dict[str, Any]] = []
-_metrics: dict[str, int] = {
-    "total_runs": 0,
-    "verified_runs": 0,
-    "false_claims_caught": 0,
-    "cua_recoveries_triggered": 0,
-    "cua_halts_before_irreversible": 0,
-    "memory_facts_recorded": 0,
-    "secrets_redacted_count": 0,
-}
+_metrics: dict[str, int] = _empty_metrics()
 _last_tick_ts: float = 0.0
+_autopilot_lock = asyncio.Lock()
 
 
 def _repo_root() -> Path:
@@ -80,6 +87,56 @@ def _runs_dir(svc) -> Path:
     d = (base / "autopilot_runs").resolve()
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _sync_global_mirrors(state: dict[str, Any]) -> None:
+    _metrics.clear()
+    _metrics.update(state["metrics"])
+    _memory_runs.clear()
+    _memory_runs.extend(state["runs"][:50])
+
+
+async def _get_state(svc) -> dict[str, Any]:
+    state = getattr(svc, "_autopilot_state", None)
+    if isinstance(state, dict) and "metrics" in state and "runs" in state:
+        _sync_global_mirrors(state)
+        return state
+    state = {"metrics": _empty_metrics(), "runs": []}
+    try:
+        async with svc.db.session() as s:
+            row = (
+                await s.execute(sa.select(settings_kv.c.value_enc).where(settings_kv.c.key == STATE_KEY))
+            ).first()
+        if row and row[0]:
+            loaded = json.loads(svc.vault.decrypt(row[0]))
+            if isinstance(loaded, dict):
+                if isinstance(loaded.get("metrics"), dict):
+                    for k in state["metrics"]:
+                        if k in loaded["metrics"]:
+                            state["metrics"][k] = int(loaded["metrics"][k])
+                if isinstance(loaded.get("runs"), list):
+                    state["runs"] = list(loaded["runs"][:50])
+    except Exception:
+        pass
+    try:
+        setattr(svc, "_autopilot_state", state)
+    except Exception:
+        pass
+    _sync_global_mirrors(state)
+    return state
+
+
+async def _persist_state(svc, state: dict[str, Any]) -> None:
+    state["runs"] = state["runs"][:50]
+    _sync_global_mirrors(state)
+    try:
+        enc = svc.vault.encrypt(json.dumps(state, ensure_ascii=False, default=str))
+        async with svc.db.session() as s:
+            await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == STATE_KEY))
+            await s.execute(sa.insert(settings_kv).values(key=STATE_KEY, value_enc=enc))
+            await s.commit()
+    except Exception:
+        pass
 
 
 async def get_autopilot_config(svc) -> dict[str, Any]:
@@ -99,32 +156,33 @@ async def get_autopilot_config(svc) -> dict[str, Any]:
 
 
 async def save_autopilot_config(svc, patch: dict[str, Any]) -> dict[str, Any]:
-    cfg = await get_autopilot_config(svc)
-    for k in ("enabled", "interval_minutes", "default_pipeline", "auto_repair", "scope"):
-        if k in patch and patch[k] is not None:
-            if k == "enabled" or k == "auto_repair":
-                cfg[k] = bool(patch[k])
-            elif k == "interval_minutes":
-                cfg[k] = max(1, min(1440, int(patch[k])))
-            elif k == "default_pipeline":
-                val = str(patch[k]).strip()
-                if val not in PIPELINES and val != "all":
-                    raise ValueError(f"Unknown pipeline: {val}")
-                cfg[k] = val
-            elif k == "scope":
-                val = str(patch[k]).strip().lower()
-                if val not in ("work", "personal", "public", "general"):
-                    raise ValueError(f"Invalid scope: {val}")
-                cfg[k] = val
-    try:
-        enc = svc.vault.encrypt(json.dumps(cfg, ensure_ascii=False))
-        async with svc.db.session() as s:
-            await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == CONFIG_KEY))
-            await s.execute(sa.insert(settings_kv).values(key=CONFIG_KEY, value_enc=enc))
-            await s.commit()
-    except Exception:
-        pass
-    return cfg
+    async with _autopilot_lock:
+        cfg = await get_autopilot_config(svc)
+        for k in ("enabled", "interval_minutes", "default_pipeline", "auto_repair", "scope"):
+            if k in patch and patch[k] is not None:
+                if k == "enabled" or k == "auto_repair":
+                    cfg[k] = bool(patch[k])
+                elif k == "interval_minutes":
+                    cfg[k] = max(1, min(1440, int(patch[k])))
+                elif k == "default_pipeline":
+                    val = str(patch[k]).strip()
+                    if val not in PIPELINES and val != "all":
+                        raise ValueError(f"Unknown pipeline: {val}")
+                    cfg[k] = val
+                elif k == "scope":
+                    val = str(patch[k]).strip().lower()
+                    if val not in ("work", "personal", "public", "general"):
+                        raise ValueError(f"Invalid scope: {val}")
+                    cfg[k] = val
+        try:
+            enc = svc.vault.encrypt(json.dumps(cfg, ensure_ascii=False))
+            async with svc.db.session() as s:
+                await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == CONFIG_KEY))
+                await s.execute(sa.insert(settings_kv).values(key=CONFIG_KEY, value_enc=enc))
+                await s.commit()
+        except Exception:
+            pass
+        return cfg
 
 
 async def _exec_system_health(svc, run_id: str, note: str) -> dict[str, Any]:
@@ -161,12 +219,18 @@ async def _exec_system_health(svc, run_id: str, note: str) -> dict[str, Any]:
 
 
 async def _exec_bossblock_audit(svc, run_id: str, target_folder: str | None, note: str) -> dict[str, Any]:
+    repo = _repo_root()
+    bossblock_pkg = str(repo / "apps" / "bossblock")
+    if bossblock_pkg not in sys.path:
+        sys.path.insert(0, bossblock_pkg)
     from bossblock.autopilot_audit import audit_capture_folder
 
-    repo = _repo_root()
     default_dnipro = repo / "apps" / "bossman-mobile" / "bossmobile" / "ui" / "dnipro_assets"
-    folder = Path(target_folder).expanduser().resolve() if target_folder else default_dnipro
-    if not folder.is_dir():
+    if target_folder is not None and str(target_folder).strip():
+        folder = Path(str(target_folder).strip()).expanduser().resolve()
+        if not folder.is_dir():
+            raise ValueError(f"Capture folder does not exist: {folder}")
+    else:
         folder = default_dnipro
     audit_res = await asyncio.to_thread(audit_capture_folder, folder, write_receipt=False)
     return {
@@ -217,6 +281,16 @@ async def _exec_daily_digest(svc, run_id: str, note: str) -> dict[str, Any]:
     }
 
 
+def _expected_contains_for_pipeline(pipeline: str, run_id: str) -> str:
+    if pipeline == "bossblock_world_audit":
+        return '"core_3d_ready": true'
+    if pipeline == "system_health_and_hygiene":
+        return '"hygiene_ok": true'
+    if pipeline == "daily_digest_and_proof":
+        return '"recent_audits_count":'
+    return f'"run_id": "{run_id}"'
+
+
 async def run_autopilot_pipeline(
     svc,
     *,
@@ -256,7 +330,13 @@ async def run_autopilot_pipeline(
     if pipeline not in PIPELINES:
         raise ValueError(f"Unknown pipeline {pipeline!r}; valid: {PIPELINES}")
 
-    _metrics["total_runs"] += 1
+    if target_folder is not None and str(target_folder).strip() and pipeline == "bossblock_world_audit":
+        tf_check = Path(str(target_folder).strip()).expanduser().resolve()
+        if not tf_check.is_dir():
+            raise ValueError(f"Capture folder does not exist: {tf_check}")
+
+    state = await _get_state(svc)
+    state["metrics"]["total_runs"] += 1
     run_id = f"ap-{int(time.time())}-{uuid.uuid4().hex[:6]}"
 
     # 0. Санитайзер входных заметок (Data Minimization & Secret Scrubbing)
@@ -264,7 +344,7 @@ async def run_autopilot_pipeline(
     secret_found = contains_secret(raw_note)
     clean_note = redact(raw_note)
     if secret_found:
-        _metrics["secrets_redacted_count"] += 1
+        state["metrics"]["secrets_redacted_count"] += 1
 
     # 1. Предшаговый барьер состояния (CUA-Recovery StepStateGuard)
     expected_step_state = {
@@ -293,7 +373,7 @@ async def run_autopilot_pipeline(
     )
 
     if step_check.decision == "halt_before_irreversible":
-        _metrics["cua_halts_before_irreversible"] += 1
+        state["metrics"]["cua_halts_before_irreversible"] += 1
         halted_rec = {
             "run_id": run_id,
             "pipeline": pipeline,
@@ -311,12 +391,13 @@ async def run_autopilot_pipeline(
             "memory_fact": None,
             "created_at": time.time(),
         }
-        _memory_runs.insert(0, halted_rec)
-        del _memory_runs[50:]
+        async with _autopilot_lock:
+            state["runs"].insert(0, halted_rec)
+            await _persist_state(svc, state)
         return halted_rec
 
     if step_check.decision == "rollback_and_retry":
-        _metrics["cua_recoveries_triggered"] += 1
+        state["metrics"]["cua_recoveries_triggered"] += 1
 
     # 2. Снимок исходного состояния ДО записи артефакта (AgentProofBench)
     r_dir = _runs_dir(svc)
@@ -326,7 +407,7 @@ async def run_autopilot_pipeline(
         target=str(artifact_path),
         expect={
             "exists": True,
-            "contains": f'"run_id": "{run_id}"',
+            "contains": _expected_contains_for_pipeline(pipeline, run_id),
             "min_bytes": 64,
         },
     )
@@ -359,31 +440,32 @@ async def run_autopilot_pipeline(
         roots=[r_dir],
     )
     if proof.false_claim_caught:
-        _metrics["false_claims_caught"] += 1
+        state["metrics"]["false_claims_caught"] += 1
 
     # 5. Запись факта в темпоральную память с областью видимости (TimlMemBench)
     fact_record: dict[str, Any] | None = None
     if proof.verifier_status == "VERIFIED":
-        _metrics["verified_runs"] += 1
-        try:
-            store = FactStore(svc)
-            raw_fact = await store.add(
-                subject=f"autopilot:{pipeline}",
-                predicate="last_verified_run",
-                object=run_id,
-                statement=(
-                    f"Автопилот Bossman завершил пайплайн {pipeline} (прогон {run_id}) "
-                    f"с криптографическим доказательством {proof.proof_sha256[:16]} и версией правила {RULE_VERSION}."
-                ),
-                replace_current=True,
-                source_kind="tool",
-                source_note=f"proof_sha256={proof.proof_sha256}",
-                scope=scope,
-            )
-            fact_record = json.loads(json.dumps(raw_fact, ensure_ascii=False, default=str))
-            _metrics["memory_facts_recorded"] += 1
-        except Exception:
-            fact_record = None
+        state["metrics"]["verified_runs"] += 1
+        async with _autopilot_lock:
+            try:
+                store = FactStore(svc)
+                raw_fact = await store.add(
+                    subject=f"autopilot:{pipeline}",
+                    predicate="last_verified_run",
+                    object=run_id,
+                    statement=(
+                        f"Автопилот Bossman завершил пайплайн {pipeline} (прогон {run_id}) "
+                        f"с криптографическим доказательством {proof.proof_sha256[:16]} и версией правила {RULE_VERSION}."
+                    ),
+                    replace_current=True,
+                    source_kind="tool",
+                    source_note=f"proof_sha256={proof.proof_sha256}",
+                    scope=scope,
+                )
+                fact_record = json.loads(json.dumps(raw_fact, ensure_ascii=False, default=str))
+                state["metrics"]["memory_facts_recorded"] += 1
+            except Exception:
+                fact_record = None
 
     record = {
         "run_id": run_id,
@@ -414,8 +496,9 @@ async def run_autopilot_pipeline(
         "payload_summary": payload,
         "created_at": time.time(),
     }
-    _memory_runs.insert(0, record)
-    del _memory_runs[50:]
+    async with _autopilot_lock:
+        state["runs"].insert(0, record)
+        await _persist_state(svc, state)
     return record
 
 
@@ -425,19 +508,22 @@ async def run_autopilot_pipeline(
 async def api_autopilot_status(request: Request):
     svc = request.app.state.svc
     cfg = await get_autopilot_config(svc)
+    state = await _get_state(svc)
     return {
         "ok": True,
         "rule_version": RULE_VERSION,
         "available_pipelines": list(PIPELINES),
         "config": cfg,
-        "metrics": dict(_metrics),
-        "recent_runs": _memory_runs[:10],
+        "metrics": dict(state["metrics"]),
+        "recent_runs": list(state["runs"][:10]),
     }
 
 
 @router.get("/autopilot/runs")
-async def api_autopilot_runs(limit: int = 20):
-    return {"ok": True, "runs": _memory_runs[: max(1, min(50, int(limit)))]}
+async def api_autopilot_runs(request: Request, limit: int = 20):
+    svc = request.app.state.svc
+    state = await _get_state(svc)
+    return {"ok": True, "runs": list(state["runs"][: max(1, min(50, int(limit)))])}
 
 
 @router.post("/autopilot/config")
@@ -489,9 +575,8 @@ async def api_autopilot_verify_artifact(request: Request):
     target_path = Path(target).expanduser().resolve()
     allowed_roots = [_runs_dir(svc), _repo_root()]
     exp = ExpectedState(kind="file", target=str(target_path), expect=expect_dict)
-    init_snap = (body or {}).get("initial_snapshot")
-    if not isinstance(init_snap, dict):
-        init_snap = await capture_initial_snapshot(exp, svc=svc, roots=allowed_roots)
+    raw_snap = (body or {}).get("initial_snapshot")
+    init_snap = raw_snap if isinstance(raw_snap, dict) else None
     receipt = await verify_criterion_with_proof(
         exp,
         rule_id=rule_id,
@@ -502,7 +587,10 @@ async def api_autopilot_verify_artifact(request: Request):
         roots=allowed_roots,
     )
     if receipt.false_claim_caught:
-        _metrics["false_claims_caught"] += 1
+        state = await _get_state(svc)
+        state["metrics"]["false_claims_caught"] += 1
+        async with _autopilot_lock:
+            await _persist_state(svc, state)
     return {"ok": True, "receipt": asdict(receipt)}
 
 
@@ -543,15 +631,16 @@ async def _tool_run_pipeline(args: dict, ctx: ToolContext) -> ToolResult:
 
 async def _tool_status(args: dict, ctx: ToolContext) -> ToolResult:
     cfg = await get_autopilot_config(ctx.svc)
+    state = await _get_state(ctx.svc)
     data = {
         "rule_version": RULE_VERSION,
         "config": cfg,
-        "metrics": dict(_metrics),
-        "recent_runs": _memory_runs[:5],
+        "metrics": dict(state["metrics"]),
+        "recent_runs": list(state["runs"][:5]),
     }
     return ToolResult(
         content=json.dumps(data, ensure_ascii=False, indent=2, default=str),
-        one_line=f"autopilot.status: verified={_metrics['verified_runs']}/{_metrics['total_runs']}",
+        one_line=f"autopilot.status: verified={state['metrics']['verified_runs']}/{state['metrics']['total_runs']}",
         data=data,
     )
 
@@ -580,7 +669,7 @@ async def _tick(svc) -> None:
             return
         _last_tick_ts = now
         pipeline = str(cfg.get("default_pipeline") or "system_health_and_hygiene")
-        if pipeline not in PIPELINES:
+        if pipeline not in PIPELINES and pipeline != "all":
             pipeline = "system_health_and_hygiene"
         await run_autopilot_pipeline(
             svc,

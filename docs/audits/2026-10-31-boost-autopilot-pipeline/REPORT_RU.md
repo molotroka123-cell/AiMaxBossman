@@ -30,13 +30,14 @@
 
 | Проверка | Ожидание | Факт | Статус |
 |---|---|---|---|
-| Пайплайны `system_health_and_hygiene`, `bossblock_world_audit`, `daily_digest_and_proof` (`pipeline="all"`) | Все 3 `VERIFIED`, артефакты на диске, факты в памяти | `3/3 VERIFIED` | `PASS` |
-| **AgentProofBench (негативный контроль)**: агент заявляет об успехе без записи файла | `verifier_status=FAILED`, `false_claim_caught=true`, `memory_fact=null` | Перехвачено (`false_claim_caught=true`, память не загрязнена) | `PASS` |
+| Пайплайны `system_health_and_hygiene`, `bossblock_world_audit`, `daily_digest_and_proof` (`pipeline="all"`) | Все 3 `VERIFIED`, артефакты на диске, факты в памяти, сохранение `autopilot.state` в `settings_kv` | `3/3 VERIFIED`, состояние восстанавливается из `STATE_KEY` | `PASS` |
+| **AgentProofBench (негативный контроль 1)**: агент заявляет об успехе без записи файла | `verifier_status=FAILED`, `false_claim_caught=true`, `memory_fact=null` | Перехвачено (`false_claim_caught=true`, память не загрязнена) | `PASS` |
+| **AgentProofBench (негативный контроль 2)**: аудит неполного 3D-мира (`core_3d_ready=false`) с заявлением о готовности | `verdict=INCOMPLETE`, `verifier_status=FAILED`, `false_claim_caught=true`, `memory_fact=null` | Перехвачено по доменному критерию `"core_3d_ready": true` | `PASS` |
 | **CUA-Recovery (автовосстановление)**: сбой `wrong_form_field` с чекпойнтом | `decision=rollback_and_retry`, `repaired=true`, `VERIFIED` | Восстановлено и доведено до `VERIFIED` | `PASS` |
 | **CUA-Recovery (негативный контроль)**: сбой `closed_dialog` без авторемонта | `status=HALTED_BEFORE_IRREVERSIBLE`, `decision=halt_before_irreversible` | Остановлено до необратимого шага | `PASS` |
-| **TimlMemBench (изоляция и отзыв)**: запись в `personal`, чтение из `work`/`public`, замена и `revoke` | Утечек `0`, старый факт `заменённый`, после отзыва `0` выдач | `work_leaks=0`, `public_leaks=0`, `hits_after_revoke=0` | `PASS` |
-| **Санитайзер секретов**: передача ключа `sk-proj-...` в заметке пайплайна | Замена на `[скрыто]` до записи на диск | `secret_redacted=true`, ключ отсутствует на диске | `PASS` |
-| **BossBlock 3D Audit (г. Днепр, центр)**: проверка слоёв и `mesh.glb` | `READY_CORE_3D`, `40` окто-узлов, `67` зданий, `96` дорог, `52` фото | `READY_CORE_3D` (`4/5` файловых слоёв в `dnipro_assets`) | `PASS` |
+| **TimlMemBench (изоляция, отзыв и конкурентная запись)**: запись в `personal`, чтение из `work`/`public`, `revoke` и параллельный `asyncio.gather` для `pipeline="all"` | Утечек `0`, старый факт `заменённый`, после отзыва `0` выдач, конкурентные прогоны сериализованы без `FactWriteError` | `work_leaks=0`, `public_leaks=0`, `hits_after_revoke=0`, `6/6` конкурентных фактов записаны | `PASS` |
+| **Санитайзер секретов**: передача ключа в заметке пайплайна | Замена на `[скрыто]` до записи на диск | `secret_redacted=true`, ключ отсутствует на диске | `PASS` |
+| **BossBlock 3D Audit (г. Днепр + обрезанный GLB)**: проверка слоёв `mesh.glb` и отбраковка обрезанного буфера (`size < total_len`) | `READY_CORE_3D` для Днепра; `valid_glb=false` (`truncated GLB`) для обрезанного файла | `READY_CORE_3D` (`40` окто-узлов, `67` зданий, `96` дорог, `52` фото); обрезанный GLB отклонён | `PASS` |
 
 ---
 

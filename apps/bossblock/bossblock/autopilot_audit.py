@@ -35,7 +35,16 @@ def _inspect_glb_header(path: Path) -> dict[str, Any]:
         magic, version, total_len, chunk_len, chunk_type = struct.unpack("<4sIIII", header)
         if magic != b"glTF" or version != 2:
             return {"present": True, "valid_glb": False, "bytes": size, "reason": f"invalid magic/version: {magic!r} v{version}"}
-        json_bytes = f.read(min(chunk_len, 2 * 1024 * 1024))
+        if chunk_type != 0x4E4F534A:
+            return {"present": True, "valid_glb": False, "bytes": size, "reason": f"first chunk is not JSON: 0x{chunk_type:08x}"}
+        if size < total_len or size < 20 + chunk_len:
+            return {
+                "present": True,
+                "valid_glb": False,
+                "bytes": size,
+                "reason": f"truncated GLB: size={size} < declared={max(total_len, 20 + chunk_len)}",
+            }
+        json_bytes = f.read(min(chunk_len, 16 * 1024 * 1024))
     try:
         gltf = json.loads(json_bytes.decode("utf-8", errors="replace").rstrip("\x00 "))
     except Exception as exc:
