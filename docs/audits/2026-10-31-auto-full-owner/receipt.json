@@ -1,0 +1,52 @@
+{
+ "started": "2026-10-31T07:50:41",
+ "checks": {
+  "card_reads": {
+   "pass": true,
+   "http": 200
+  },
+  "refuse_users_root": {
+   "pass": true,
+   "http": 400,
+   "reason": "{'detail': {'message': 'домашний каталог целиком нельзя выбрать для Auto Full — выберите конкретную рабочую папку', 'code': 'AUTO_FULL_INVALID_FOLDER'}}"
+  },
+  "refuse_python": {
+   "pass": true,
+   "http": 400,
+   "reason": "{'detail': {'message': 'папка установленной программы/Python запрещена для Auto Full: C:\\\\Users\\\\asd\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\Lib', 'code':"
+  },
+  "enable": {
+   "pass": true,
+   "http": 200,
+   "folder": "C:\\Users\\asd\\Bossman\\wt-agent-proof-20261025\\autofull-owner-20261031-075041"
+  },
+  "inside_no_approval": {
+   "pass": true,
+   "task": 831,
+   "status": "completed",
+   "terminal_calls": 2,
+   "covered_by_auto_full": 2,
+   "approved_by": [
+    "lease:36"
+   ],
+   "pending_asks": 0
+  },
+  "outside_not_auto": {
+   "pass": true,
+   "task": 832,
+   "status": "waiting_approval",
+   "asked_owner": 1,
+   "file_written_outside": false
+  },
+  "after_revoke_asks_again": {
+   "pass": true,
+   "revoke_http": 200,
+   "active_after": false,
+   "task": 833,
+   "asked_owner": 1,
+   "status": "waiting_approval"
+  }
+ },
+ "finished": "2026-10-31T07:53:38",
+ "verdict": "PASS"
+}
