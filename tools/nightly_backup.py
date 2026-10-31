@@ -57,7 +57,12 @@ LOCK_STALE_S = 6 * 3600
 RUN_RE = re.compile(r"^\d{8}-\d{4}(?:-\d+)?$")
 DEFAULT_BACKEND = "http://127.0.0.1:8801"
 #: direct-gen job states that are finished (command-center/bcc/direct_gen/service.py TERMINAL + aliases).
-TERMINAL_JOB = frozenset({"completed", "done", "failed", "error", "cancelled", "canceled", "rejected", "expired"})
+#: "stopped" is set by DirectGenService._recover (owner STOP, or a stale job awaiting resume
+#: confirmation): it has finished_at and holds no GPU/IO until the owner resumes it, which re-queues it.
+#: Leaving it out made every night since 21.10 a permanent SKIPPED_BUSY.
+TERMINAL_JOB = frozenset({"completed", "done", "failed", "error", "cancelled", "canceled", "rejected", "expired",
+                          "stopped"})
+LAST_RESULT = "nightly_backup.last.json"   # <dest>/...: outcome of the last backup-mode run, whatever the status
 
 EXIT_OK, EXIT_FAIL, EXIT_BUSY = 0, 2, 3
 PASS, FAIL, MISSING = "PASS", "FAIL", "MISSING"
@@ -524,8 +529,24 @@ def _parser() -> argparse.ArgumentParser:
     return p
 
 
-def _emit(obj: dict) -> None:
-    sys.stdout.write(json.dumps(obj, ensure_ascii=False, indent=2) + "\n")
+def _emit(obj: dict, dest: Path | None = None) -> None:
+    """Print the result; with ``dest`` also persist it as ``<dest>/nightly_backup.last.json``.
+
+    Task Scheduler runs this under pythonw.exe, where sys.stdout is None: printing must not
+    crash (that turned every SKIPPED_BUSY exit 3 into an opaque exit 1), and the result file
+    is the only place a scheduled run's outcome is visible.
+    """
+    if dest is not None:
+        try:
+            Path(dest).mkdir(parents=True, exist_ok=True)
+            tmp = Path(dest) / (LAST_RESULT + ".tmp")
+            tmp.write_text(json.dumps({"at": _iso(_now()), **obj}, ensure_ascii=False, indent=2) + "\n",
+                           encoding="utf-8")
+            os.replace(tmp, Path(dest) / LAST_RESULT)
+        except OSError:
+            pass
+    if sys.stdout is not None:
+        sys.stdout.write(json.dumps(obj, ensure_ascii=False, indent=2) + "\n")
 
 
 def main(argv: list[str] | None = None, *, jobs_probe: JobsProbe | None = None,
@@ -556,22 +577,25 @@ def main(argv: list[str] | None = None, *, jobs_probe: JobsProbe | None = None,
         return EXIT_OK
 
     if idle["busy"]:
-        _emit({"mode": "backup", "status": "SKIPPED_BUSY", "direct_gen": idle})
+        _emit({"mode": "backup", "status": "SKIPPED_BUSY", "direct_gen": idle}, dest)
         return EXIT_BUSY
 
     lock = RunLock(dest)
     if not lock.acquire():
-        _emit({"mode": "backup", "status": "SKIPPED_LOCKED", "lock": str(lock.path)})
+        _emit({"mode": "backup", "status": "SKIPPED_LOCKED", "lock": str(lock.path)}, dest)
         return EXIT_BUSY
     try:
         priority = lower_io_priority()
         run, manifest = backup_run(data_dir, dest, sources=sources, io_priority=priority)
         retention = apply_retention(dest, args.keep)
+    except Exception as exc:                          # noqa: BLE001 - record it; pythonw has no stderr
+        _emit({"mode": "backup", "status": FAIL, "errors": [f"{type(exc).__name__}: {exc}"]}, dest)
+        return EXIT_FAIL
     finally:
         lock.release()
     _emit({"mode": "backup", "status": manifest["status"], "run": str(run), "direct_gen": idle,
            "databases": [{k: d.get(k) for k in ("name", "status", "size", "errors")} for d in manifest["databases"]],
-           "retention": retention})
+           "retention": retention}, dest)
     return EXIT_OK if manifest["status"] == PASS else EXIT_FAIL
 
 

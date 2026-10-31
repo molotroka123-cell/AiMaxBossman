@@ -397,6 +397,39 @@ def test_queued_and_unknown_states_count_as_active():
     assert not nb.active_jobs(lambda: [{"id": "c", "status": s} for s in ("completed", "failed", "cancelled")])["busy"]
 
 
+def test_stopped_jobs_do_not_block_the_backup(env):
+    # Incident 31.10: five direct-gen jobs "stopped" on 21.10 (STOP / stale, awaiting resume
+    # confirmation) made every nightly run SKIPPED_BUSY for 10 days.
+    probe = lambda: [{"job_id": f"s{i}", "status": "stopped"} for i in range(5)]  # noqa: E731
+    assert nb.active_jobs(probe) == {"busy": False, "reason": "idle", "active": []}
+    assert _run(env, probe=probe) == nb.EXIT_OK
+    assert nb.run_status(_only_run(env["dest"])) == nb.PASS
+
+
+def test_pythonw_without_stdout_keeps_exit_codes_and_records_the_result(env, monkeypatch):
+    # Task Scheduler runs pythonw.exe: sys.stdout is None. Printing used to raise
+    # AttributeError -> exit 1 with no trace anywhere.
+    monkeypatch.setattr(sys, "stdout", None)
+    busy = lambda: [{"job_id": "g", "status": "generating"}]  # noqa: E731
+    assert _run(env, probe=busy) == nb.EXIT_BUSY
+    last = json.loads((env["dest"] / nb.LAST_RESULT).read_text(encoding="utf-8"))
+    assert last["status"] == "SKIPPED_BUSY" and last["direct_gen"]["active"] == ["g"] and last["at"]
+    assert not nb.list_runs(env["dest"])
+    assert _run(env) == nb.EXIT_OK
+    last = json.loads((env["dest"] / nb.LAST_RESULT).read_text(encoding="utf-8"))
+    assert last["status"] == nb.PASS and last["run"] == str(_only_run(env["dest"]))
+
+
+def test_unexpected_error_is_recorded_as_fail_not_a_bare_exit_1(env, monkeypatch, capsys):
+    def boom(*_a, **_k):
+        raise PermissionError("dest not writable")
+    monkeypatch.setattr(nb, "backup_run", boom)
+    assert _run(env) == nb.EXIT_FAIL
+    last = json.loads((env["dest"] / nb.LAST_RESULT).read_text(encoding="utf-8"))
+    assert last["status"] == nb.FAIL and last["errors"] == ["PermissionError: dest not writable"]
+    assert not (env["dest"] / nb.LOCK_NAME).exists()
+
+
 def test_unreachable_backend_proceeds(env):
     def down():
         raise ConnectionError("URLError")
