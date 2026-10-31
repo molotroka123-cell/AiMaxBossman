@@ -920,7 +920,7 @@
       box.appendChild(el('p', 'rollback-hint', ev.rollback_hint || 'Как откатить: нажмите «Отклонить» или ⛔ STOP — изменения не применятся (git checkout -- .)'));
     }
     const row = el('div', 'row approval-choices'); const no = el('button', 'btn', 'Отклонить'); const yes = el('button', 'btn primary', 'Разрешить один раз');
-    const op = approvalOp(ev); const sticky = op && !ev.approval_kind?.startsWith('self_improve') && !hardAsk(ev);
+    const op = approvalOp(ev); const sticky = op && !ev.approval_kind?.startsWith('self_improve') && ev.approval_kind !== 'budget' && !hardAsk(ev);
     const always = sticky ? el('button', 'btn primary', `Не спрашивать в этом чате: ${op.split('|').pop()}`) : null;
     row.append(no, yes); if (always) row.append(always); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; autoScroll();
     const decide = async (approve, auto, remember) => {
@@ -942,7 +942,8 @@
     if (cloud && S.agentMode === 'AUTO') box.appendChild(el('p', 'cloud-warn', 'Режим AUTO не отправляет текст в облако сам — нужно ваше нажатие.'));
     // Owner 29.10: AUTO auto-approves only for a LOCAL agent; a cloud agent with PC access (DeepSeek/Kimi) always waits for the owner's tap.
     if (S.agentMode === 'AUTO' && curAgentCloud()) box.appendChild(el('p', 'cloud-warn', 'Облачная модель: в режиме AUTO команды на ПК всё равно ждут вашего нажатия.'));
-    if (S.agentMode === 'AUTO' && ev.approval_kind !== 'self_improve' && !cloud && !curAgentCloud()) decide(true, true);
+    // Owner 31.10: «продлить лимит подтверждений?» (kind=budget) is always the owner's own tap - AUTO never answers it
+    if (S.agentMode === 'AUTO' && ev.approval_kind !== 'self_improve' && ev.approval_kind !== 'budget' && !cloud && !curAgentCloud()) decide(true, true);
   }
   function approvalDecided(b, ev) {
     const box = b.cards['ap' + ev.id]; if (!box) return; const row = box.querySelector('.row');

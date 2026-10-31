@@ -54,7 +54,7 @@ from typing import Any
 
 import sqlalchemy as sa
 
-from .db import (approval_leases as leases_t, approvals as approvals_t,
+from .db import (approval_leases as leases_t, approvals as approvals_t, tasks as tasks_t,
                  tool_calls as tool_calls_t, utcnow)
 
 #: Hard ceilings. A lease is a convenience, never an open door: an owner who
@@ -639,6 +639,30 @@ def budget_of(task: dict | None) -> int:
     except (TypeError, ValueError):
         return DEFAULT_APPROVAL_BUDGET
     return value if value >= 0 else DEFAULT_APPROVAL_BUDGET
+
+
+#: Owner 31.10: the budget does not kill the task — it asks ONE question of this kind. Approving it runs nothing;
+#: it only raises the task's budget by BUDGET_EXTENSION_STEP (the pult never auto-approves this kind, AUTO included).
+BUDGET_APPROVAL_KIND = "budget"
+BUDGET_EXTENSION_STEP = 25
+
+
+def budget_extension_preview(agent_name: Any, tool: str, used: int, budget: int) -> str:
+    return (f"Лимит подтверждений исчерпан: агент «{agent_name}» уже спросил {used} раз (лимит {budget}).\n"
+            f"Продлить ещё на {BUDGET_EXTENSION_STEP} вопросов? Это НЕ одобряет ни одного действия: следующий "
+            f"вызов ({tool}) снова спросит вас как обычно. «Нет» — задача остановится.")
+
+
+async def extend_budget(db, task: dict, used: int) -> int:
+    """Raise `tasks.meta.approval_budget` to used + step, in the DB and in the running task dict. Returns the new budget."""
+    new_budget = max(int(used), budget_of(task)) + BUDGET_EXTENSION_STEP
+    meta = dict(task.get("meta") or {})
+    meta["approval_budget"] = new_budget
+    async with db.session() as s:
+        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == int(task["id"])).values(meta=meta))
+        await s.commit()
+    task["meta"] = meta
+    return new_budget
 
 
 async def budget_exceeded(svc, task: dict | None) -> tuple[bool, int, int]:

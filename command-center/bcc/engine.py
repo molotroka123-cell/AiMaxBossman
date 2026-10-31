@@ -1709,17 +1709,30 @@ class TaskEngine:
                     return True
                 over, used, budget = await _scope.budget_exceeded(self.services, task)
                 if over:
-                    # Исчерпанный бюджет НЕ выдаёт разрешение — он останавливает
-                    # задачу. Иначе «лимит подтверждений» был бы расширением прав.
-                    await self._record_tool_call(run_id, task["id"], step, call, spec,
-                                                 effect="deny", status="denied",
-                                                 preview=f"approval budget {used}/{budget} spent")
+                    # Исчерпанный бюджет НЕ выдаёт разрешение. Owner 31.10 («задача завершилась с
+                    # ошибкой APPROVAL_BUDGET_EXCEEDED … надо исправить»): вместо падения задача
+                    # паркуется с ОДНИМ вопросом kind=budget «продлить ещё на N?». Это одобрение не
+                    # исполняет ни одного действия: «да» поднимает бюджет, и модель повторяет вызов
+                    # через обычное подтверждение; «нет» останавливает задачу, как раньше.
                     await self.bus.emit("approval.budget_exceeded", task_id=task["id"],
                                         run_id=run_id, spent=used, budget=budget)
-                    await self._fail_now(run_id, task["id"],
-                                         f"APPROVAL_BUDGET_EXCEEDED: задача запросила {used} "
-                                         f"подтверждений при бюджете {budget}; выполнение "
-                                         f"остановлено вместо продолжения расспросов")
+                    appr = await self._approvals_create(
+                        kind=_scope.BUDGET_APPROVAL_KIND,
+                        preview=_scope.budget_extension_preview(agent.get("name"), spec.name, used, budget),
+                        task_id=task["id"], run_id=run_id)
+                    approval_id = (appr or {}).get("id")
+                    await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                                 effect="ask", status="pending_approval",
+                                                 approval_id=approval_id,
+                                                 preview=f"approval budget {used}/{budget} spent: ask to extend")
+                    await self._park_for_approval(
+                        run_id, task["id"], messages, step,
+                        pending={"call": _call_dict(call), "tool": spec.name,
+                                 "approval_id": approval_id, "budget_extension": True,
+                                 "budget_spent": used,
+                                 "remaining": [_call_dict(c) for c in calls[index + 1:]],
+                                 "step": step},
+                        usage=usage)
                     return True
                 appr = await self._approvals_create(
                     kind="tool",
@@ -1911,6 +1924,30 @@ class TaskEngine:
         spec = TOOLS.get(str(pending.get("tool") or "")) or TOOLS.by_api_name(call.name)
         remaining = [_call_from_dict(c) for c in (pending.get("remaining") or [])]
         step = int(pending.get("step") or 0)
+
+        if pending.get("budget_extension"):
+            # Ответ на вопрос «продлить лимит подтверждений?» НИКОГДА не исполняет парковочный вызов.
+            decided_by = str((row or {}).get("decided_by") or "")
+            await self._mark_tool_call(run_id, call.id, status="rejected",
+                                       approved_by=f"system:budget_{status}:{decided_by}"[:120])
+            if status not in ("approved", "consumed"):
+                await self._fail_now(run_id, task["id"],
+                                     f"APPROVAL_BUDGET_EXCEEDED: владелец не продлил лимит подтверждений "
+                                     f"({pending.get('budget_spent')}); задача остановлена")
+                return False
+            new_budget = await _scope.extend_budget(self.db, task, int(pending.get("budget_spent") or 0))
+            await self._log(run_id, "info", "approval.budget_extended",
+                            f"лимит подтверждений продлён владельцем до {new_budget}")
+            messages.append(_tool_message(
+                call, f"Владелец продлил лимит подтверждений (теперь {new_budget}). Этот вызов {pending.get('tool')} "
+                      f"ещё НЕ выполнен: повтори его, если он всё ещё нужен, — будет обычное подтверждение."))
+            specs = _executable_and_presented_tools(task, agent)[0]
+            if remaining:
+                waiting = await self._execute_tool_calls(run_id, task, agent, messages, remaining, step,
+                                                         policy_rules, specs, usage={})
+                if waiting:
+                    return False
+            return True
 
         already = await self._tool_call_status(run_id, call.id)
         reconcile_prior = pending.get("reconcile_prior")
