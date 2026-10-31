@@ -43,6 +43,8 @@ UI_DIR = Path(__file__).parent / "ui"
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
 mimetypes.add_type("application/manifest+json", ".webmanifest")
+mimetypes.add_type("model/gltf-binary", ".glb")
+mimetypes.add_type("application/geo+json", ".geojson")
 THREAD_ID = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
 JOB_ID = re.compile(r"^[0-9a-f]{32}$")
 REQ_ID = r"^[A-Za-z0-9._:-]+$"
@@ -2333,6 +2335,31 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
         msg_ids = await asyncio.to_thread(_send_tg)
         return {"ok": True, "message_ids": msg_ids}
+
+    @app.get("/m/api/bossblock/public/captures")
+    async def m_bossblock_public_captures():
+        return {"captures": _bossblock_list(), "presets": BOSSBLOCK_PRESETS}
+
+    @app.get("/m/api/bossblock/public/{capture_id}/{artifact:path}")
+    async def m_bossblock_public_artifact(capture_id: str, artifact: str):
+        if not re.match(r"^[A-Za-z0-9_.-]{3,80}$", capture_id):
+            raise fail(404, "захват не найден", "BM_NOT_FOUND")
+        base = (_bossblock_dir() / capture_id).resolve()
+        if not base.is_relative_to(_bossblock_dir().resolve()) or not base.is_dir():
+            raise fail(404, "захват не найден", "BM_NOT_FOUND")
+        target = (base / artifact).resolve()
+        if not target.is_relative_to(base) or not target.is_file():
+            raise fail(404, "файл не найден", "BM_NOT_FOUND")
+        ext = target.suffix.lower()
+        mtypes = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".json": "application/json",
+            ".geojson": "application/geo+json",
+            ".glb": "model/gltf-binary",
+        }
+        return Response(content=target.read_bytes(), media_type=mtypes.get(ext, "application/octet-stream"))
 
     @app.websocket("/m/api/agent/sessions/{session_id}/stream")
     async def m_agent_ws(ws: WebSocket, session_id: str):

@@ -2660,6 +2660,9 @@
           kv('Сохранено блоков мира', bb.total || 0),
         ];
         const actRow = el('div', 'row');
+        const playGtaBtn = el('a', 'btn small primary', '🎮 Играть GTA: Днепр 3D (Mini App)');
+        playGtaBtn.href = '/m/gta.html';
+        actRow.appendChild(playGtaBtn);
         actRow.appendChild(btn('🇺🇦 Днепр · Центр (5 слоёв)', 'primary', async (b) => {
           b.disabled = true;
           try {

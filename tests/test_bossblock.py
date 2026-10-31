@@ -83,3 +83,25 @@ def test_bossblock_game_showcase_on_synthetic_folder(tmp_path: Path):
     assert (tmp_path / "bossblock_showcase.png").is_file()
     assert (tmp_path / "osm_buildings_roads.geojson").is_file()
     assert (tmp_path / "game_manifest.json").is_file()
+
+
+def test_bossblock_gta_dnipro_miniapp_and_skill():
+    repo_root = Path(__file__).resolve().parent.parent
+    skill_md = repo_root / ".agents" / "skills" / "bossblock-gta-miniapp" / "SKILL.md"
+    assert skill_md.is_file(), "Bossman skill bossblock-gta-miniapp/SKILL.md must exist"
+    skill_text = skill_md.read_text(encoding="utf-8")
+    assert "name: bossblock-gta-miniapp" in skill_text
+    assert "/m/gta.html" in skill_text
+
+    ui_dir = repo_root / "apps" / "bossman-mobile" / "bossmobile" / "ui"
+    for fname in ("gta.html", "gta.css", "gta.js"):
+        fpath = ui_dir / fname
+        assert fpath.is_file(), f"Missing Mini App file: {fname}"
+    gta_html = (ui_dir / "gta.html").read_text(encoding="utf-8")
+    assert "style=" not in gta_html, "gta.html must not contain inline style attributes (strict CSP)"
+    assert "GTA: Днепр 3D" in gta_html
+
+    dnipro_dir = ui_dir / "dnipro_assets"
+    for asset in ("game_manifest.json", "osm_buildings_roads.geojson", "satellite.png", "mesh.glb"):
+        assert (dnipro_dir / asset).is_file(), f"Missing Dnipro asset: {asset}"
+
