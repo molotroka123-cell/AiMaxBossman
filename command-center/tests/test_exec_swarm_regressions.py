@@ -25,6 +25,12 @@ def test_cloud_budget_not_truncated_by_2000_later_events(tmp_path, monkeypatch):
     assert asyncio.run(tools_cloud.budget_state(svc, None))['spent_usd'] == 1.25
 
 def test_failed_job_attach_does_not_resume_process(monkeypatch):
+    # Job Objects exist only on Windows, so _win_bind_and_resume is a no-op when
+    # os.name != 'nt' (CI ubuntu: "DID NOT RAISE OSError"). The bind/resume decision
+    # itself is plain Python: run the Windows branch on every OS by giving the
+    # module an os whose name is 'nt' (the Win32 attach and psutil are faked below).
+    import os as _os
+    monkeypatch.setattr(terminal_control, 'os', SimpleNamespace(**{**vars(_os), 'name': 'nt'}))
     events=[]
     proc=SimpleNamespace(pid=123, _transport=object(), kill=lambda: events.append('kill'))
     monkeypatch.setattr(terminal_control, '_win_job_attach', lambda p, **kw: None)   # kill_on_close kwarg since 29.10
