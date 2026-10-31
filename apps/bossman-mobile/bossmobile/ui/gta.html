@@ -3,177 +3,176 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#070a12">
+  <meta name="theme-color" content="#0b1324">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>GTA: Днепр 3D · BossBlock Mini App</title>
+  <title>GTA: Днепр 3D · Bossman Open World</title>
   <link rel="stylesheet" href="gta.css">
 </head>
 <body>
   <div id="gameRoot" class="game-root">
-    <!-- 3D WebGL Viewport -->
-    <canvas id="worldCanvas" class="world-canvas" aria-label="3D мир центра Днепра"></canvas>
+    <!-- 3D WebGL Viewport (Full Screen) -->
+    <canvas id="worldCanvas" class="world-canvas" aria-label="GTA Днепр 3D"></canvas>
 
-    <!-- Top-Left: GTA Circular Radar Minimap + Location Pill -->
+    <!-- Top-Left: GTA V Style Radar + Street & Mission Bar -->
     <div class="hud-top-left">
-      <div class="radar-wrap" id="radarWrap" title="Радар центра Днепра (нажми для 3D обзора)">
-        <canvas id="radarCanvas" width="156" height="156" class="radar-canvas"></canvas>
-        <div class="radar-ring"></div>
+      <div class="radar-shell" id="radarWrap" title="Нажми для смены ракурса радара/дрона">
+        <canvas id="radarCanvas" width="144" height="144" class="radar-canvas"></canvas>
         <div class="radar-north">N</div>
+        <div class="radar-health-bar">
+          <div class="bar-hp"></div>
+          <div class="bar-armor"></div>
+        </div>
       </div>
-      <div class="street-pill">
+      <div class="street-tag">
         <span class="street-dot"></span>
         <span id="hudStreetName">пр. Дмитра Яворницького · ЦУМ</span>
       </div>
-      <div class="mission-pill" id="hudMissionPill">
-        🎯 <span id="hudMissionText">Миссия: Проверить ауру у ЦУМа и ТЦ Європа (0/5)</span>
+      <div class="mission-tag" id="hudMissionPill">
+        🎯 <span id="hudMissionText">Миссия: Собери чекпоинты у ЦУМа и ТЦ Європа (0/5)</span>
       </div>
     </div>
 
-    <!-- Top-Right: GTA Wanted Stars, Cash, Speed, Mode & Back to Pult -->
+    <!-- Top-Right: Compact GTA V HUD (Wanted, Cash, Speed, Tool Pills) -->
     <div class="hud-top-right">
-      <div class="gta-stats-card">
-        <div class="gta-title-row">
-          <span class="gta-badge">GTA: ДНЕПР 3D</span>
-          <a href="/m/" class="pult-back-link" title="Вернуться в Пульт">← Пульт</a>
+      <div class="gta-hud-stats">
+        <div class="top-row-links">
+          <span class="game-logo-pill">GTA: DNIPRO 3D</span>
+          <a href="/m/" class="back-pult-btn">← В Пульт</a>
         </div>
-        <div class="wanted-row" id="wantedStars" aria-label="Уровень розыска">
+        <div class="wanted-stars" id="wantedStars">
           <span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span>
         </div>
-        <div class="cash-row" id="hudCash">$BOSS 250,000</div>
-        <div class="telemetry-row">
+        <div class="gta-cash" id="hudCash">$350,000</div>
+        <div class="gta-substats">
           <span id="hudModeLabel">🚶 Пешком</span>
-          <span class="telemetry-sep">·</span>
+          <span>·</span>
           <span id="hudSpeedLabel">0 км/ч</span>
+          <span>·</span>
+          <span id="hudShoeLabel">👟 Air Cyan</span>
         </div>
-        <div class="coords-row" id="hudCoordsLabel">48.4648°N, 35.0464°E · 67 зданий</div>
       </div>
 
-      <!-- Quick Top Toggle Bar -->
-      <div class="quick-toggles">
-        <button type="button" id="btnToggleAuraDrawer" class="hud-chip active">✨ Аура &amp; Текстуры</button>
-        <button type="button" id="btnToggleStreetModal" class="hud-chip">📸 Улица 360°</button>
-        <button type="button" id="btnToggleMesh" class="hud-chip">🧱 3D Меш</button>
-        <button type="button" id="btnCameraView" class="hud-chip">🎥 Камера</button>
+      <div class="top-tool-row">
+        <button type="button" id="btnToggleAuraDrawer" class="tool-pill">✨ Аура / Обувь / Текстуры</button>
+        <button type="button" id="btnToggleStreetModal" class="tool-pill">📸 Панорамы</button>
+        <button type="button" id="btnTimeOfDay" class="tool-pill">☀️ День / Закат</button>
       </div>
     </div>
 
-    <!-- Center Toast / Checkpoint Notification -->
+    <!-- GTA Mission Passed / Event Banner -->
     <div id="gtaBanner" class="gta-banner hidden">
-      <div class="gta-banner-title" id="gtaBannerTitle">RESPECT +</div>
-      <div class="gta-banner-sub" id="gtaBannerSub">Точка синхронизирована · Центр Днепра</div>
+      <div class="gta-banner-title" id="gtaBannerTitle">MISSION PASSED</div>
+      <div class="gta-banner-sub" id="gtaBannerSub">RESPECT + · Центр Днепра</div>
     </div>
 
-    <!-- Aura & Texture Live Tester Drawer (Collapsible for Mobile) -->
-    <aside id="auraDrawer" class="aura-drawer">
+    <!-- Compact Bottom-Sheet Drawer: Aura Text, Sneakers ("Обувь") & Facade Textures (Starts CLOSED so 3D world is 100% clear) -->
+    <aside id="auraDrawer" class="aura-drawer hidden">
       <div class="drawer-header">
         <div>
-          <div class="drawer-title">✨ Тест текста ауры и текстур</div>
-          <div class="drawer-sub">Живая проверка на 3D-персонаже, авто и фасадах ЦУМа / Европы</div>
+          <div class="drawer-title">✨ Кастомизация Боссмана: Аура, Обувь и Текстуры</div>
+          <div class="drawer-sub">Меняет 3D-ауру персонажа, LED-экран ЦУМа, кроссовки и фасады Днепра</div>
         </div>
-        <button type="button" id="btnCloseAuraDrawer" class="drawer-close" aria-label="Свернуть">✕</button>
+        <button type="button" id="btnCloseAuraDrawer" class="drawer-close" aria-label="Закрыть">✕</button>
       </div>
 
       <div class="drawer-section">
-        <label class="drawer-label" for="auraTextInput">Текст ауры (над игроком + билборды Днепра):</label>
+        <label class="drawer-label" for="auraTextInput">Текст ауры (кольцо под ногами + LED-экран ЦУМа и Европы):</label>
         <div class="aura-input-row">
-          <input id="auraTextInput" type="text" class="aura-input" maxlength="42" value="BOSSMAN · ДНЕПР 2026" placeholder="Введите текст ауры...">
-          <button type="button" id="btnApplyAuraText" class="aura-apply-btn">ОК</button>
+          <input id="auraTextInput" type="text" class="aura-input" maxlength="40" value="BOSSMAN · ДНЕПР 2026" placeholder="Текст ауры...">
+          <button type="button" id="btnApplyAuraText" class="aura-apply-btn">Применить</button>
         </div>
-        <div class="preset-chips" id="auraTextPresets">
+        <div class="chip-row" id="auraTextPresets">
           <button type="button" class="mini-chip" data-text="BOSSMAN · ДНЕПР 2026">BOSSMAN · ДНЕПР</button>
           <button type="button" class="mini-chip" data-text="ЦУМ · ЕВРОПЕЙСКАЯ ПЛ.">ЦУМ · ЕВРОПА</button>
-          <button type="button" class="mini-chip" data-text="АРГОН × BOSSBLOCK 3D">АРГОН × 3D</button>
-          <button type="button" class="mini-chip" data-text="GTA DNIPRO ULTRA">GTA ULTRA</button>
+          <button type="button" class="mini-chip" data-text="GTA DNIPRO KING">GTA KING</button>
+          <button type="button" class="mini-chip" data-text="АРГОН × BOSSBLOCK">АРГОН × 3D</button>
         </div>
       </div>
 
       <div class="drawer-section">
-        <div class="drawer-label">Режим текстур города и шейдер ауры:</div>
+        <div class="drawer-label">👟 Обувь персонажа (3D кроссовки с неоновым следом) и цвет Ferrari:</div>
+        <div class="chip-row" id="shoePresetRow">
+          <button type="button" class="mini-chip active" data-shoe="cyan" data-color="#00f5d4" data-car="#dc2626">👟 Air Dnipro Cyan + Red Ferrari</button>
+          <button type="button" class="mini-chip" data-shoe="gold" data-color="#facc15" data-car="#eab308">👟 Bossman Gold + Gold Ferrari</button>
+          <button type="button" class="mini-chip" data-shoe="vice" data-color="#ff2a85" data-car="#f8fafc">👟 Vice Neon + White Ferrari</button>
+          <button type="button" class="mini-chip" data-shoe="stealth" data-color="#38bdf8" data-car="#1e293b">👟 Carbon Stealth + Black Ferrari</button>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <div class="drawer-label">🏢 Архитектурные текстуры зданий Днепра:</div>
         <div class="texture-grid" id="textureModeGrid">
-          <button type="button" class="tex-btn active" data-mode="realism">🛰️ Спутник HD + Фасады</button>
-          <button type="button" class="tex-btn" data-mode="neon">⚡ Неоновая Аура Днепра</button>
-          <button type="button" class="tex-btn" data-mode="gold">👑 Кибер-Золото Bossman</button>
-          <button type="button" class="tex-btn" data-mode="streetproj">🏢 Проекция Фото Улиц</button>
-          <button type="button" class="tex-btn" data-mode="wireframe">🕸️ Голограмма Сетки</button>
+          <button type="button" class="tex-btn active" data-mode="realism">🏛️ Классика Днепра + Стекло</button>
+          <button type="button" class="tex-btn" data-mode="streetproj">📸 Реальные фото улиц (Street View)</button>
+          <button type="button" class="tex-btn" data-mode="neon">⚡ Неоновый Кибер-Днепр</button>
+          <button type="button" class="tex-btn" data-mode="gold">👑 Золотой Квартал</button>
         </div>
       </div>
 
       <div class="drawer-section">
-        <div class="drawer-label">Цвет свечения ауры и шрифта:</div>
-        <div class="color-row" id="auraColorRow">
-          <button type="button" class="color-swatch swatch-cyan active" data-color="#00f5d4" title="Неон Циан"></button>
-          <button type="button" class="color-swatch swatch-magenta" data-color="#ff2a85" title="Кибер Пурпур"></button>
-          <button type="button" class="color-swatch swatch-gold" data-color="#facc15" title="Золото Днепра"></button>
-          <button type="button" class="color-swatch swatch-violet" data-color="#a855f7" title="Ультрафиолет"></button>
-          <button type="button" class="color-swatch swatch-lime" data-color="#22c55e" title="Изумруд"></button>
-          <button type="button" class="color-swatch swatch-sky" data-color="#38bdf8" title="Лазурь"></button>
-        </div>
-      </div>
-
-      <div class="drawer-section">
-        <div class="drawer-label">Быстрый телепорт по точкам центра Днепра:</div>
-        <div class="teleport-row" id="teleportRow">
+        <div class="drawer-label">📍 Телепорт по локациям центра Днепра:</div>
+        <div class="chip-row" id="teleportRow">
           <button type="button" class="mini-chip" data-tp="tsum">🏢 ЦУМ &amp; Ротонда</button>
-          <button type="button" class="mini-chip" data-tp="europa">🛍️ ТЦ Європа</button>
-          <button type="button" class="mini-chip" data-tp="carousel">🎠 Карусель</button>
-          <button type="button" class="mini-chip" data-tp="yavornytskogo">🛣️ пр. Яворницького</button>
+          <button type="button" class="mini-chip" data-tp="europa">🛍️ Європейська пл. &amp; Карусель</button>
+          <button type="button" class="mini-chip" data-tp="yavornytskogo">🚋 пр. Яворницького (Трамвай №1)</button>
           <button type="button" class="mini-chip" data-tp="scorpion">🦂 ТЦ Скорпіон</button>
         </div>
       </div>
     </aside>
 
-    <!-- Real Dnipro Street View Photo Inspector & Texture Apply Card -->
+    <!-- Street View Panorama Inspector Modal -->
     <section id="streetModal" class="street-modal hidden">
-      <div class="street-modal-header">
+      <div class="drawer-header">
         <div>
-          <div class="street-modal-title" id="svTitle">📸 Реальная панорама центра Днепра</div>
-          <div class="street-modal-sub" id="svMeta">пр. Дмитра Яворницького · Панорама #1 / 52</div>
+          <div class="drawer-title" id="svTitle">📸 Реальная панорама центра Днепра</div>
+          <div class="drawer-sub" id="svMeta">пр. Дмитра Яворницького · Панорама #1 / 52</div>
         </div>
         <button type="button" id="btnCloseStreetModal" class="drawer-close" aria-label="Закрыть">✕</button>
       </div>
       <div class="street-img-wrap">
-        <img id="svImage" class="street-img" src="dnipro_assets/streetview/photos/000001_path_p0001_s0001_left_h218.jpg" alt="Панорама улицы Днепра">
+        <img id="svImage" class="street-img" src="dnipro_assets/streetview/photos/000001_path_p0001_s0001_left_h218.jpg" alt="Улица Днепра">
       </div>
       <div class="street-modal-actions">
         <button type="button" id="btnPrevPhoto" class="street-btn">◀ Пред.</button>
-        <button type="button" id="btnApplyPhotoTexture" class="street-btn primary">🧱 Натянуть это фото на фасады 3D</button>
+        <button type="button" id="btnApplyPhotoTexture" class="street-btn primary">🧱 Применить это фото на фасады 3D</button>
         <button type="button" id="btnNextPhoto" class="street-btn">След. ▶</button>
       </div>
     </section>
 
-    <!-- Bottom-Left: Touch Virtual Joystick -->
+    <!-- Bottom-Left: Touch Thumbstick -->
     <div class="hud-bottom-left">
       <div class="joystick-zone" id="joystickZone">
-        <canvas id="joystickCanvas" width="148" height="148" class="joystick-canvas"></canvas>
-        <div class="joystick-hint">ДЖОЙСТИК · WASD</div>
+        <canvas id="joystickCanvas" width="136" height="136" class="joystick-canvas"></canvas>
       </div>
     </div>
 
-    <!-- Bottom-Right: GTA Action Pad -->
+    <!-- Bottom-Right: GTA V Circular Action Buttons -->
     <div class="hud-bottom-right">
-      <div class="action-grid">
-        <button type="button" id="btnDriveToggle" class="gta-action-btn primary-action">
-          <span class="btn-icon" id="driveBtnIcon">🚗</span>
-          <span class="btn-text" id="driveBtnText">В тачку</span>
+      <div class="gta-pad">
+        <button type="button" id="btnDriveToggle" class="pad-btn btn-car" title="Сесть в Ferrari 458 / Выйти пешком (F / E)">
+          <span class="pad-icon" id="driveBtnIcon">🏎️</span>
+          <span class="pad-label" id="driveBtnText">Ferrari</span>
         </button>
-        <button type="button" id="btnBoost" class="gta-action-btn boost-action">
-          <span class="btn-icon">⚡</span>
-          <span class="btn-text">Нитро / Бег</span>
+        <button type="button" id="btnBoost" class="pad-btn btn-boost" title="Нитро / Спринт (Space)">
+          <span class="pad-icon">⚡</span>
+          <span class="pad-label">Нитро</span>
         </button>
-        <button type="button" id="btnPulseAura" class="gta-action-btn aura-action">
-          <span class="btn-icon">💥</span>
-          <span class="btn-text">Импульс Ауры</span>
+        <button type="button" id="btnShoeSwitch" class="pad-btn btn-shoe" title="Сменить 3D кроссовки и цвет ауры">
+          <span class="pad-icon">👟</span>
+          <span class="pad-label">Обувь</span>
         </button>
-        <button type="button" id="btnNearestStreetView" class="gta-action-btn sv-action">
-          <span class="btn-icon">📸</span>
-          <span class="btn-text">Фото Улицы</span>
+        <button type="button" id="btnCameraView" class="pad-btn btn-cam" title="Сменить камеру (GTA / Вблизи / Дрон)">
+          <span class="pad-icon">🎥</span>
+          <span class="pad-label">Камера</span>
         </button>
       </div>
     </div>
   </div>
 
   <script src="vendor/three.min.js"></script>
+  <script src="vendor/draco/draco_decoder.js"></script>
+  <script src="vendor/DRACOLoader.js"></script>
   <script src="vendor/GLTFLoader.js"></script>
   <script src="gta.js"></script>
 </body>

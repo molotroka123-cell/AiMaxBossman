@@ -1,41 +1,34 @@
 ---
 name: bossblock-gta-miniapp
-description: "Создание мобильных 3D-игр в стиле GTA (пешком и на авто) поверх захватов реальных городов BossBlock (Aleph 5-Layer Capture: mesh.glb, satellite.png, osm_buildings_roads.geojson, terrain.tif, Street View) с виртуальным джойстиком, миникартой, переключателем текстур/ауры и запуском как Telegram Mini App через мобильный пульт (:8840)."
-compatibility: BOSSMAN, OpenCode, Claude-compatible agent skills
-metadata:
-  owner: argon-mentor
-  version: "1.0"
+description: Build and update playable 3D GTA-style open-world WebGL / Three.js Mini Apps for Telegram and Bossman Mobile Pult (:8840) from BossBlock 5-layer city captures (Satellite, OSM 3D Buildings & Roads, Terrain DEM, 3D Mesh .glb, Street View Panoramas) with rigged GLB characters, custom 3D sneakers/outfits, Draco vehicles, and live Aura Text & Texture testing.
 ---
 
-# Регламент создания мобильной 3D-игры BossBlock GTA Mini App
+# BossBlock 3D GTA Mini App Skill (`bossblock-gta-miniapp`)
 
-## 1. Назначение и триггеры
-Используй этот навык, когда владелец просит:
-- превратить реальный захват квартала из `apps/bossblock` (например, центр г. Днепр, Украина) в мобильную 3D-игру в стиле GTA;
-- протестировать с телефона прогулку пешком / езду на авто, текстуры фасадов Street View, 3D-фотограмметрию `mesh.glb` и шейдеры/текст ауры (`Aura Text & Texture Inspector`);
-- встроить игру в Мобильный пульт (`:8840/m/gta.html`) и отправить ссылку / кнопку запуска в Telegram-пульт владельца.
+Use this skill whenever the user asks Bossman to build, customize, or update a playable 3D open-world / GTA-style mobile game or Telegram Mini App on top of a real city captured by **BossBlock (`apps/bossblock`)**.
 
-## 2. Архитектура данных BossBlock → 3D-сцена
-Каждая папка захвата `bossblock-captures/<capture_id>/` содержит 5 слоёв, которые обязаны загружаться в реальном времени без повторной авторизации (публичный/локальный read-only маршрут `/m/api/bossblock/public/{capture_id}/{artifact}`):
-1. **Земля (Ground Ortho + DEM)**: `satellite.png` (`235.9 × 222.4 м`) натягивается на плоскость рельефа с учётом перепада высот из `game_manifest.json` (`terrain_stats`).
-2. **Фотограмметрия (`mesh.glb`)**: загружается через `GLTFLoader` или парсер бинарного glTF 2.0, центрируется и масштабируется под игровой квартал; поддерживается мгновенное переключение видимости (`3D Mesh ON/OFF`).
-3. **3D-здания и дороги (`osm_buildings_roads.geojson`)**:
-   - контуры зданий (`kind == "building"`) выдавливаются (`THREE.ExtrudeGeometry`) на реальную высоту `height_m` (с коллизиями AABB/кругов, чтобы персонаж и спорткар не проходили сквозь ЦУМ и Пассаж);
-   - на крышах и фасадах ключевых зданий отображаются неоновые 3D-вывески и настраиваемый **Текст Ауры**;
-   - сегменты дорог (`kind == "road"`) используются для спавна трафика, миссий и GPS-навигатора на миникарте.
-4. **Панорамы и текстуры улиц (`Street View`)**: точки съёмки из `streetview/metadata.geojson` расставляются вдоль проспекта Д. Яворницкого и ул. Центральной как светящиеся сферы-порталы; при приближении или клике текстура `streetview/photos/*.jpg` накладывается на билборд/фасад и открывается в HUD-инспекторе текстур.
+## 1. Data Inputs from BossBlock Capture
+Each capture folder in `%LOCALAPPDATA%\Bossman\CommandCenter\bossblock-captures\<capture_id>` (and mirrored in `apps/bossman-mobile/bossmobile/ui/dnipro_assets/`) provides:
+1. `game_manifest.json` — bounding box `[south, west, north, east]`, metric dimensions `width_m × height_m`, OSM building/road counts, elevation range, Street View photo count, and `mesh.glb` stats.
+2. `satellite.png` — high-resolution stitched satellite orthophoto of the city block.
+3. `osm_buildings_roads.geojson` — GeoJSON `Polygon` features for real named buildings (`name`, `levels`, `height`) and `LineString` features for roads (`name`, `highway`).
+4. `mesh.glb` — 3D photogrammetry / relief glTF binary mesh.
+5. `streetview/photos.geojson` + `streetview/photos/*.jpg` — real street-level panoramas with exact `[lon, lat]`, `filename`, and `heading`.
 
-## 3. Обязательный стандарт геймплея и управления с телефона
-1. **Два режима передвижения (кнопка `🚗 Сесть в авто / 🚶 Пешком`)**:
-   - **Пешком (`WALK`)**: гладкий 3D-персонаж (`LatheGeometry` по стандарту `smooth-3d-webgl-character-architect`) со светящимся кольцом и парящим баннером **Текста Ауры**, анимацией шага и камерой от 3-го лица.
-   - **Машина (`DRIVE`)**: детализированный 3D-спорткар с физикой разгона, торможения, дрифта (`DRIFT`), фарами и следами шин по проспекту Яворницкого.
-2. **Мобильное управление (Mobile Web Guidance)**:
-   - Левый виртуальный джойстик с `setPointerCapture()`, `touch-action: none`, `-webkit-user-select: none` и `user-select: none`.
-   - Свайп по правой половине экрана вращает 3D-камеру вокруг игрока/машины.
-   - Кнопки быстрого действия: `🚗 Авто / 🚶 Пешком`, `⚡ Нитро / Спринт`, `✨ Сменить Ауру / Текстуру`, `📸 Фото улицы (Street View)`.
-3. **GTA HUD**:
-   - Круглая/квадратная **GPS-миникарта** в левом верхнем углу с подложкой `satellite.png`, контурами зданий и маркером игрока.
-   - Справа сверху: **Звёзды розыска (`★☆☆☆☆..★★★★★`)**, баланс `$UAH / $BOSS`, счётчик собранных чекпоинтов Днепра (`Европейская площадь`, `ЦУМ`, `Пассаж`, `пр. Д. Яворницкого`, `ул. Центральная`).
-   - Панель **«Тест Ауры и Текстур»**: живое поле ввода текста ауры + пресеты шейдеров текстур (`Реализм HD`, `Неоновая Аура Днепра`, `Золотой Киберпанк`, `Голограмма Сетки`, `Street View Проекция`).
-4. **Политика CSP в `bossmobile/api.py`**:
-   - Все скрипты игры размещаются локально в `/m/` (`gta.html`, `gta.css`, `gta.js`, `vendor/three.min.js`), чтобы строго соблюдать `script-src 'self'` мобильного шлюза `:8840`.
+## 2. Critical 3D GTA Quality Rules (Mandatory Lessons Learned)
+1. **Real Rigged 3D Characters & High-Poly 3D Vehicles (Never Primitive Boxes/Cones)**:
+   - Load `vendor/models/Soldier.glb` with `THREE.GLTFLoader` and animate with `THREE.AnimationMixer` (`Idle`, `Walk`, `Run` clips crossfaded via `.fadeIn(0.18)` / `.fadeOut(0.18)`).
+   - Load `vendor/models/ferrari.glb` (Ferrari 458 Italia) for the player's driveable GTA supercar and `vendor/models/CesiumMilkTruck.glb` + city trams for moving AI traffic.
+2. **Mixamo Bone-Space Scale for 3D Sneakers (`Обувь`) & Accessories**:
+   - In Mixamo-rigged `.glb` models (`Soldier.glb`), the `Character` root node has `scale = 0.01`, meaning bone-local coordinates (`mixamorig:LeftFoot`, `mixamorig:RightFoot`) are in **centimeters**, not meters.
+   - Any 3D sneaker or accessory parented to `mixamorig:LeftFoot` / `mixamorig:RightFoot` must use centimeter dimensions (e.g. `new THREE.BoxGeometry(13, 5.5, 30)`).
+3. **World-Meter UV Scaling on `THREE.ExtrudeGeometry` Building Walls**:
+   - `THREE.ExtrudeGeometry` generates wall UVs in **world meters** (not `0..1`).
+   - Always set `texture.wrapS = texture.wrapT = THREE.RepeatWrapping` and `texture.repeat.set(0.055, 0.055)` on building facade textures (both procedural multi-story facades and projected Street View photos) so each story renders at realistic `~3.5m` height instead of repeating every `1m`.
+4. **Strict CSP Compliance on `:8840` (`default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: blob:`)**:
+   - Zero inline `<script>` or `style="..."` attributes in `/m/gta.html`.
+   - Set `window.createImageBitmap = undefined` before loading GLBs so `GLTFLoader` uses `THREE.TextureLoader` (`<img>`, permitted for `blob:`) rather than `ImageBitmapLoader` (`fetch(blob:...)`, blocked by `connect-src 'self'`).
+   - Load `vendor/draco/draco_decoder.js` via `<script>` and use `DRACOLoader._createInProcessWorker()` so Draco-compressed models (`ferrari.glb`) decode on the main thread without spawning `blob:` WebWorkers.
+5. **Unobtrusive GTA V Mobile HUD**:
+   - Keep customization drawers (`#auraDrawer`, `#streetModal`) closed by default (`class="... hidden"`) so 88%+ of the mobile viewport shows the 3D city, character, and car.
+   - Use `Pointer Events` (`pointerdown`, `pointermove`, `pointerup`, `pointercancel`) with `setPointerCapture` and `touch-action: none` on the canvas thumbstick.

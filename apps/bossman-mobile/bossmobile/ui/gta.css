@@ -1,4 +1,4 @@
-/* GTA: Днепр 3D · BossBlock Mini App Styles (Strict CSP compliant, mobile-first) */
+/* GTA: Днепр 3D · Sleek GTA V / Vice City Mobile HUD (Strict CSP compliant) */
 *,
 *::before,
 *::after {
@@ -14,7 +14,7 @@ body {
   height: 100%;
   height: 100dvh;
   overflow: hidden;
-  background: #060911;
+  background: #0b1324;
   color: #f8fafc;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   user-select: none;
@@ -27,7 +27,6 @@ body {
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 25%, #111c35 0%, #05080f 100%);
 }
 
 .world-canvas {
@@ -43,27 +42,27 @@ body {
   display: none !important;
 }
 
-/* Top-Left Radar & Street Pill */
+/* Top-Left: GTA V Radar + Compact Street/Mission Tags */
 .hud-top-left {
   position: absolute;
-  top: max(10px, env(safe-area-inset-top));
-  left: max(10px, env(safe-area-inset-left));
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-width: 54vw;
+  gap: 4px;
+  max-width: 52vw;
   pointer-events: none;
 }
 
-.radar-wrap {
+.radar-shell {
   position: relative;
-  width: 124px;
-  height: 124px;
-  border-radius: 50%;
-  background: rgba(7, 12, 22, 0.88);
-  border: 2.5px solid rgba(0, 245, 212, 0.72);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 18px rgba(0, 245, 212, 0.25);
+  width: 112px;
+  height: 112px;
+  border-radius: 14px;
+  background: rgba(10, 15, 28, 0.82);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
   overflow: hidden;
   pointer-events: auto;
   cursor: pointer;
@@ -73,273 +72,269 @@ body {
   width: 100%;
   height: 100%;
   display: block;
-  border-radius: 50%;
-}
-
-.radar-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  pointer-events: none;
 }
 
 .radar-north {
   position: absolute;
   top: 3px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ef4444;
-  color: #fff;
+  right: 4px;
+  background: #111827;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.4);
   font-size: 9px;
   font-weight: 900;
   width: 15px;
   height: 15px;
-  line-height: 15px;
+  line-height: 13px;
   text-align: center;
-  border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  border-radius: 4px;
 }
 
-.street-pill,
-.mission-pill {
-  background: rgba(8, 13, 25, 0.84);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 10px;
-  padding: 5px 9px;
-  font-size: 11px;
+.radar-health-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.bar-hp {
+  flex: 1;
+  background: #22c55e;
+}
+
+.bar-armor {
+  flex: 1;
+  background: #38bdf8;
+}
+
+.street-tag,
+.mission-tag {
+  background: rgba(9, 14, 26, 0.76);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-left: 3px solid #00f5d4;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #f1f5f9;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  gap: 5px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.mission-pill {
-  border-color: rgba(250, 204, 21, 0.45);
+.mission-tag {
+  border-left-color: #facc15;
   color: #fef08a;
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .street-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #00f5d4;
-  box-shadow: 0 0 8px #00f5d4;
   flex-shrink: 0;
 }
 
-/* Top-Right GTA Stats & Quick Toggles */
+/* Top-Right: Compact GTA V Stats */
 .hud-top-right {
   position: absolute;
-  top: max(10px, env(safe-area-inset-top));
-  right: max(10px, env(safe-area-inset-right));
+  top: max(8px, env(safe-area-inset-top));
+  right: max(8px, env(safe-area-inset-right));
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
-  max-width: 44vw;
+  gap: 5px;
+  max-width: 46vw;
 }
 
-.gta-stats-card {
-  background: rgba(8, 13, 25, 0.86);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 245, 212, 0.32);
-  border-radius: 12px;
-  padding: 7px 10px;
+.gta-hud-stats {
+  background: rgba(9, 14, 26, 0.76);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 5px 9px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  gap: 1px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
-.gta-title-row {
+.top-row-links {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
-.gta-badge {
-  background: linear-gradient(135deg, #00f5d4 0%, #3b82f6 100%);
-  color: #041019;
-  font-size: 10px;
+.game-logo-pill {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.05em;
-  padding: 2px 6px;
-  border-radius: 5px;
+  padding: 2px 5px;
+  border-radius: 4px;
 }
 
-.pult-back-link {
-  color: #93c5fd;
+.back-pult-btn {
+  color: #e2e8f0;
   text-decoration: none;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: rgba(59, 130, 246, 0.18);
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.wanted-row {
-  font-size: 14px;
-  letter-spacing: 2px;
+.wanted-stars {
+  font-size: 13px;
+  letter-spacing: 1.5px;
   line-height: 1.1;
 }
 
 .star {
-  color: rgba(148, 163, 184, 0.3);
+  color: rgba(255, 255, 255, 0.22);
 }
 
 .star.on {
   color: #facc15;
-  text-shadow: 0 0 8px rgba(250, 204, 21, 0.75);
+  text-shadow: 0 0 6px rgba(250, 204, 21, 0.8);
 }
 
-.cash-row {
+.gta-cash {
   font-size: 14px;
   font-weight: 900;
   color: #4ade80;
-  letter-spacing: 0.03em;
-  text-shadow: 0 0 10px rgba(74, 222, 128, 0.35);
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
-.telemetry-row {
-  font-size: 11px;
+.gta-substats {
+  font-size: 10px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #cbd5e1;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
-.telemetry-sep {
-  color: #64748b;
-}
-
-.coords-row {
-  font-size: 9.5px;
-  color: #94a3b8;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-}
-
-.quick-toggles {
+.top-tool-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 4px;
 }
 
-.hud-chip {
+.tool-pill {
   appearance: none;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  background: rgba(15, 23, 42, 0.88);
-  color: #e2e8f0;
-  font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(6px);
+  color: #f8fafc;
+  font-size: 10px;
   font-weight: 700;
-  padding: 5px 8px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
-.hud-chip.active {
-  background: linear-gradient(135deg, rgba(0, 245, 212, 0.25), rgba(59, 130, 246, 0.28));
+.tool-pill.active {
   border-color: #00f5d4;
   color: #00f5d4;
+  background: rgba(6, 28, 36, 0.9);
 }
 
-/* Center GTA Banner */
+/* GTA Mission Passed Banner */
 .gta-banner {
   position: absolute;
-  top: 22%;
+  top: 17%;
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 35;
-  background: rgba(6, 10, 20, 0.9);
-  border: 2px solid #facc15;
-  border-radius: 14px;
-  padding: 12px 22px;
+  background: rgba(8, 12, 22, 0.86);
+  border-top: 2px solid #facc15;
+  border-bottom: 2px solid #facc15;
+  padding: 8px 24px;
   text-align: center;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.8), 0 0 28px rgba(250, 204, 21, 0.4);
   pointer-events: none;
 }
 
 .gta-banner-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 900;
   letter-spacing: 0.08em;
   color: #facc15;
-  text-transform: uppercase;
 }
 
 .gta-banner-sub {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #f8fafc;
-  margin-top: 3px;
 }
 
-/* Aura & Texture Live Tester Drawer */
-.aura-drawer {
+/* Compact Bottom-Sheet Drawer */
+.aura-drawer,
+.street-modal {
   position: absolute;
   left: max(10px, env(safe-area-inset-left));
   right: max(10px, env(safe-area-inset-right));
-  bottom: calc(164px + env(safe-area-inset-bottom));
+  bottom: calc(144px + env(safe-area-inset-bottom));
   z-index: 30;
-  background: rgba(8, 13, 26, 0.92);
+  background: rgba(10, 15, 28, 0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1.5px solid rgba(0, 245, 212, 0.45);
+  border: 1px solid rgba(0, 245, 212, 0.45);
   border-radius: 14px;
   padding: 10px 12px;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.78);
-  max-width: 460px;
+  max-width: 440px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75);
 }
 
 .drawer-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
 }
 
 .drawer-title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 800;
   color: #00f5d4;
 }
 
 .drawer-sub {
-  font-size: 10.5px;
+  font-size: 10px;
   color: #94a3b8;
 }
 
 .drawer-close {
   appearance: none;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(30, 41, 59, 0.8);
-  color: #f8fafc;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  font-size: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(30, 41, 59, 0.85);
+  color: #fff;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 800;
   cursor: pointer;
-  flex-shrink: 0;
 }
 
 .drawer-section {
@@ -349,7 +344,7 @@ body {
 }
 
 .drawer-label {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
   color: #cbd5e1;
 }
@@ -363,10 +358,10 @@ body {
   flex: 1;
   background: rgba(15, 23, 42, 0.95);
   border: 1px solid rgba(0, 245, 212, 0.45);
-  border-radius: 8px;
-  padding: 6px 9px;
+  border-radius: 7px;
+  padding: 5px 8px;
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   outline: none;
   user-select: text;
@@ -377,17 +372,16 @@ body {
 .aura-apply-btn {
   appearance: none;
   border: none;
-  background: linear-gradient(135deg, #00f5d4, #3b82f6);
+  background: #00f5d4;
   color: #041019;
   font-weight: 900;
-  font-size: 12px;
-  padding: 0 12px;
-  border-radius: 8px;
+  font-size: 11px;
+  padding: 0 10px;
+  border-radius: 7px;
   cursor: pointer;
 }
 
-.preset-chips,
-.teleport-row {
+.chip-row {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -395,114 +389,53 @@ body {
 
 .mini-chip {
   appearance: none;
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  background: rgba(30, 41, 59, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(30, 41, 59, 0.8);
   color: #e2e8f0;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   padding: 4px 7px;
   border-radius: 6px;
   cursor: pointer;
 }
 
-.mini-chip:active {
+.mini-chip.active {
   border-color: #00f5d4;
   color: #00f5d4;
+  background: rgba(0, 245, 212, 0.15);
 }
 
 .texture-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 5px;
+  gap: 4px;
 }
 
 .tex-btn {
   appearance: none;
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(15, 23, 42, 0.85);
   color: #cbd5e1;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
   padding: 5px 7px;
-  border-radius: 7px;
+  border-radius: 6px;
   text-align: left;
   cursor: pointer;
 }
 
 .tex-btn.active {
-  border-color: #00f5d4;
-  background: rgba(0, 245, 212, 0.16);
-  color: #00f5d4;
-}
-
-.color-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.color-swatch {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  cursor: pointer;
-}
-
-.color-swatch.active {
-  border-color: #ffffff;
-  transform: scale(1.15);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
-}
-
-.swatch-cyan { background: #00f5d4; }
-.swatch-magenta { background: #ff2a85; }
-.swatch-gold { background: #facc15; }
-.swatch-violet { background: #a855f7; }
-.swatch-lime { background: #22c55e; }
-.swatch-sky { background: #38bdf8; }
-
-/* Street View Modal */
-.street-modal {
-  position: absolute;
-  left: max(10px, env(safe-area-inset-left));
-  right: max(10px, env(safe-area-inset-right));
-  top: 145px;
-  z-index: 32;
-  background: rgba(8, 13, 26, 0.95);
-  border: 1.5px solid #38bdf8;
-  border-radius: 14px;
-  padding: 10px;
-  max-width: 440px;
-  margin: 0 auto;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
-}
-
-.street-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.street-modal-title {
-  font-size: 13px;
-  font-weight: 800;
-  color: #38bdf8;
-}
-
-.street-modal-sub {
-  font-size: 10.5px;
-  color: #94a3b8;
+  border-color: #facc15;
+  color: #fef08a;
+  background: rgba(250, 204, 21, 0.16);
 }
 
 .street-img-wrap {
   width: 100%;
-  height: 175px;
-  border-radius: 10px;
+  height: 155px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: #020617;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .street-img {
@@ -515,143 +448,112 @@ body {
 .street-modal-actions {
   display: flex;
   gap: 6px;
-  margin-top: 8px;
 }
 
 .street-btn {
   appearance: none;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(30, 41, 59, 0.9);
-  color: #f8fafc;
-  font-size: 11px;
+  color: #fff;
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 5px 9px;
+  border-radius: 7px;
   cursor: pointer;
 }
 
 .street-btn.primary {
   flex: 1;
-  background: linear-gradient(135deg, #00f5d4, #3b82f6);
+  background: #00f5d4;
   color: #041019;
   border: none;
   font-weight: 900;
 }
 
-/* Bottom Controls: Virtual Touch Joystick & Action Grid */
+/* Bottom Controls: Thumbstick & GTA Circular Buttons */
 .hud-bottom-left {
   position: absolute;
-  left: max(12px, env(safe-area-inset-left));
-  bottom: max(12px, env(safe-area-inset-bottom));
+  left: max(10px, env(safe-area-inset-left));
+  bottom: max(10px, env(safe-area-inset-bottom));
   z-index: 25;
 }
 
 .joystick-zone {
-  position: relative;
-  width: 140px;
-  height: 140px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  width: 126px;
+  height: 126px;
   touch-action: none;
 }
 
 .joystick-canvas {
-  width: 140px;
-  height: 140px;
+  width: 126px;
+  height: 126px;
   display: block;
   touch-action: none;
-  cursor: grab;
-}
-
-.joystick-hint {
-  position: absolute;
-  bottom: -4px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: rgba(148, 163, 184, 0.75);
-  pointer-events: none;
 }
 
 .hud-bottom-right {
   position: absolute;
-  right: max(12px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
   z-index: 25;
 }
 
-.action-grid {
+.gta-pad {
   display: grid;
-  grid-template-columns: repeat(2, 82px);
+  grid-template-columns: repeat(2, 62px);
   gap: 8px;
 }
 
-.gta-action-btn {
+.pad-btn {
   appearance: none;
-  border: 1.5px solid rgba(148, 163, 184, 0.35);
-  background: rgba(11, 18, 34, 0.86);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #f8fafc;
-  border-radius: 14px;
-  height: 60px;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  background: rgba(12, 18, 32, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.5);
   touch-action: none;
 }
 
-.gta-action-btn:active {
-  transform: scale(0.95);
+.pad-btn:active {
+  transform: scale(0.93);
 }
 
-.primary-action {
+.btn-car {
+  border-color: #ef4444;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.35), rgba(12, 18, 32, 0.85));
+}
+
+.btn-boost {
   border-color: #facc15;
-  background: linear-gradient(145deg, rgba(250, 204, 21, 0.24), rgba(15, 23, 42, 0.9));
+  background: radial-gradient(circle, rgba(250, 204, 21, 0.32), rgba(12, 18, 32, 0.85));
 }
 
-.boost-action {
-  border-color: #ff2a85;
-  background: linear-gradient(145deg, rgba(255, 42, 133, 0.24), rgba(15, 23, 42, 0.9));
-}
-
-.aura-action {
+.btn-shoe {
   border-color: #00f5d4;
-  background: linear-gradient(145deg, rgba(0, 245, 212, 0.24), rgba(15, 23, 42, 0.9));
+  background: radial-gradient(circle, rgba(0, 245, 212, 0.32), rgba(12, 18, 32, 0.85));
 }
 
-.sv-action {
+.btn-cam {
   border-color: #38bdf8;
-  background: linear-gradient(145deg, rgba(56, 189, 248, 0.24), rgba(15, 23, 42, 0.9));
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.32), rgba(12, 18, 32, 0.85));
 }
 
-.btn-icon {
-  font-size: 19px;
+.pad-icon {
+  font-size: 18px;
   line-height: 1;
 }
 
-.btn-text {
-  font-size: 10px;
+.pad-label {
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-@media (min-width: 820px) {
-  .radar-wrap {
-    width: 152px;
-    height: 152px;
-  }
-  .aura-drawer {
-    left: auto;
-    right: 16px;
-    bottom: 160px;
-    width: 390px;
-    margin: 0;
-  }
 }
