@@ -659,6 +659,7 @@ class ContextMinifier:
         include_tool_results: bool | None = None,
         max_history_messages: int | None = None,
         allow_memory_opt_in: bool = False,
+        max_context_chars: int | None = None,
     ) -> list[dict[str, Any]]:
         allow_tools = self.allow_tool_outputs_to_cloud if include_tool_results is None else include_tool_results
         limit_turns = max_history_messages if max_history_messages is not None else self.max_history_messages
@@ -703,26 +704,42 @@ class ContextMinifier:
             else:
                 dialogue_msgs.append(m)
 
-        if len(dialogue_msgs) > limit_turns:
-            dialogue_msgs = dialogue_msgs[-limit_turns:]
+        # Owner 31.10 «облачные модели не читают переписку»: the FIRST user message is the task itself (the owner's
+        # request and, in a chat, the whole conversation preamble). It used to be the first thing cut: after ~4 tool
+        # rounds (8 dialogue messages) or 24k chars the cloud model answered without the request and the chat
+        # (live DB 31.10: 312 of 396 Outrun calls carried `context:trimmed_chat_history`). Now the middle of the tool
+        # loop goes first; the task message always stays, and the kept tail never starts with a `tool` message whose
+        # assistant `tool_calls` was cut (an OpenAI-compatible API rejects or misreads such an orphan).
+        char_limit = int(max_context_chars) if max_context_chars else self.max_context_chars
+        head_idx = next((i for i, m in enumerate(dialogue_msgs) if m.get("role") == "user"), None)
+        head = [dialogue_msgs[head_idx]] if head_idx is not None else []
+        rest = dialogue_msgs[head_idx + 1:] if head_idx is not None else dialogue_msgs
+
+        def _tail(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            while items and items[0].get("role") == "tool":
+                items = items[1:]
+            return items
+
+        if len(head) + len(rest) > limit_turns:
+            rest = _tail(rest[-max(1, limit_turns - len(head)):])
             session.record_rule("context:trimmed_chat_history")
 
-        packed = [*system_msgs, *dialogue_msgs]
+        def _chars(items: list[dict[str, Any]]) -> int:
+            return sum(len(str(m.get("content") or "")) for m in items)
 
-        # Enforce total character ceiling on the minimal packet
-        total_chars = sum(len(str(m.get("content") or "")) for m in packed)
-        if total_chars > self.max_context_chars and len(packed) > 1:
+        packed = [*system_msgs, *head, *rest]
+        if _chars(packed) > char_limit and len(packed) > 1:
             session.record_rule("context:enforced_char_budget")
-            # Keep the last user message and trim earlier messages
+            room = char_limit - _chars(system_msgs[:1]) - _chars(head)
             kept_tail: list[dict[str, Any]] = []
             running = 0
-            for m in reversed(dialogue_msgs):
+            for m in reversed(rest):
                 c_len = len(str(m.get("content") or ""))
-                if kept_tail and running + c_len > self.max_context_chars:
+                if (kept_tail or head) and running + c_len > room:
                     break
                 kept_tail.append(m)
                 running += c_len
-            packed = [*system_msgs[:1], *reversed(kept_tail)]
+            packed = [*system_msgs[:1], *head, *_tail(list(reversed(kept_tail)))]
 
         return packed
 
@@ -1044,6 +1061,7 @@ class AIGateway:
                 include_tool_results=meta.get("include_tool_results"),
                 max_history_messages=meta.get("max_history_messages"),
                 allow_memory_opt_in=allow_mem_opt_in,
+                max_context_chars=meta.get("max_context_chars"),
             )
 
         # Step 2: Scrub text locally (finds secrets, seed phrases, PII, accounts, internal IPs, projects)

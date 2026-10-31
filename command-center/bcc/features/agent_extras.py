@@ -260,18 +260,29 @@ async def _fixed_overhead(svc: Any, agent_id: int | None) -> tuple[int, int]:
     return tokens, len(schemas)
 
 
-async def context_view(svc: Any, session_id: str, raw: dict) -> dict:
-    """Датчик контекста сессии. Только числа и статусы: текст ходов сюда не попадает."""
+async def context_view(svc: Any, session_id: str, raw: dict, agent_id: int | None = None) -> dict:
+    """Датчик контекста сессии. Только числа и статусы: текст ходов сюда не попадает.
+
+    `agent_id` — модель, выбранная владельцем для СЛЕДУЮЩЕГО хода (владелец 31.10: новая модель должна видеть
+    весь чат): окно и «ходов в контексте» считаются по ней, а не по модели прошлого хода."""
     cfg = _session_cfg(svc, session_id)
     live = _live_turns(raw)
     summary = str(raw.get("summary") or "")
-    turns_n, chars, _max_prompt = _cli_limits()
+    _turns_n, chars, _max_prompt = _cli_limits()
     anchor = await _usage_anchor(svc, live)
     overhead, tools_count = 0, 0
+    session_agent = agent_id
     try:
-        overhead, tools_count = await _fixed_overhead(svc, await _resolve_session_agent_id(svc, cfg, raw))
+        if session_agent is None:
+            session_agent = await _resolve_session_agent_id(svc, cfg, raw)
+        overhead, tools_count = await _fixed_overhead(svc, session_agent)
     except Exception:  # noqa: BLE001 - датчик не падает из-за каталога инструментов
         overhead, tools_count = 0, 0
+    fit: dict = {}
+    try:
+        await _compose_prompt(svc, raw, "", [], agent_id=session_agent, info=fit)
+    except Exception:  # noqa: BLE001 - датчик не должен падать из-за отказа сборки промпта
+        fit = {}
     if anchor is not None:
         anchor_idx, anchored = anchor
         since = [(i, t) for i, t in live if i > anchor_idx][-SINCE_ANCHOR_TURNS:]
@@ -283,16 +294,17 @@ async def context_view(svc: Any, session_id: str, raw: dict) -> dict:
                       + estimate_tokens(_sanitize(view.get("result") or view.get("error") or "")[:chars]))
         used, source = anchored + extra, "provider_usage"      # tokens_in провайдера уже включает схемы и промпт
     else:
-        try:
-            used = estimate_tokens(await _compose_prompt(svc, raw, "", []))
-        except Exception:  # noqa: BLE001 - датчик не должен падать из-за отказа сборки промпта
-            used = estimate_tokens(summary)
-        used += overhead
+        used = int(fit.get("used_tokens") or estimate_tokens(summary)) + overhead
         source = "estimate"
-    window, window_source = await _context_window(svc, cfg, raw)
+    if agent_id is not None and fit.get("window_known"):
+        window, window_source = int(fit["window"]), "selected_model"
+    else:
+        window, window_source = await _context_window(svc, cfg, raw)
     pct = round(100.0 * used / window, 1) if window else None
     return {
-        "session_id": session_id, "turns_total": len(_turns(raw)), "turns_in_context": min(len(live), max(0, turns_n)),
+        "session_id": session_id, "turns_total": len(_turns(raw)), "turns_in_context": fit.get("turns_included", min(len(live), 3)),
+        "turns_dropped": fit.get("turns_dropped", 0), "context_budget_tokens": fit.get("budget_tokens"),
+        "compact_suggested": bool(fit.get("compact_suggested")),
         "compacted": bool(summary), "compacted_at_turn": _compacted_at(raw), "summary_chars": len(summary),
         "used_tokens": used, "context_window": window, "used_pct": pct,
         "left_tokens": max(0, window - used) if window else None,
@@ -304,9 +316,9 @@ async def context_view(svc: Any, session_id: str, raw: dict) -> dict:
 
 
 @router.get("/agent/sessions/{session_id}/context")
-async def get_session_context(session_id: str, request: Request):
+async def get_session_context(session_id: str, request: Request, agent_id: int | None = Query(default=None, ge=1)):
     svc = request.app.state.svc
-    return await context_view(svc, session_id, _require_session(svc, session_id)["raw"])
+    return await context_view(svc, session_id, _require_session(svc, session_id)["raw"], agent_id)
 
 
 # --------------------------------------------------------------------------------------------------------- /compact

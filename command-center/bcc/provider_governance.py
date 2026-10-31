@@ -65,6 +65,22 @@ _OLLAMA_CLOUD_TAG = re.compile(r"(?i)[:-]cloud\b")
 OLLAMA_CLOUD_EGRESS_URL = "https://ollama.com"
 
 
+#: AI Gateway minimal-context ceilings for a cloud call, scaled by the model's real window (owner 31.10). The gateway
+#: default (8 dialogue messages / 24k chars) was sized for small models and cut the chat out of a 1M-token model's
+#: request; the floor stays the old default, the ceiling is the window (≈2.5 chars/token, 80%) capped for latency.
+GATEWAY_MIN_CHARS = 24_000
+GATEWAY_MAX_CHARS = 600_000
+GATEWAY_LARGE_WINDOW = 100_000
+
+
+def gateway_window_meta(model: dict) -> dict:
+    window = model.get("context_window") if isinstance(model, dict) else None
+    if not isinstance(window, int) or isinstance(window, bool) or window <= 0:
+        return {}
+    chars = max(GATEWAY_MIN_CHARS, min(GATEWAY_MAX_CHARS, int(window * 2.5 * 0.8)))
+    return {"max_context_chars": chars, "max_history_messages": 40 if window >= GATEWAY_LARGE_WINDOW else 8}
+
+
 def is_cloud_offload(provider: dict, model: dict) -> bool:
     """A local Ollama endpoint serving a `:cloud`/`-cloud` model forwards the prompt to ollama.com.
 
@@ -294,6 +310,8 @@ class GovernedAdapter:
         from .security.ai_gateway import get_ai_gateway
         gw = get_ai_gateway()
         ctx_meta = dict(kwargs.pop("gateway_context_meta", None) or {})
+        for key, value in gateway_window_meta(m).items():
+            ctx_meta.setdefault(key, value)
         if memory_to_cloud_allowed.get() and window != "open":
             ctx_meta["allow_memory_opt_in"] = True
         fb_adapter = kwargs.pop("local_fallback_adapter", self.local_fallback_adapter)
