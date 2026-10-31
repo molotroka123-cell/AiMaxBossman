@@ -58,6 +58,7 @@ class SdSpec:
     unsupported: str = ""
     notes: str = ""
     extra_args: tuple[str, ...] = field(default_factory=tuple)
+    max_pixels: int = 0             # width*height ceiling (0 = only the per-side limits); measured memory limit
 
 
 def _photo(id_, label, family, files, engine, steps, *, resolution="512x512", **kw) -> SdSpec:
@@ -80,6 +81,17 @@ WAN_A14B_COMMON = {"vae": "wan22-vace-fun-a14b/wan_2.1_vae.safetensors",
 # text encoder; @1/@2/@3 in the owner's prompt are rewritten to exactly this wording (bcc.direct_gen.ref_tags).
 QWEN_EDIT_PLUS_REF = "Picture {n}"     # QwenImageEditPlusPipeline: "Picture 1: <|vision_start|>..."
 QWEN21_REF = "<image{n}>"              # Qwen Image 2.1: "<image1><|vision_start|>..."
+
+# LTX-2.5 22B (LTXAV: video + its own audio track) exactly as Motion Studio runs it (tools/tiktok_outfit_clip.py gen,
+# runs 24-25.10 on this PC: docs/audits/2026-10-25-motion-studio-samples/receipt.json): the default sd-cli Vulkan
+# build (74988b2), distilled Q6_K transformer, 8 steps, cfg 1, euler, 24 fps, --offload-to-cpu --vae-tiling
+# --diffusion-fa --mmap. Measured there (5 image-to-video runs, 576x1024x121): 81-135 s per step, VAE decode
+# 188-292 s, 883-1438 s per clip. 736x1280x121 died at the decode peak (free RAM < 3 GB) -> max_pixels = 576*1024.
+LTX25_FILES = {"diffusion": "ltx-2.5/distilled/ltx-2.5-22b-distilled-transformer-Q6_K.gguf",
+               "vae": "ltx-2.5/vae/ltx-2.5-video-vae-conv-bf16.safetensors",
+               "audio_vae": "ltx-2.5/vae/ltx-2.5-audio-vae-bf16.safetensors",
+               "llm": "ltx-2.5/text_encoders/gemma4-12b-with-proj-ltx-2.5-bf16.safetensors"}
+LTX25_MAX_PIXELS = 576 * 1024
 
 SPECS: tuple[SdSpec, ...] = (
     _photo("z-image-turbo", "Z-Image Turbo", "z-image",
@@ -146,6 +158,13 @@ SPECS: tuple[SdSpec, ...] = (
            "sdcpp:wan2.2-ti2v-5b", 20, 40, "480x272", license="Apache-2.0", manifest_key="wan2.2-ti2v-5b",
            image_flag="-i", fps=16, frame_step=4, max_seconds=5, min_side=256, max_side=1280,
            notes="Один проход до ~5 с. Дольше на этой машине очень медленно (замер: ~14 мин на шаг при 832x480x121)."),
+    SdSpec("ltx-2.5", "LTX-2.5 22B distilled (текст/картинка→видео, 8 шагов)", "video", "ltx", ("T2V", "I2V"),
+           LTX25_FILES, "ltx25", 8, 8, "512x288", image_flag="-i", fps=24, frame_step=8, max_seconds=5,
+           min_side=256, max_side=1024, side_multiple=32, max_pixels=LTX25_MAX_PIXELS,
+           notes="Тот же запуск, что в Motion Studio (sd-cli Vulkan, distilled Q6_K, 8 шагов, cfg 1). Замеры на этом "
+                 "ПК 24–25.10 (картинка→видео 576x1024, 121 кадр): 15–24 мин на ролик. Больше 576x1024 по площади "
+                 "не помещается в память ПК (720p упал на сборке кадров). Модель пишет и звуковую дорожку. "
+                 "Лицензия весов Lightricks не проверена (UNKNOWN): перед продажей роликов владелец сверяет условия."),
     # Uncensored Wan2.2 A14B (MoE high/low experts) run by sd-cli itself (engine "wan-a14b", argv below).
     # The label says "Uncensored" only because the model cards say so (AGENTS.md): sources + licences in notes.
     SdSpec("wan2.2-i2v-a14b-uncensored", "Wan2.2 I2V A14B Uncensored (картинка→видео, 4 шага)", "video", "wan", ("I2V",),
@@ -257,7 +276,8 @@ def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = No
         "id": spec.id, "label": spec.label, "kind": spec.kind, "family": spec.family, "runtime": "sdcpp",
         "modes": list(spec.modes), "available": not reasons, "reason": "; ".join(reasons), "weights": weights,
         "fps": spec.fps, "max_seconds": spec.max_seconds, "min_side": spec.min_side, "max_side": spec.max_side,
-        "side_multiple": spec.side_multiple, "requires_image": spec.requires_image, "requires_audio": False,
+        "side_multiple": spec.side_multiple, "max_pixels": spec.max_pixels or None,
+        "requires_image": spec.requires_image, "requires_audio": False,
         "accepts_image": spec.requires_image or "I2V" in spec.modes,
         "max_refs": ref_capacity(spec), "ref_label": ref_label(spec),
         "default_steps": spec.default_steps, "max_steps": spec.max_steps, "default_resolution": spec.default_resolution,
@@ -315,6 +335,8 @@ def build_argv(spec: SdSpec, binary: Path, root: Path, params: dict, prompt: str
     binary = binary_for(spec, binary)
     if spec.engine == "wan-a14b":
         return _wan_a14b_argv(spec, binary, files, params, prompt, negative, out, image)
+    if spec.engine == "ltx25":
+        return _ltx25_argv(binary, files, params, prompt, negative, out, image)
     from ..studio.providers.sdcpp import _argv  # proven flags per engine (single source of truth)
     plane = SimpleNamespace(prompt=prompt, media=({"role": "reference"},) if image and spec.image_flag == "-r" else ())
     settings = {"width": params["width"], "height": params["height"], "steps": params["steps"], "seed": params["seed"],
@@ -367,6 +389,26 @@ def _wan_a14b_argv(spec: SdSpec, binary: Path, files: dict[str, Path], params: d
     if negative:
         argv += ["-n", negative]
     return argv
+
+
+def _ltx25_argv(binary: Path, files: dict[str, Path], params: dict, prompt: str, negative: str, out: Path,
+                image: Path | None) -> list[str]:
+    """LTX-2.5 with the flags of Motion Studio's runner (tools/tiktok_outfit_clip.py gen), nothing re-invented:
+    cfg 1 + euler (distilled), 24 fps, --offload-to-cpu --vae-tiling, --diffusion-fa (without it 720x1280x121 asked for
+    a 35.9 GB compute buffer, 24.10) and --mmap (weights mapped from the SSD instead of committed RAM).
+    ``-i`` only when the owner gave a start picture (image-to-video); without it sd-cli runs text-to-video.
+    The user's text goes to ``-p`` verbatim; the negative only when the user wrote one (cfg 1 ignores it anyway)."""
+    argv = [str(binary), "-M", "vid_gen", "--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
+            "--audio-vae", str(files["audio_vae"]), "--llm", str(files["llm"]), "-p", prompt]
+    if negative:
+        argv += ["-n", negative]
+    argv += ["--cfg-scale", "1.0", "--sampling-method", "euler", "--steps", str(params["steps"]),
+             "-W", str(params["width"]), "-H", str(params["height"]),
+             "--video-frames", str(params.get("frames", 1)), "--fps", str(params.get("fps") or 24),
+             "-s", str(params["seed"]), "--offload-to-cpu", "--vae-tiling", "--diffusion-fa", "--mmap"]
+    if image is not None:
+        argv += ["-i", str(image)]
+    return argv + ["-o", str(out)]
 
 
 # ----------------------------------------------------------------------------- process
