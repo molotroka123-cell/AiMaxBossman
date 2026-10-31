@@ -31,6 +31,7 @@ def parser():
     _satellite_command(commands)
     _capture_command(commands)
     _dashboard_command(commands)
+    _audit_command(commands)
     return root
 
 
@@ -199,3 +200,11 @@ def _dashboard_command(commands):
     dashboard.add_argument("--port", type=int, default=8100, help="local port (default: %(default)s)")
     dashboard.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
     _cache_options(dashboard)
+
+
+def _audit_command(commands):
+    audit = commands.add_parser("audit", help="Verify 5-layer capture integrity and generate world_readiness_receipt.json")
+    audit.add_argument("folder", type=Path, help="capture folder or dnipro_assets directory to audit")
+    audit.add_argument("--no-write", action="store_true", help="do not write world_readiness_receipt.json to disk")
+    _json_option(audit)
+

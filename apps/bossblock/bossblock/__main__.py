@@ -192,6 +192,16 @@ def main(argv=None):
 
             return dashboard.serve(args.output, args.port, cache_dir=args.cache_dir, refresh=args.refresh,
                                    open_browser=not args.no_browser)
+        if args.command == "audit":
+            from . import autopilot_audit
+
+            receipt = autopilot_audit.audit_capture_folder(args.folder, write_receipt=not args.no_write)
+            if as_json:
+                emit(receipt, True)
+            else:
+                print(f"BossBlock Audit: {receipt['verdict']} ({receipt['ready_layers_count']}/5 layers) — {receipt['title']}")
+                print(f"Receipt SHA256: {receipt['receipt_sha256']}")
+            return 0
         if args.command != "capture":
             with Progress() as progress:
                 result = query(args, progress)

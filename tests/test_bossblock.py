@@ -105,3 +105,32 @@ def test_bossblock_gta_dnipro_miniapp_and_skill():
     for asset in ("game_manifest.json", "osm_buildings_roads.geojson", "satellite.png", "mesh.glb"):
         assert (dnipro_dir / asset).is_file(), f"Missing Dnipro asset: {asset}"
 
+
+def test_bossblock_autopilot_audit_dnipro_and_negative_control(tmp_path: Path):
+    from bossblock.autopilot_audit import audit_capture_folder
+
+    repo_root = Path(__file__).resolve().parent.parent
+    dnipro_dir = repo_root / "apps" / "bossman-mobile" / "bossmobile" / "ui" / "dnipro_assets"
+    receipt = audit_capture_folder(dnipro_dir, write_receipt=False)
+    assert receipt["schema"] == "bossman.bossblock.world_readiness.v1"
+    assert receipt["core_3d_ready"] is True
+    assert receipt["ready_layers_count"] >= 4
+    assert receipt["layers"]["mesh"]["valid_glb"] is True
+    assert receipt["layers"]["mesh"]["nodes_count"] >= 1
+    assert receipt["layers"]["mesh"]["octree_nodes_saved"] == 40
+    assert receipt["layers"]["osm"]["buildings"] == 67
+    assert receipt["layers"]["osm"]["roads"] == 96
+    assert receipt["layers"]["streetview"]["photos_count"] == 52
+    assert len(receipt["receipt_sha256"]) == 64
+
+    # Negative control: empty/corrupted folder must return INCOMPLETE and valid_glb=False
+    empty_dir = tmp_path / "empty_capture"
+    empty_dir.mkdir()
+    (empty_dir / "mesh.glb").write_bytes(b"NOT_A_GLB_FILE")
+    bad_receipt = audit_capture_folder(empty_dir, write_receipt=True)
+    assert bad_receipt["verdict"] == "INCOMPLETE"
+    assert bad_receipt["core_3d_ready"] is False
+    assert bad_receipt["layers"]["mesh"]["valid_glb"] is False
+    assert (empty_dir / "world_readiness_receipt.json").is_file()
+
+
