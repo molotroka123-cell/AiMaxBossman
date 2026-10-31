@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 532. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 534. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -232,6 +232,7 @@
 | `command-center/tests/test_studio_media_lifecycle.py:163` | skipif | `os.name == "nt"` | SIGSTOP stands in for CREATE_SUSPENDED off Windows | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_media_lifecycle.py:188` | skipif | `os.name == "nt"` | SIGSTOP stands in for CREATE_SUSPENDED off Windows | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_media_lifecycle.py:210` | skipif | `os.name != "nt"` | kernel-enforced job objects are a Windows mechanism | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_studio_orders.py:1082` | skipif | `not (FFMPEG and FFPROBE)` | ffmpeg/ffprobe not installed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_partial_job_layer.py:33` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_partial_segments.py:22` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_studio_sdcpp_hostile.py:33` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -301,6 +302,7 @@
 | `command-center/tests/test_video_facelock.py:21` | importorskip | `—` | нет пакета cv2 | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_facelock.py:33` | skipif | `not FFMPEG` | ffmpeg/ffprobe not installed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_preview_speed_contract.py:25` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | нужны настоящие двоичные файлы FFmpeg | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_video_section_quality_gate.py:240` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:17` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:91` | skipif | `not Path('C:/Python314/python.exe').is_file()` | optional local NumPy runtime absent | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:146` | skipif | `not Path('C:/Python314/python.exe').is_file()` | optional local CV runtime absent | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

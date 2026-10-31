@@ -170,4 +170,3 @@ async def send_message(token: str, chat_id: int, text: str, *, parse_mode: str =
         code = body.get("error_code") if isinstance(body, dict) else None
         raise PultError(502, "pult_rejected", f"Telegram не принял сообщение (код {code or response.status_code}) — в Пульт не отправлено")
     return (body.get("result") or {}).get("message_id")
-

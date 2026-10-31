@@ -357,4 +357,3 @@ def test_edge_cases_and_mobile_section_quality_view():
     assert mismatch_gate["reason"] == "frame_dimensions_mismatch"
     assert np.array_equal(mismatch_gate["frames"][0], f1)
     assert np.array_equal(mismatch_gate["frame"], f1)
-

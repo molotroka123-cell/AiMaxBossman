@@ -255,4 +255,3 @@ async def test_autopilot_secret_redaction_and_tools_and_tick(env):
     assert bad_run.status_code == 400
     bad_cfg = await env.client.post("/api/autopilot/config", json={"scope": "invalid_scope"})
     assert bad_cfg.status_code == 400
-
