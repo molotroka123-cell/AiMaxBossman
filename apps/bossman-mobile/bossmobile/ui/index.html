@@ -114,7 +114,8 @@
         </div>
         <div class="af-owner-card" id="af-owner-card">
           <label class="lbl" for="af-folder-input">Выбранная папка (строго внутри неё)</label>
-          <input id="af-folder-input" class="field mono" placeholder="C:\Users\asd\Bossman\wt-bossman-20-argon" aria-label="Выбранная папка для Auto Full">
+          <select id="af-folder-select" class="field mono" aria-label="Выбор рабочей папки для Auto Full"></select>
+          <input id="af-folder-input" class="field mono" hidden placeholder="Полный путь к рабочей папке" aria-label="Другая папка для Auto Full">
           <div class="oc-presets" id="af-folder-chips"></div>
           <div class="row" style="gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
             <label class="lbl" for="af-ttl-select" style="margin:0;">Срок:</label>

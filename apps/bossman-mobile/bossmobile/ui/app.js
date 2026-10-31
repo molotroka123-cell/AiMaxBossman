@@ -2761,22 +2761,38 @@
         api('GET', '/terminal/roots').catch(() => ({ roots: [] })),
         api('GET', '/auto-full'),
       ]);
-      const roots = rootsRes.roots || [];
-      const defFolder = (af.current && af.current.folder) || (af.last_lease && af.last_lease.folder) || rootsRes.default || roots[0] || 'C:\\Users\\asd\\Bossman\\wt-bossman-20-argon';
-      if (inp && !inp.value.trim()) inp.value = defFolder;
+      // Owner 31.10: «по умолчанию там выбор папок должен быть» — a list of the allowed work folders, never a free
+      // default like C:\Users. Installed programs / Python / Bossman's own data are not offered (the server refuses them too).
+      const roots = (rootsRes.roots || []).filter((r) => !/[\\/](Programs|Python\d*|Program Files[^\\/]*)([\\/]|$)|[\\/]Bossman[\\/]+CommandCenter/i.test(r));
+      const sel = $('af-folder-select');
+      const preferred = (af.current && af.current.folder) || (af.last_lease && af.last_lease.folder)
+        || roots.find((r) => /agent-proof/i.test(r)) || roots[0] || '';
+      if (sel && !sel.options.length) {
+        const opts = [...new Set([preferred, ...roots].filter(Boolean))];
+        opts.forEach((r) => { const o = el('option', '', r.split(/[\\/]/).slice(-2).join('\\') + '  —  ' + r); o.value = r; sel.appendChild(o); });
+        const other = el('option', '', 'Другая папка…'); other.value = '__other__'; sel.appendChild(other);
+        sel.value = preferred || '__other__';
+        sel.addEventListener('change', () => { tap(); if (inp) { inp.hidden = sel.value !== '__other__'; if (!inp.hidden) inp.focus(); } });
+      }
+      if (inp) inp.hidden = !sel || sel.value !== '__other__';
       if (chips && !chips.children.length && roots.length) {
         roots.slice(0, 4).forEach((r) => {
           const b = el('button', 'chip small', r.split(/[\\/]/).slice(-2).join('/'));
           b.type = 'button';
           b.title = r;
-          b.addEventListener('click', () => { tap(); if (inp) inp.value = r; });
+          b.addEventListener('click', () => {
+            tap(); const sl = $('af-folder-select');
+            if (sl && [...sl.options].some((o) => o.value === r)) { sl.value = r; if (inp) inp.hidden = true; }
+            else if (inp) { if (sl) sl.value = '__other__'; inp.hidden = false; inp.value = r; }
+          });
           chips.appendChild(b);
         });
       }
       const cur = af.current;
       if (af.active && cur) {
         const remMin = Math.max(1, Math.ceil((cur.remaining_seconds || 0) / 60));
-        if (inp) inp.value = cur.folder || cur.scope_key || inp.value;
+        const sl = $('af-folder-select');
+        if (sl && cur.folder && [...sl.options].some((o) => o.value === cur.folder)) sl.value = cur.folder;
         if (pill) { pill.textContent = `АКТИВЕН · ${remMin} мин`; pill.className = 'pill badge-local'; }
         if (btnMini) btnMini.textContent = `🛡 Auto Full (${remMin}м)`;
         if (btnOn) btnOn.textContent = 'Обновить срок';
@@ -2803,7 +2819,9 @@
   if ($('btn-af-enable')) {
     $('btn-af-enable').addEventListener('click', async () => {
       tap();
-      const folder = ($('af-folder-input') && $('af-folder-input').value.trim()) || '';
+      const selF = $('af-folder-select');
+      const folder = (selF && selF.value && selF.value !== '__other__') ? selF.value
+        : (($('af-folder-input') && $('af-folder-input').value.trim()) || '');
       const ttl = Number(($('af-ttl-select') && $('af-ttl-select').value) || 3600);
       if (!folder) { toast('Укажите рабочую папку для Auto Full'); return; }
       $('btn-af-enable').disabled = true;

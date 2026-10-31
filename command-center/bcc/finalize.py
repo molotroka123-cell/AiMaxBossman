@@ -101,7 +101,9 @@ def _effectful(row: dict) -> bool:
                      r"|\b(?:pytest|py\.test|tox|nox)\b"
                      r"|\bgit\b[^;&|\n]*(?:(?:^|\s)(?:-O\S*|--open-files-in-pager(?:=|\s|$)|--ext-diff\b|--textconv\b|--exec-path(?:=|\s|$)|--config-env(?:=|\s|$)|-c(?:\s|\S)))"
                      r"|(?:^|\s)-(?:delete|exec|execdir|ok|okdir|fprint|fprint0|fprintf|fls)(?:\s|$)"
-                     r"|(?:^|\s)--(?:fix(?:-only)?|pre)(?:=|\s|$)"
+                     r"|(?:^|\s)--(?:fix(?:-only)?|pre|add-noqa|install-types)(?:=|\s|$)"
+                     # security audit 31.10 (swarm: Kimi+GLM): `tree -o FILE` writes a file
+                     r"|\btree\b[^;&|\n]*(?:^|\s)(?:-o\S*|--output)(?:=|\s|$)"
                      r"|\bruff\b[^;&|\n]*\bformat\b|\b(?:black|isort)\b", command):
             return True
         return _looks_like_mutation(command)

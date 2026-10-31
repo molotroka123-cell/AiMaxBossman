@@ -262,6 +262,16 @@ def validate_auto_full_folder(folder: str | Path) -> Path:
     for sys_root in (r"c:\windows", r"c:\program files", r"c:\program files (x86)", r"c:\programdata", "/etc", "/usr", "/var", "/root"):
         if norm == os.path.normcase(sys_root) or norm.startswith(os.path.normcase(sys_root) + os.sep):
             raise PermissionError(f"системный каталог запрещён для Auto Full: {resolved}")
+    # Owner 31.10: the first allowed terminal root on the owner PC is the Python installation (Python312\Lib). Installed
+    # programs and the running interpreter are never an Auto Full work folder.
+    import sys as _sys
+    installs = {Path(_sys.base_prefix).resolve(), Path(_sys.prefix).resolve(), home / "AppData" / "Local" / "Programs"}
+    for inst in installs:
+        try:
+            resolved.relative_to(inst)
+        except ValueError:
+            continue
+        raise PermissionError(f"папка установленной программы/Python запрещена для Auto Full: {resolved}")
     from .features.tools_terminal import hard_deny_reason
     deny = hard_deny_reason(str(resolved))
     if deny:
