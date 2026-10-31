@@ -83,7 +83,7 @@ jobs:
           - 5432:5432
     
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
         # pushed commit; on pull_request it checks out the candidate merge
         # commit — the candidate change is what gets tested, not the base branch.
         # CI-HISTORY-001 (same class): the suite executes historical benchmark
