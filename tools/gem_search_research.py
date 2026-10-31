@@ -2,6 +2,7 @@
 
     python tools/gem_search_research.py start [--port 8851]   # fetch pinned source, harden, run the local engine
     python tools/gem_search_research.py status [--port 8851]
+    python tools/gem_search_research.py draft --name N --symbol SYM --description D   # token DRAFT, never sent
 
 What it is: a local engine + Chrome extension that turns visible X posts into research leads (mentions, authors,
 growth pace) and runs four rule checks (lookout / maker / skeptic / runner) with evidence links.
@@ -104,11 +105,31 @@ def state(port: int) -> dict:
         return json.load(r)
 
 
+def draft(port: int, name: str, symbol: str, description: str) -> dict:
+    """Owner-initiated token draft through the engine's own API: fields validated, NOT sent to any network."""
+    st = state(port)
+    if (st.get("automation") or {}).get("mode") != "dry_run":
+        raise SystemExit("REFUSED: engine is not in dry_run")
+    def post(path, body):
+        req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", json.dumps(body).encode(),
+                                     {"Content-Type": "application/json", "X-Gem-Token": st["token"]})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.load(r)
+    made = post("/api/launches", {"name": name, "symbol": symbol, "description": description, "amount": 0,
+                                  "priority_fee": 0})
+    checked = post("/api/launches/check", {"id": made["id"]})
+    return {"id": made["id"], "symbol": made["symbol"], "status": checked["status"], "result": checked["result"]}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("action", choices=["start", "status"])
+    ap.add_argument("action", choices=["start", "status", "draft"])
     ap.add_argument("--port", type=int, default=8851)
+    ap.add_argument("--name"); ap.add_argument("--symbol"); ap.add_argument("--description")
     a = ap.parse_args(argv)
+    if a.action == "draft":
+        print(json.dumps(draft(a.port, a.name or "", a.symbol or "", a.description or ""), ensure_ascii=False))
+        return 0
     if a.action == "status":
         auto = state(a.port).get("automation") or {}
         print(json.dumps({"engine": "up", "launch_enabled": auto.get("enabled"), "mode": auto.get("mode")}))

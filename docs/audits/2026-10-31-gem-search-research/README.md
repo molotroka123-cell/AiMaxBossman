@@ -16,3 +16,13 @@ Runner: `tools/gem_search_research.py start --port 8851` (live run on the owner 
 Not taken into Bossman: the memecoin autolaunch (Solana / pump.fun treasury, SOL budget) and the $GEMSEARCH token
 tooling. The UI still shows an «Economy autolaunch» card with a Resume button; with no wallet and no Pinata it cannot
 launch, and the runner re-creates the pause switch on every start.
+
+## Token creation test (31.10, same engine, dry_run)
+
+| Check | Result |
+|---|---|
+| Manual token draft via `POST /api/launches` (BTEST, then `gem_search_research.py draft` → BDRAFT) | PASS: 201 draft → check `needs_connection`, «not sent to the network» |
+| Bad drafts rejected (empty name, symbol `BAD-SYM!`, dev buy 50 SOL > 10, `file://` metadata URI) | PASS: 4 × HTTP 400 |
+| Automatic queue rehearsal (unpaused for 40 s in dry_run on a synthetic import, then paused again) | No job queued: the synthetic project scored 0/4 (`held`, no crawlable evidence). Queue only takes real 4/4 shortlist; not forced with a real third-party project on purpose |
+| SOL reserved / transactions / on-chain | 0 / 0 / none |
+| Live on-chain creation (funded treasury, Pinata JWT, `npm ci`, LAUNCH_MODE=live) | NOT_RUN — real money and a public token: owner's own wallet and a per-token decision only; Bossman never creates or holds that wallet |
