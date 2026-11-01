@@ -98,6 +98,8 @@ async def http_lessons_policy():
         "statuses": list(L.STATUSES), "work_categories": sorted(L.WORK_CATEGORIES),
         "owner_private_categories": sorted(L.OWNER_PRIVATE_CATEGORIES),
         "required_fields": ["title", "body", "author", "source", "observed_at"],
+        "optional_fields": ["category", "valid_from", "expect_text", "tags", "session_id", "limitations"],
+        "max_limitations": L.MAX_LIMITATIONS,
         "max_body_chars": L.MAX_BODY, "max_request_bytes": L.MAX_REQUEST_BYTES,
         "rate_limit": {"per_minute": INTAKE_LIMITER.per_minute, "per_hour": INTAKE_LIMITER.per_hour},
         "eval_kinds": ["business_exercise:<exercise_id> (+answer)", "skill_evaluation:<id>"],
@@ -309,6 +311,8 @@ SPECS = [
             "source": {"type": "string"}, "observed_at": {"type": "string"},
             "valid_from": {"type": "string"}, "expect_text": {"type": "string"},
             "tags": {"type": "array", "items": {"type": "string"}},
+            "limitations": {"type": "array", "items": {"type": "string", "maxLength": L.MAX_LIMITATION},
+                            "maxItems": L.MAX_LIMITATIONS},
         }, required=["title", "body", "observed_at"]),
     ToolSpec(
         name="memory.lesson.search", handler=tool_lesson_search, source="memory", category="read",

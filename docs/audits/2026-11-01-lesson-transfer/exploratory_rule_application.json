@@ -1,0 +1,16 @@
+{
+ "baseline": {
+  "heldout_runs": 60,
+  "exact_correct": 0,
+  "margin_applied_within_1pct": 0,
+  "own_rounding_steps_seen": 3,
+  "own_rounding_in_desk_direction": 0
+ },
+ "after": {
+  "heldout_runs": 60,
+  "exact_correct": 9,
+  "margin_applied_within_1pct": 48,
+  "own_rounding_steps_seen": 59,
+  "own_rounding_in_desk_direction": 53
+ }
+}

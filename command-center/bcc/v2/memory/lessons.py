@@ -76,6 +76,10 @@ MAX_BODY = 4000
 MAX_SOURCE = 500
 MAX_EXPECT = 200
 MAX_TAGS = 8
+#: Ограничения урока (01.11): где урок НЕ проверен / не применим. Хранятся в `facts.meta`,
+#: переживают рестарт вместе с уроком, в content hash не входят (тот же урок = тот же id).
+MAX_LIMITATIONS = 6
+MAX_LIMITATION = 300
 #: Максимальный размер JSON-тела запроса урока (байт) — проверяется в API.
 MAX_REQUEST_BYTES = 16_384
 
@@ -224,6 +228,23 @@ def prepare_lesson(payload: dict, *, client_host: str | None = None,
         if not _TAG_RE.match(t):
             raise LessonError(f"метка {tag!r}: только a-z0-9_.- до 40 символов")
         tags.append(t)
+    limitations_in = payload.get("limitations")
+    if limitations_in in (None, "", []):
+        limitations_in = []
+    elif isinstance(limitations_in, str):
+        limitations_in = [limitations_in]
+    if not isinstance(limitations_in, list) or len(limitations_in) > MAX_LIMITATIONS:
+        raise LessonError(f"limitations — строка или список до {MAX_LIMITATIONS} строк")
+    limitations: list[str] = []
+    red_l = False
+    for item in limitations_in:
+        if not isinstance(item, str) or not _canon(item):
+            raise LessonError("limitations: каждое ограничение — непустая строка")
+        if len(_canon(item)) > MAX_LIMITATION:
+            raise LessonError(f"limitations: ограничение длиннее {MAX_LIMITATION} символов")
+        clean, red = _redact(_canon(item))
+        limitations.append(clean)
+        red_l = red_l or red
 
     title, red_t = _redact(title_raw)
     body, red_b = _redact(body_raw)
@@ -234,8 +255,9 @@ def prepare_lesson(payload: dict, *, client_host: str | None = None,
         "title": title, "body": body, "category": category, "author": author,
         "source": source_clean, "observed_at": observed, "valid_from": valid_from,
         "expect_text": expect_clean, "tags": tags, "session_id": session_id,
+        "limitations": limitations,
         "remote": bool(remote),
-        "redacted": bool(red_t or red_b or red_s or red_e),
+        "redacted": bool(red_t or red_b or red_s or red_e or red_l),
         "hash": content_hash(title=title, body=body, category=category, source=source_clean),
     }
 
@@ -273,6 +295,7 @@ async def write_lesson(session, lesson: dict) -> dict:
         "valid_from": lesson["valid_from"].isoformat(),
         "expect_text": lesson["expect_text"], "tags": lesson["tags"],
         "session_id": lesson["session_id"], "remote_writer": lesson["remote"],
+        "limitations": list(lesson.get("limitations") or []),
         "redacted": lesson["redacted"], "hash": lesson["hash"],
         "scope": _scope_for(lesson["category"]),
         # Записанный урок — НЕ доказанное обучение (владелец 31.10).
@@ -387,6 +410,8 @@ def public_lesson(row: dict, checks: list[dict], *, stale_days: int = DEFAULT_ST
         "observed_at": m.get("observed_at"), "valid_from": m.get("valid_from"),
         "recorded_at": row.get("created_at"), "expect_text": m.get("expect_text") or "",
         "tags": m.get("tags") or [], "session_id": m.get("session_id") or "",
+        "limitations": list(m.get("limitations") or []),
+        "remote_writer": bool(m.get("remote_writer")),
         "content_hash": m.get("hash"), "redacted": bool(m.get("redacted")),
         "scope": base.get("scope"), "lifecycle": base.get("status"),
         **st,

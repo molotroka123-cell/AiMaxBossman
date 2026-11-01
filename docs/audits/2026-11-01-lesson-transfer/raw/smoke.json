@@ -1,0 +1,14 @@
+{
+ "task_id": 1,
+ "status": "completed",
+ "answer": "2 + 3 = 5\n\nОТВЕТ: 5",
+ "error": null,
+ "run_ids": [
+  1
+ ],
+ "model_alias": "lt-local",
+ "tokens_in": 84,
+ "tokens_out": 17,
+ "seconds": 41.44,
+ "memory_events": []
+}

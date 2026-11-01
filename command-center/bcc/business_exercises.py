@@ -88,6 +88,13 @@ F-03,Export sluzba,2,10000.00,0
 F-03,Material,5,123.45,21
 """
 
+_DESK_REQUESTS_CSV = """request_id,side,client_gives,client_gets,amount,mid_czk_per_unit
+Q-1,BUY,CZK,USDT,1000,25
+Q-2,SELL,USDT,CZK,1000,25
+Q-3,BUY,CZK,EUR,750,24.373
+Q-4,SELL,EUR,CZK,1234,24.415
+"""
+
 EXERCISES: dict[str, dict[str, Any]] = {
     "invoice_reconciliation_v1": {
         "title_ru": "Сверка счетов и платежей",
@@ -132,6 +139,22 @@ EXERCISES: dict[str, dict[str, Any]] = {
             "Верните totals {invoice_id: {net, vat, gross}} строками '0.00'."),
         "answer_schema": {"totals": {"F-…": {"net": "0.00", "vat": "0.00", "gross": "0.00"}}},
     },
+    # 01.11: the check a SwapMe desk-quote lesson links to. The rule is deliberately NOT restated here: the
+    # exercise asks for the desk's own rule (bossman_shared/exchange_assistant/quote.py, default margin), so
+    # solving it confirms the lesson's content, not the wording of the task.
+    "swap_desk_quote_v1": {
+        "title_ru": "Котировки обменного стола SwapMe (Decimal, правило стола)",
+        "skill": "business",
+        "inputs": {"requests.csv": _DESK_REQUESTS_CSV},
+        "task_ru": (
+            "Посчитайте сумму в CZK по каждой заявке по правилам обменного стола SwapMe "
+            "(bossman_shared/exchange_assistant/quote.py, наценка стола по умолчанию). "
+            "BUY — клиент называет, сколько валюты client_gets хочет получить, и платит CZK; "
+            "SELL — клиент называет, сколько валюты client_gives отдаёт, и получает CZK. "
+            "mid_czk_per_unit — средний курс: CZK за 1 единицу не-CZK валюты. "
+            "Верните czk {request_id: '0.00'}."),
+        "answer_schema": {"czk": {"Q-…": "0.00"}},
+    },
 }
 
 #: ПОСАЖЕННАЯ правда — записана руками, не вычислена этим модулем.
@@ -152,6 +175,10 @@ _PLANTED: dict[str, dict[str, Any]] = {
             "F-02": {"net": "1495.00", "vat": "188.31", "gross": "1683.31"},
             "F-03": {"net": "20617.25", "vat": "129.62", "gross": "20746.87"},
         },
+    },
+    # BUY: amount x mid x 1.03 rounded UP; SELL: amount x mid x 0.97 rounded DOWN (desk's favour, to 0.01).
+    "swap_desk_quote_v1": {
+        "czk": {"Q-1": "25750.00", "Q-2": "24250.00", "Q-3": "18828.15", "Q-4": "29224.26"},
     },
 }
 

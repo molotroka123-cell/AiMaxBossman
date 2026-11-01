@@ -1,0 +1,59 @@
+{
+ "same": {
+  "id": true,
+  "title": true,
+  "body": true,
+  "author": true,
+  "source": true,
+  "observed_at": true,
+  "valid_from": true,
+  "limitations": true,
+  "category": true,
+  "content_hash": true,
+  "status": true,
+  "remote_writer": true
+ },
+ "after_restart": {
+  "id": 2,
+  "title": "SwapMe: котировка стола — наценка 3 %, округление в пользу стола",
+  "body": "Правило обменного стола SwapMe (код: bossman_shared/exchange_assistant/quote.py, build_quote; наценка по умолчанию DEFAULT_MARGIN = 0.03). Считать только в Decimal, никогда во float.\n1) Клиент ПОКУПАЕТ валюту X за CZK (называет, сколько X хочет получить): платит = сумма × mid (CZK за 1 X) × 1.03, округление ВВЕРХ (ROUND_UP) до 0.01 CZK.\n2) Клиент ПРОДАЁТ валюту X за CZK (называет, сколько X отдаёт): получает = сумма × mid × 0.97, округление ВНИЗ (ROUND_DOWN) до 0.01 CZK.\nОкругление всегда в пользу стола, а не «половина вверх».\nПример: покупка 1000 USDT при mid 25 → 1000 × 25 × 1.03 = 25750.00 CZK; продажа 1000 USDT при mid 25 → 24250.00 CZK.\nПример округления: покупка 360 EUR при mid 24.417 → 8790.12 × 1.03 = 9053.8236 → 9053.83 CZK (вверх); продажа 1310 USD при mid 23.581 → 30891.11 × 0.97 = 29964.3767 → 29964.37 CZK (вниз).\nНе применять, если в задаче явно задана другая комиссия, наценка или правило округления: тогда действует правило задачи.",
+  "category": "business",
+  "author": "claude",
+  "source": "file:bossman_shared/exchange_assistant/quote.py",
+  "observed_at": "2026-11-01T00:00:00",
+  "valid_from": "2026-10-19T00:00:00",
+  "recorded_at": "2026-11-01T10:28:59.084990",
+  "expect_text": "",
+  "tags": [
+   "swapme",
+   "fx",
+   "decimal",
+   "rounding"
+  ],
+  "session_id": "",
+  "limitations": [
+   "Только наценка по умолчанию 3 %: если менеджер задал свою ставку или включён строгий режим compute_quote_strict (COM-UP-1), коэффициенты 1.03/0.97 не действуют.",
+   "mid в задачах берётся из условия; настоящий стол берёт курсы ЧНБ/ЕЦБ/ручные с TTL, USDT через USDT/USD.",
+   "Проверено на синтетических котировках и упражнении swap_desk_quote_v1; на реальных сделках не проверялось.",
+   "Запись урока — не обучение весов модели; применение урока доказывается отдельным экспериментом."
+  ],
+  "remote_writer": true,
+  "content_hash": "5318b77eea56000030b6a5046bb5a9c3137679aaa3261fd33fca08e593ba751f",
+  "redacted": false,
+  "scope": "work",
+  "lifecycle": "active",
+  "status": "lesson_recorded",
+  "eval_ref": null,
+  "eval_receipt_sha256": null,
+  "verified_at": null,
+  "web_last_verified_at": null,
+  "web_last_outcome": null,
+  "age_days": 0.44,
+  "stale": false,
+  "stale_after_days": 30,
+  "proven_learning": false,
+  "note_ru": "Запись урока ≠ доказанное обучение. verified_by_test значит только: связанная проверка прошла в момент verified_at.",
+  "checks": []
+ },
+ "all_same": true
+}
