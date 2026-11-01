@@ -172,7 +172,9 @@ async def test_owner_memory_is_withheld_from_a_cloud_model(tmp_path):
     assert all(_memory_messages(call) == [] for call in seen)
     assert not any(RECIPE in (m.get("content") or "") for call in seen for m in call)
     assert seen[0][-1]["content"] == PROMPT                  # the task itself still runs
-    withheld = [e for e in events if e["kind"] == "memory.withheld_from_cloud"]
+    # owner 31.10: a cloud agent's task no longer recalls memory it would never send (memory.recall_skipped, with the
+    # same opt-in hint); a recall that did happen is still stripped at the provider (memory.withheld_from_cloud)
+    withheld = [e for e in events if e["kind"] in ("memory.withheld_from_cloud", "memory.recall_skipped")]
     assert withheld and "memory_to_cloud" in withheld[0]["message"]
 
 
