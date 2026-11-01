@@ -30,6 +30,7 @@ import contextlib
 import functools
 import hashlib
 import json
+from decimal import Decimal, ROUND_CEILING
 import math
 import os
 import re
@@ -463,6 +464,9 @@ def reserve_paid_call_sync(data_dir: Path, *, quoted_usd: float, budget_usd: flo
     """
     try:
         quoted = _money(quoted_usd, what="quote")
+        if quoted <= 0:
+            raise ValueError("paid quote must be positive")
+        quoted = float(Decimal(str(quoted)).quantize(Decimal("0.000001"), rounding=ROUND_CEILING))
     except (TypeError, ValueError):
         return None, "CLOUD_ASK_NO_BUDGET: у платного вызова нет цены - без цены не отправляем"
     svc = _svc_for(data_dir)
@@ -553,7 +557,9 @@ def _governance_refusal(cand: dict) -> str:
 def estimate_cost(cand: dict, tokens_in: int, tokens_out: int = MAX_ANSWER_TOKENS) -> float | None:
     if cand["price_in_1m"] is None or cand["price_out_1m"] is None:
         return None
-    return round((tokens_in * cand["price_in_1m"] + tokens_out * cand["price_out_1m"]) / 1e6, 6)
+    amount = (Decimal(str(tokens_in)) * Decimal(str(cand["price_in_1m"]))
+              + Decimal(str(tokens_out)) * Decimal(str(cand["price_out_1m"]))) / Decimal("1000000")
+    return float(amount.quantize(Decimal("0.000001"), rounding=ROUND_CEILING))
 
 
 def _match(cands: list[dict], wanted: str) -> dict | None:
