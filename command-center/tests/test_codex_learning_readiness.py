@@ -310,8 +310,17 @@ def independent_answers() -> dict:
         net = sum(by_rate.values(), Decimal(0))
         vat = sum((Decimal(_q(v * Decimal(r) / 100)) for r, v in by_rate.items()), Decimal(0))
         vat_tot[inv_id] = {"net": _q(net), "vat": _q(vat), "gross": _q(net + vat)}
+    # SwapMe desk: BUY pays amount x mid x 1.03 rounded UP, SELL receives amount x mid x 0.97 rounded DOWN.
+    desk = {}
+    for r in _csv(t["swap_desk_quote_v1"]["requests.csv"]):
+        raw = Decimal(r["amount"]) * Decimal(r["mid_czk_per_unit"])
+        if r["side"] == "BUY":
+            desk[r["request_id"]] = str((raw * Decimal("1.03")).quantize(Decimal("0.01"), rounding="ROUND_UP"))
+        else:
+            desk[r["request_id"]] = str((raw * Decimal("0.97")).quantize(Decimal("0.01"), rounding="ROUND_DOWN"))
     return {"invoice_reconciliation_v1": rec, "fx_price_comparison_v1": fx,
-            "lead_qualification_v1": leads, "vat_invoice_totals_v1": {"totals": vat_tot}}
+            "lead_qualification_v1": leads, "vat_invoice_totals_v1": {"totals": vat_tot},
+            "swap_desk_quote_v1": {"czk": desk}}
 
 
 def test_owner_example_currency_math():
