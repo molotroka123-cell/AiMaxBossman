@@ -93,6 +93,11 @@ class PresetOrderIn(BaseModel):
     source_rights_confirmed: bool = True
     source_rights_note: str = Field(default="client owns product source assets", max_length=200)
     seed: int = Field(default=42, ge=0)
+    # optional size override (a draft the engine can run); the engine refuses what its catalog does not allow
+    width: int | None = Field(default=None, ge=64, le=4096)
+    height: int | None = Field(default=None, ge=64, le=4096)
+    duration_s: float | None = Field(default=None, gt=0, le=10)
+    steps: int | None = Field(default=None, ge=1, le=100)
 
 
 class SourceRightsIn(BaseModel):
@@ -162,6 +167,11 @@ def _book(request: Request) -> OrderBook:
         dg = getattr(svc, "direct_gen", None)
         store = getattr(dg, "store", None) or JobStore(Path(svc.settings.data_dir))
         book = svc.studio_orders = OrderBook(Path(svc.settings.data_dir), store)
+    if book.render_engine is None and getattr(svc, "direct_gen", None) is not None:
+        # The real engine (01.11): Studio presets render through the EXISTING Direct Gen sd-cli queue. Missing
+        # weights/sd-cli, a non-commercial licence, faces or sizes outside the catalog are refused before rendering.
+        from ..direct_gen.studio_engine import DirectGenStudioEngine
+        book.render_engine = DirectGenStudioEngine(svc.direct_gen, asyncio.get_running_loop())
     return book
 
 
@@ -412,7 +422,8 @@ async def create_preset(body: PresetOrderIn, request: Request, client: str | Non
                       note=body.note, price=body.price, face=body.face,
                       consent_confirmed=body.consent_confirmed, consent_note=body.consent_note,
                       source_rights_confirmed=body.source_rights_confirmed,
-                      source_rights_note=body.source_rights_note, seed=body.seed)
+                      source_rights_note=body.source_rights_note, seed=body.seed, width=body.width,
+                      height=body.height, duration_s=body.duration_s, steps=body.steps)
 
 
 @router.post("/orders/{order_id}/source-rights")
