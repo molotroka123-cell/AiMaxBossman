@@ -172,3 +172,125 @@ def test_unobserved_success_supersedes_nothing(tmp_path):
     rows = _lh_rows()
     rows[2]["result_preview"] = "still running"                      # the "success" itself is unobserved
     assert _effect_problem(rows, _lh_expected(), None, [tmp_path]) == REFUSED
+
+
+# --- Long-horizon run 31.10 (rerun on 03b66902), task 876 «findings» (synthetic) ----------------------------------
+# Evidence extraction took the INPUT `orders.csv`; calls 1259-1262 `python -c` analyses exited 1 (f-string
+# SyntaxError x2, no pandas, KeyError), 1263 printed headers (exit 0, wrote nothing), 1264 printed the findings
+# (exit 0), 1265 wrote notes/03_findings.md (exit 0).
+
+LH876_PROMPT = (
+    "Все команды выполняй через terminal.run с mode=\"project_host\" (поле cwd НЕ передавай — рабочая папка уже "
+    "выбрана в карточке владельца Auto Full, используй относительные пути внутри текущей папки). Используй Python "
+    "(`python -c \"...\"`). Данные: `orders.csv` в текущей папке (колонки order_id,date,region,product,qty,"
+    "unit_price,unit_cost,customer_id; есть дубли order_id — считай по первой встреченной строке). Выход: только "
+    "внутри текущей папки. Не используй сеть. ШАГ 3 из 5. Выполни в ДВА отдельных шага (два отдельных вызова модели "
+    "с terminal.run): Сначала ПЕРВЫМ вызовом terminal.run прочитай `out/product_margin.csv`, `out/top_customers.csv` "
+    "и `out/monthly_region.csv` и выведи в консоль худший продукт по марже, топ-1 клиента по доле выручки и падение "
+    "выручки региона Север (последние 6 мес к первым 12 мес). Затем ВТОРЫМ вызовом terminal.run запиши эти три "
+    "проверяемые находки (продукт P-07, клиент C-0042, регион Север) с числами и именами файлов-источников в "
+    "`notes/03_findings.md`.")
+
+
+def test_lh876_the_file_written_into_is_the_evidence_not_the_input():
+    exp = _terminal_evidence(LH876_PROMPT)
+    assert exp is not None and exp.target == "notes/03_findings.md"
+
+
+def test_a_file_read_into_is_not_an_output():
+    """«прочитай данные в X» — the last verb before X is a read: X is not the written target."""
+    exp = _terminal_evidence("Запиши итог в `notes/a.md`, затем прочитай данные в `orders.csv`.")
+    assert exp is not None and exp.target == "notes/a.md"
+    from bcc.features.action_contract import _written_into
+    text = "Запиши итог в `notes/a.md`, затем прочитай данные в `orders.csv`."
+    assert not _written_into(text, text.index("orders.csv"))
+
+
+def test_a_write_verb_in_another_sentence_does_not_make_an_input_an_output():
+    from bcc.features.action_contract import _written_into
+    text = "Запиши отчёт. Данные лежат в `orders.csv`."
+    assert not _written_into(text, text.index("orders.csv"))
+    exp = _terminal_evidence("Прочитай `orders.csv` и выведи итог в консоль")
+    assert exp is not None and exp.target == "orders.csv"                  # nothing written: old fallback
+
+
+def _row876(cmd, preview, seconds, cwd, *, finished=1.2):
+    row = _row(cmd, preview, seconds)
+    row["args"]["cwd"] = str(cwd)
+    row["finished_at"] = _at(seconds + finished) if finished is not None else None
+    return row
+
+
+def _lh876(tmp_path, *, write_at=None, write_root=None, success_finished=1.2, cwd=None):
+    """Run folder with the pre-existing input orders.csv; rows 1259..1265; 1265 optionally writes the findings."""
+    import os
+    run = tmp_path / "run"
+    (run / "out").mkdir(parents=True)
+    orders = run / "orders.csv"
+    orders.write_text("order_id,date\n1,2025-01-01\n", encoding="utf-8")
+    os.utime(orders, (T0 - 600, T0 - 600))                                   # created by the driver before the run
+    cwd = cwd or run
+    rows = [_row876(f"python -c 'import pandas  # attempt {i}'", "exit_code=1\nTraceback", 10 * i, cwd)
+            for i in range(4)]                                               # 1259-1262
+    rows.append(_row876("python -c 'print(open(\"out/x.csv\").readline())'", "exit_code=0\nheaders", 40, cwd))
+    rows.append(_row876("python -c 'print(\"P-07 C-0042 32.1\")'", "exit_code=0\nP-07", 50, cwd))
+    rows.append(_row876("python -c 'open(\"notes/03_findings.md\",\"w\")'", "exit_code=0\n", 60, cwd,
+                        finished=success_finished))
+    if write_at is not None:
+        notes = (write_root or run) / "notes" / "03_findings.md"
+        notes.parent.mkdir(parents=True, exist_ok=True)
+        notes.write_text("P-07, C-0042 15.9 %, Север -32.1 %", encoding="utf-8")
+        os.utime(notes, (T0 + write_at, T0 + write_at))
+    from bcc.v2.verification import parse_expected
+    expected = parse_expected([{"kind": "file", "target": "orders.csv", "expect": {"exists": True}}])
+    return run, rows, expected
+
+
+def test_lh876_replay_input_evidence_superseded_by_a_later_success_that_wrote_a_file(tmp_path):
+    from bcc.finalize import _effect_problem
+    run, rows, expected = _lh876(tmp_path, write_at=60.5)                   # inside 1265's window
+    assert _effect_problem(rows, expected, None, [run]) == ""
+
+
+def test_lh876_failures_only_refused(tmp_path):
+    from bcc.finalize import _effect_problem
+    run, rows, expected = _lh876(tmp_path)
+    assert _effect_problem(rows[:4], expected, None, [run]) == REFUSED       # no success at all
+    assert _effect_problem(rows, expected, None, [run]) == REFUSED           # successes, but none wrote a file
+
+
+def test_input_evidence_success_whose_file_predates_its_window_is_refused(tmp_path):
+    """The fresh file was written by a FAILED attempt (t0+35), before the successful call started (t0+60)."""
+    from bcc.finalize import _effect_problem
+    run, rows, expected = _lh876(tmp_path, write_at=35)
+    assert _effect_problem(rows, expected, None, [run]) == REFUSED
+
+
+def test_input_evidence_success_writing_outside_the_roots_is_refused(tmp_path):
+    from bcc.finalize import _effect_problem
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    run, rows, expected = _lh876(tmp_path, write_at=60.5, write_root=outside, cwd=outside)
+    assert _effect_problem(rows, expected, None, [run]) == REFUSED
+
+
+def test_input_evidence_unfinished_success_is_refused(tmp_path):
+    from bcc.finalize import _effect_problem
+    run, rows, expected = _lh876(tmp_path, write_at=60.5, success_finished=None)
+    assert _effect_problem(rows, expected, None, [run]) == REFUSED
+
+
+def test_input_evidence_without_roots_is_refused(tmp_path):
+    from bcc.finalize import _effect_problem
+    run, rows, expected = _lh876(tmp_path, write_at=60.5)
+    assert _effect_problem(rows, expected, None, None) == REFUSED
+
+
+def test_a_declared_file_modified_during_the_run_is_an_output_not_an_input(tmp_path):
+    """orders.csv rewritten by a crashed attempt (t0+15) is no longer an input: it must be rewritten after a later
+    success started, and the findings file the success wrote does not stand in for it."""
+    import os
+    from bcc.finalize import _effect_problem
+    run, rows, expected = _lh876(tmp_path, write_at=60.5)
+    os.utime(run / "orders.csv", (T0 + 15, T0 + 15))
+    assert _effect_problem(rows, expected, None, [run]) == REFUSED
