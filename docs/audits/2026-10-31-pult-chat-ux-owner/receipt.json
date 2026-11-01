@@ -1,0 +1,76 @@
+{
+ "verdict": "PASS",
+ "at": "2026-10-31T18:38:52",
+ "local_agent": 41,
+ "cloud_agent": 46,
+ "checks": {
+  "project_created": {
+   "ok": true,
+   "code": 201
+  },
+  "chat_in_project": {
+   "ok": true,
+   "code": 201
+  },
+  "local_turn": {
+   "ok": true,
+   "task": 877,
+   "status": "completed"
+  },
+  "model_switch_keeps_context": {
+   "ok": true,
+   "task": 878,
+   "status": "completed"
+  },
+  "cloud_writes_in_project": {
+   "ok": true,
+   "task": 879,
+   "status": "completed",
+   "files": 1
+  },
+  "parallel_chats": {
+   "ok": true,
+   "codes": [
+    200,
+    200
+   ],
+   "status": [
+    "completed",
+    "completed"
+   ]
+  },
+  "queue_and_steer_accepted": {
+   "ok": true,
+   "codes": [
+    201,
+    202
+   ]
+  },
+  "queued_prompt_ran_after": {
+   "ok": true,
+   "turns": 2,
+   "status": "completed"
+  },
+  "compact_transfer": {
+   "ok": true,
+   "compact_code": 202,
+   "listed": true,
+   "import_code": 201,
+   "status": "completed"
+  }
+ },
+ "sha": "10df5245",
+ "history": [
+  {
+   "sha": "75de1859",
+   "verdict": "FAIL 6/9",
+   "why": "local turn waited on Resource Brain (idle Ollama models held RAM); proof script read files list from wrong key; /compact called as a chat message"
+  },
+  {
+   "sha": "03b66902",
+   "verdict": "FAIL 8/9",
+   "why": "«Запомни …» in a chat with an agent without memory tools failed action_contract/no_verified_action -> fixed in 10df5245"
+  }
+ ],
+ "notes": "Synthetic messages only; local Gemma agent 41, cloud GLM 5.3 Flash agent 46 (7API). Idle Ollama models unloaded before the run (Resource Brain does not evict them - open defect)."
+}
