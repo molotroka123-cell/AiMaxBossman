@@ -55,3 +55,19 @@ async def test_nothing_probed_yet_is_unknown_and_all_fresh_is_ok(env):
 async def test_one_fresh_healthy_among_unprobed_is_degraded(env):
     await _models(env, _h("healthy", NOW), None)
     assert (await model_components(env.svc))["models"]["status"] == "degraded"
+
+
+async def test_models_no_agent_uses_do_not_degrade_readiness(env):
+    """Owner audit 01.11: 91 of 110 registered models were used by no agent and kept «models» DEGRADED forever."""
+    await _models(env, _h("healthy", NOW), _h("timeout", NOW))           # m0 fresh, m1 measured broken
+    async with env.svc.db.session() as s:
+        m0 = (await s.execute(sa.select(dbm.models.c.id).where(dbm.models.c.name == "m0"))).scalar()
+    agent = (await env.client.post("/api/agents", json={"name": "a", "model_id": m0})).json()
+    health = await model_components(env.svc)
+    assert health["models"]["status"] == "ok" and health["models"]["in_use"] == 1 and health["models"]["registered"] == 2
+    # negative control: the broken model becomes the agent's fallback -> it counts again
+    async with env.svc.db.session() as s:
+        m1 = (await s.execute(sa.select(dbm.models.c.id).where(dbm.models.c.name == "m1"))).scalar()
+        await s.execute(sa.update(dbm.agents).where(dbm.agents.c.id == agent["id"]).values(fallback_model_id=m1))
+        await s.commit()
+    assert (await model_components(env.svc))["models"]["status"] == "degraded"

@@ -11,8 +11,17 @@ from . import db as dbm, model_health
 async def model_components(svc) -> dict:
     async with asyncio.timeout(2.0):
         async with svc.db.session() as session:
-            models = dbm.rows_dicts((await session.execute(sa.select(dbm.models))).fetchall())
+            registered = dbm.rows_dicts((await session.execute(sa.select(dbm.models))).fetchall())
             providers = dbm.rows_dicts((await session.execute(sa.select(dbm.providers))).fetchall())
+            used: set[int] = set()
+            for row in (await session.execute(sa.select(dbm.agents.c.model_id, dbm.agents.c.fallback_model_id,
+                                                        dbm.agents.c.enabled))).fetchall():
+                if row[2] is False:
+                    continue
+                used.update(int(v) for v in row[:2] if v is not None)
+    # Owner audit 01.11 (15-direction matrix): 91 of 110 registered models are used by no agent, so «models» could
+    # never be HEALTHY. Readiness is about the models the agents actually run; with no agent at all, every model counts.
+    models = [m for m in registered if int(m["id"]) in used] or registered
 
     def status(rows):
         if not rows:
@@ -33,12 +42,14 @@ async def model_components(svc) -> dict:
 
     available = sum(record.usable() and not record.stale for record in
                     (model_health.HealthRecord.from_dict(row.get("health")) for row in models))
-    result = {"models": {"status": status(models), "detail": f"моделей: {len(models)}",
-                          "available": available},
+    result = {"models": {"status": status(models), "detail": f"моделей агентов: {len(models)} из {len(registered)}",
+                          "available": available, "in_use": len(models), "registered": len(registered)},
               "providers": {"status": status(models) if providers else "empty",
                             "detail": f"провайдеров: {len(providers)}", "available": available}}
     for provider in providers:
         rows = [row for row in models if row["provider_id"] == provider["id"]]
+        if not rows and len(models) != len(registered):
+            continue                     # a provider none of the agents' models uses is not part of readiness
         result[f"provider:{provider['id']}"] = {"status": status(rows),
                                                "detail": f"моделей: {len(rows)}"}
     return result
