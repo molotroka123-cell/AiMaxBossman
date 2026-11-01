@@ -230,6 +230,13 @@ def migrate(order: dict) -> dict:
 # around the engine call, never a parameter; QC metrics are measured on frames decoded from that file.
 VIDEO_MIME = {"mp4": "video/mp4", "matroska": "video/x-matroska", "avi": "video/x-msvideo"}
 PROBE_TIMEOUT_S = 120
+# Order states from which render_preset may render (the engine's own preflight runs only then).
+RENDERABLE = ("accepted", "preflight", "rework", "qc_failed", "reconcile_required", "generating")
+# QC thresholds on the decoded frames (fixed 01.11 BEFORE the first real engine run; bcc.direct_gen.video_measure):
+QC_MIN_SHARPNESS = 50.0        # mean edge-variance of the 4 sampled frames (unchanged since 31.10)
+QC_MAX_FLICKER = 0.25          # max mean-brightness jump between sampled frames (unchanged since 31.10)
+QC_MIN_NON_BLACK = 0.5         # every keyframe: at least half the pixels brighter than video black (luma > 16)
+# + the decoded file must MOVE: >= 2 distinct frames and a mean frame-to-frame difference > 0 (a still is no video)
 
 
 def video_container(head: bytes) -> str | None:
@@ -1467,12 +1474,28 @@ class OrderBook:
                             consent_confirmed: bool = True, consent_note: str = "",
                             source_rights_confirmed: bool = True,
                             source_rights_note: str = "client owns product source assets",
-                            seed: int = 42) -> dict:
-        """T2: create a Studio order for a commercial preset (product_spin or hand_reveal) with a bound Direct Gen job."""
+                            seed: int = 42, width: int | None = None, height: int | None = None,
+                            duration_s: float | None = None, steps: int | None = None) -> dict:
+        """T2: create a Studio order for a commercial preset (product_spin or hand_reveal) with a bound Direct Gen job.
+        ``width``/``height``/``duration_s``/``steps`` override the preset's size (e.g. a draft the engine can run);
+        the engine's own preflight checks them against its catalog limits and refuses, it never clamps."""
         participant = valid_participant(participant)
         spec = self.PRESETS.get(str(preset or "").strip())
         if spec is None:
             raise OrderError(422, "invalid_preset", "preset must be one of: " + ", ".join(sorted(self.PRESETS)))
+        spec = dict(spec)
+        for name, value, lo, hi in (("width", width, 64, 4096), ("height", height, 64, 4096)):
+            if value is not None:
+                if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi or value % 16:
+                    raise OrderError(422, "invalid_size", f"{name} must be {lo}..{hi} and a multiple of 16")
+                spec[name] = value
+        if duration_s is not None:
+            if isinstance(duration_s, bool) or not isinstance(duration_s, (int, float)) or not 0 < duration_s <= 10:
+                raise OrderError(422, "invalid_duration", "duration_s must be > 0 and <= 10")
+            spec["duration_s"] = float(duration_s)
+            spec["frames"] = max(2, round(float(duration_s) * spec["fps"]))
+        if steps is not None and (isinstance(steps, bool) or not isinstance(steps, int) or not 1 <= steps <= 100):
+            raise OrderError(422, "invalid_steps", "steps must be 1..100")
         prompt = spec["prompt_template"].format(brief=str(brief or "product showcase").strip()[:500])
         job_id = uuid.uuid4().hex
         now = now_iso()
@@ -1498,6 +1521,7 @@ class OrderBook:
                 "duration_s": spec["duration_s"],
                 "frames": spec["frames"],
                 "seed": int(seed),
+                **({"steps": int(steps)} if steps is not None else {}),
             },
             "raw_prompt": prompt,
             "effective_prompt": prompt,
@@ -1605,6 +1629,17 @@ class OrderBook:
         flicker = round(max(abs(means[i + 1] - means[i]) for i in range(len(means) - 1)) / 255.0, 4)
         res_ok = max(width, height) >= 1080 and min(width, height) >= 720
         dur_ok = 0.5 <= duration_s <= 10.0
+        # Every decoded frame, numpy (video_measure): non-black share, Laplacian variance, frame-to-frame motion.
+        from .video_measure import MeasureError, measure_video
+        try:
+            measured = measure_video(video_path, ffmpeg, self.media_tools()[1])
+        except MeasureError as exc:
+            raise OrderError(409, "qc_frame_decode_failed", f"could not decode the video frames: {exc}") from None
+        from ..art_v2.vlm_critic import VLMArtCritic
+        critic = VLMArtCritic().inspect_and_certify(project_id=order["order_id"], media_input=measured["keyframes"],
+                                                    media_path=video_path)
+        moving = measured["moving"] is True
+        non_black_ok = measured["non_black_ratio_min"] >= QC_MIN_NON_BLACK
         qcr_path = art_dir / "qc_report.json"
         qc_metrics = {
             "source": "decoded_frames",
@@ -1618,7 +1653,26 @@ class OrderBook:
             "height": height,
             "resolution_ok": res_ok,
             "duration_ok": dur_ok,
-            "passed_signals": bool(res_ok and dur_ok and sharpness >= 50.0 and flicker <= 0.25),
+            "frames_decoded": measured["frames_decoded"],
+            "distinct_frames": measured["distinct_frames"],
+            "motion_mean": measured["motion_mean"],
+            "moving": moving,
+            "non_black_ratio_min": measured["non_black_ratio_min"],
+            "non_black_ok": non_black_ok,
+            "laplacian_variance_min": measured["laplacian_sharpness_min"],
+            "measurement": measured,
+            "thresholds": {"min_sharpness": QC_MIN_SHARPNESS, "max_flicker": QC_MAX_FLICKER,
+                           "min_non_black": QC_MIN_NON_BLACK, "resolution": ">=1080 long side and >=720 short side",
+                           "duration_s": [0.5, 10.0],
+                           "moving": f"distinct frames >= 2 and motion_mean >= {measured['motion_min_threshold']}"},
+            # informational second opinion bound to this file (bcc.art_v2.vlm_critic); not a gate here
+            "art_critic": {"status": critic.status, "score": critic.score, "refusal": critic.refusal,
+                           "non_black_pass": critic.non_black_pass, "sharpness_pass": critic.sharpness_pass,
+                           "motion_pass": critic.motion_pass, "face_cosine_pass": critic.face_cosine_pass,
+                           "media_sha256": critic.media_sha256, "receipt_id": critic.receipt_id,
+                           "signature": critic.signature},
+            "passed_signals": bool(res_ok and dur_ok and sharpness >= QC_MIN_SHARPNESS and flicker <= QC_MAX_FLICKER
+                                   and moving and non_black_ok),
             "contact_sheet_file": "contact_sheet.png",
             "contact_sheet_sha256": cs_sha,
             "measured_at": now_iso(),
@@ -1633,6 +1687,8 @@ class OrderBook:
         """T2: execute the preset render for a Studio order with an idempotent key (`order_id + job_id`).
         - REFUSES (503 ``render_engine_missing``, no state change, no file, no timing, no QC) when no real engine is
           given or wired (``self.render_engine``), and 503 ``video_probe_unavailable`` without ffmpeg/ffprobe.
+          An engine with ``preflight(job, item, licences) -> [problems]`` refuses BEFORE any state change too (the
+          Direct Gen engine: unsupported model, non-commercial licence, faces, missing weights = 503, catalog limits).
           Until 31.10 this path drew a PIL ``out.png`` for a video job, marked it ``completed`` with a render time
           taken from a parameter and synthetic QC tiles; that behaviour is removed (audit P0, studio_revocation.md).
         - engine(job, result_dir) must write a video file inside result_dir and return its Path, or
@@ -1660,6 +1716,14 @@ class OrderBook:
                              [{"code": "video_probe_unavailable"}])
         engine_name = _engine_name(engine)
         cur = self._load(participant, order_id)
+        check = getattr(engine, "preflight", None)
+        if callable(check) and cur["status"] in RENDERABLE:
+            # The engine's own refusals (model/licence/faces/missing weights/limits) BEFORE any state change.
+            licences = self.licences()
+            problems = [p for item in cur["items"] for job_id in item["job_ids"]
+                        for p in check(self._job(participant, job_id), item, licences)]
+            if problems:
+                raise _engine_refusal(problems)
         if cur["status"] in ("accepted", "preflight", "rework", "qc_failed", "reconcile_required"):
             self.start(participant, order_id, key=f"{key}:start" if key else None)
 
@@ -1705,12 +1769,12 @@ class OrderBook:
                             produced = engine(dict(job), res_dir)
                         except Exception as exc:  # noqa: BLE001 - unknown outcome: the owner reconciles
                             job.update(status="failed", error=f"engine_error:{type(exc).__name__}",
-                                       finished_at=now_iso())
+                                       engine_error_detail=str(exc)[:500], finished_at=now_iso())
                             self.jobs.save(job)
                             self._move(order, moves, "reconcile_required", f"render_engine_error:{type(exc).__name__}")
                             self._write_manifest(order)
                             return {"interrupted": True, "reused_jobs": reused_jobs, "rendered_jobs": rendered_jobs,
-                                    "error": "render_engine_error"}
+                                    "error": "render_engine_error", "error_detail": str(exc)[:500]}
                         elapsed = time.monotonic() - t0
                         declared = produced if isinstance(produced, dict) else {"path": produced}
                         out_path = Path(declared.get("path") or "")
@@ -1732,6 +1796,10 @@ class OrderBook:
                         sha = _sha256_path(out_path)
                         job.pop("verification", None)
                         job.pop("error", None)
+                        job.pop("engine_error_detail", None)
+                        engine_job = declared.get("engine_job")
+                        if isinstance(engine_job, dict):     # what the engine really ran (e.g. the Direct Gen job)
+                            job.setdefault("provenance", {})["engine_job"] = engine_job
                         job.update(
                             status="completed",
                             finished_at=now_iso(),
@@ -1777,6 +1845,15 @@ class OrderBook:
 
 
 PRESETS = OrderBook.PRESETS
+
+
+def _engine_refusal(problems: list[dict]) -> OrderError:
+    """An engine preflight refusal (no state change): the most severe status wins (503 > 422 > 409)."""
+    status = max(int(p.get("status") or 409) for p in problems)
+    codes = sorted({str(p["code"]) for p in problems})
+    return OrderError(status, codes[0] if len(codes) == 1 else "render_preflight_refused",
+                      "Studio render refused before rendering: " + ", ".join(codes),
+                      [{k: v for k, v in p.items() if k != "status"} for p in problems])
 
 
 def _refusal(what: str, problems: list[dict]) -> OrderError:

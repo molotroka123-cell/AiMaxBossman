@@ -1,0 +1,144 @@
+{
+ "topic": "studio real path (owner item 6)",
+ "started_at": "2026-11-01T10:39:34+00:00",
+ "code_sha": "091c9fd4f3fc6fcce393e284cd29cdd6305a37de",
+ "inputs": {
+  "preset": "product_spin",
+  "brief": "a plain matte white ceramic coffee mug, no people, no hands, no text, no logos",
+  "width": 720,
+  "height": 1280,
+  "duration_s": 1.0,
+  "steps": 20,
+  "seed": 20261101,
+  "model": "wan2.2-ti2v-5b",
+  "synthetic": true,
+  "faces": false
+ },
+ "temp_backend": {
+  "port": 8893,
+  "data_dir": "temp under %TEMP% (not the owner's data)",
+  "workers": false,
+  "ollama_url": "http://127.0.0.1:9 (closed: owner's Ollama untouched)",
+  "bcc_imported_from": "C:\\Users\\asd\\Bossman\\integration-20261006\\.claude\\worktrees\\agent-aec34543aee1fc9b8\\command-center\\bcc\\__init__.py",
+  "build_sha": "091c9fd4f3fc6fcce393e284cd29cdd6305a37de",
+  "startup_s": 7.5
+ },
+ "machine_before": {
+  "at": "2026-11-01T10:39:36+00:00",
+  "gpu_jobs": [],
+  "ollama_loaded": [
+   {
+    "name": "gemma4-31b-uncensored-ctx32k:latest",
+    "size_gb": 32.3
+   },
+   {
+    "name": "qwen3-coder-30b-ctx32k:latest",
+    "size_gb": 20.3
+   }
+  ],
+  "free_ram_gb": 49.0,
+  "wan22_5b_needs_gb": 15.8,
+  "enough_ram": true
+ },
+ "negative_engine_missing": {
+  "http_status": 503,
+  "code": "render_engine_missing",
+  "problems": [
+   {
+    "code": "render_engine_missing",
+    "engine": "direct_gen.sdcli",
+    "reason": "weights missing on disk: diffusion (wan22-ti2v-5b/Wan2.2-TI2V-5B-Q8_0.gguf); vae (wan22-ti2v-5b/wan2.2_vae.safetensors); text_encoder (wan22-ti2v-5b/umt5-xxl-encoder-Q8_0.gguf)"
+   }
+  ],
+  "order_status_after": "accepted"
+ },
+ "negative_api": {
+  "default_preset_1080x1920_6s": {
+   "http_status": 422,
+   "code": "preset_exceeds_engine_limits",
+   "problems": [
+    {
+     "code": "preset_exceeds_engine_limits",
+     "requested": {
+      "width": 1080,
+      "height": 1920,
+      "duration_s": 6.0
+     },
+     "limits": {
+      "min_side": 256,
+      "max_side": 1280,
+      "side_multiple": 16,
+      "max_seconds": 5
+     }
+    }
+   ],
+   "order_status_after": "accepted"
+  },
+  "face_line": {
+   "http_status": 409,
+   "code": "face_render_refused",
+   "problems": [
+    {
+     "code": "face_render_refused"
+    }
+   ],
+   "order_status_after": "accepted"
+  },
+  "queued_job_cannot_pass_qc": {
+   "http_status": 409,
+   "code": "job_not_completed",
+   "problems": [
+    {
+     "code": "job_not_completed"
+    }
+   ],
+   "job_status": "queued"
+  }
+ },
+ "machine_before_render": {
+  "at": "2026-11-01T10:39:55+00:00",
+  "gpu_jobs": [],
+  "ollama_loaded": [
+   {
+    "name": "gemma4-31b-uncensored-ctx32k:latest",
+    "size_gb": 32.3
+   },
+   {
+    "name": "qwen3-coder-30b-ctx32k:latest",
+    "size_gb": 20.3
+   }
+  ],
+  "free_ram_gb": 47.6,
+  "wan22_5b_needs_gb": 15.8,
+  "enough_ram": true
+ },
+ "machine_after_render": {
+  "at": "2026-11-01T10:59:52+00:00",
+  "gpu_jobs": [],
+  "ollama_loaded": [
+   {
+    "name": "qwen3-coder-30b-ctx32k:latest",
+    "size_gb": 20.3
+   }
+  ],
+  "free_ram_gb": 48.7,
+  "wan22_5b_needs_gb": 15.8,
+  "enough_ram": true
+ },
+ "render_call": {
+  "http_status": 200,
+  "wall_s_measured_by_tool": 1195.5,
+  "order_status": "reconcile_required",
+  "error": "render_engine_error",
+  "error_detail": "direct_gen job 249c06ff48c049429f01a33c9477af91 ended failed: engine_error sd-cli exited with code 3221226505: [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds device buffer size limit: ErrorOutOfDeviceMemory) | [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds device buffer size limit: ErrorOutOfDeviceMemory) | [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds dev"
+ },
+ "job": {
+  "status": "failed",
+  "error": "engine_error:RuntimeError",
+  "engine_error_detail": "direct_gen job 249c06ff48c049429f01a33c9477af91 ended failed: engine_error sd-cli exited with code 3221226505: [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds device buffer size limit: ErrorOutOfDeviceMemory) | [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds device buffer size limit: ErrorOutOfDeviceMemory) | [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds dev",
+  "verification": null
+ },
+ "status": "BLOCKED",
+ "finished_at": "2026-11-01T10:59:52+00:00",
+ "reason": "real render did not complete: http 200, order reconcile_required, job failed: direct_gen job 249c06ff48c049429f01a33c9477af91 ended failed: engine_error sd-cli exited with code 3221226505: [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds device buffer size limit: ErrorOutOfDeviceMemory) | [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds device buffer size limit: ErrorOutOfDeviceMemory) | [WARN   ] ggml - ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds dev"
+}

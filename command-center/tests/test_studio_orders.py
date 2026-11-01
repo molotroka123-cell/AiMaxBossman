@@ -1082,6 +1082,14 @@ FFMPEG, FFPROBE = shutil.which("ffmpeg"), shutil.which("ffprobe")
 needs_ffmpeg = pytest.mark.skipif(not (FFMPEG and FFPROBE), reason="ffmpeg/ffprobe not installed")
 
 
+@pytest.fixture(autouse=True)
+def _no_real_media_models(tmp_path, monkeypatch):
+    """The API wires the real Direct Gen engine (01.11): no test may see the owner's weights or sd-cli (D:\\...)."""
+    monkeypatch.setenv("BOSSMAN_MEDIA_MODELS", str(tmp_path / "no-media-models"))
+    monkeypatch.setenv("BOSSMAN_SDCPP_BIN", str(tmp_path / "no-sd-cli" / "sd-cli.exe"))
+    monkeypatch.delenv("BOSSMAN_DIRECT_GEN_SD_BIN", raising=False)
+
+
 class FfmpegTestEngine:
     """A real encoder (ffmpeg lavfi testsrc2 -> mpeg4 in mp4): synthetic content, genuinely decodable video."""
 
@@ -1294,6 +1302,9 @@ async def test_api_render_preset_without_engine_is_503(env):
     assert (await env.client.post(f"{URL}/{oid}/accept?client={A}", headers=OWNER)).status_code == 200
     refused = await env.client.post(f"{URL}/{oid}/render-preset?client={A}", headers=OWNER)
     assert refused.status_code == 503 and refused.json()["error"]["code"] == "render_engine_missing"
+    # 01.11: the API now wires the real Direct Gen engine; without weights/sd-cli it is still 503, with the reason
+    problem = refused.json()["error"]["problems"][0]
+    assert problem["engine"] == "direct_gen.sdcli" and "weights missing" in problem["reason"]
     after = (await env.client.get(f"{URL}/{oid}?client={A}", headers=OWNER)).json()
     assert after["status"] == "accepted" and after.get("qc_metrics") is None
 
@@ -1333,3 +1344,183 @@ def test_t2_live_acceptance_harness_e2e_kill_recovery_and_pult_card(tmp_path):
     assert card["status"] == "owner_review"
     assert card["contact_sheet_exists"] is True
     assert card["qc_report_exists"] is True
+
+
+# ---------- 01.11: the REAL engine = the existing Direct Gen sd-cli queue (bcc.direct_gen.studio_engine) ----------
+# The adapter is tested against a fake DirectGenService that has the same surface (create/store/media_dir/sd_bin)
+# and "renders" with a real ffmpeg encode of synthetic lavfi content into ITS OWN job folder, exactly where the real
+# service writes video.webm. Weights/sd-cli are zero-cost stand-in files so the catalog says "available".
+
+import asyncio as _asyncio  # noqa: E402
+
+from bcc.direct_gen import sdcli as _sdcli  # noqa: E402
+from bcc.direct_gen.studio_engine import DirectGenStudioEngine  # noqa: E402
+
+
+class FakeDirectGen:
+    def __init__(self, root: Path, store: JobStore, *, outcome: str = "completed", source: str = "testsrc2",
+                 weights: bool = True):
+        self.media_dir, self.sd_bin = root / "media", root / "bin" / "sd-cli.exe"
+        self.data_dir, self.store, self.timeout_seconds = root / "data" / "direct-gen", store, 60
+        self.outcome, self.source, self.bodies = outcome, source, []
+        self.sd_bin.parent.mkdir(parents=True, exist_ok=True)
+        self.sd_bin.write_bytes(b"stand-in")
+        if weights:
+            for spec in (_sdcli.BY_ID["wan2.2-ti2v-5b"], _sdcli.BY_ID["ltx-2.5"]):
+                for path in _sdcli.resolve_files(spec, self.media_dir).values():
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(b"w")
+
+    async def create(self, participant: str, body: dict) -> dict:
+        self.bodies.append(body)
+        spec = _sdcli.BY_ID[body["model"]]
+        w, h = map(int, body["resolution"].split("x"))
+        frames = _sdcli.frames_for(spec, body["duration"])
+        job = {"job_id": uuid.uuid4().hex, "participant": participant, "model": spec.id, "kind": "video",
+               "status": "queued", "params": {"width": w, "height": h, "frames": frames, "fps": spec.fps,
+                                              "seed": body["seed"], "steps": body.get("steps", spec.default_steps)},
+               "provenance": {"license": spec.license}, "result": None, "error": None}
+        if self.outcome == "completed":
+            res = self.store.job_dir(participant, job["job_id"]) / "result"
+            res.mkdir(parents=True, exist_ok=True)
+            src = (f"testsrc2=size={w}x{h}:rate={spec.fps}" if self.source == "testsrc2"
+                   else f"color=c=gray:size={w}x{h}:rate={spec.fps}")
+            subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", src, "-frames:v", str(frames),
+                            "-c:v", "libvpx-vp9", "-b:v", "1M", str(res / "video.webm")], check=True, timeout=300)
+            job["result"] = {"file": "video.webm", "mime": "video/webm"}
+            job["provenance"].update(engine_seconds=1.5, engine_returncode=0, peak_rss_mb=10)
+            job["status"] = "completed"
+        elif self.outcome == "failed":
+            job.update(status="failed", error={"code": "insufficient_memory",
+                                               "message": "Wan2.2 TI2V 5B needs about 17 GiB of free memory"})
+        self.store.save(job)
+        return job
+
+
+@pytest.fixture
+def loop_thread():
+    loop = _asyncio.new_event_loop()
+    t = threading.Thread(target=loop.run_forever, daemon=True)
+    t.start()
+    yield loop
+    loop.call_soon_threadsafe(loop.stop)
+    t.join(5)
+
+
+def _dg_order(book: OrderBook, *, width=272, height=480, duration_s=2.0, face=False, preset="product_spin"):
+    o = book.create_preset_order(A, preset, "a matte white ceramic mug on a turntable, no people", seed=7,
+                                 width=width, height=height, duration_s=duration_s, face=face, steps=4)
+    book.accept(A, o["order_id"])
+    return o["order_id"], o["items"][0]["job_ids"][0]
+
+
+@needs_ffmpeg
+def test_dg_engine_draft_render_is_real_verified_watermarked_and_honestly_fails_commercial_qc(book, tmp_path,
+                                                                                              loop_thread):
+    dg = FakeDirectGen(tmp_path, book.jobs)
+    engine = DirectGenStudioEngine(dg, loop_thread, poll_s=0.05, timeout_s=120)
+    oid, jid = _dg_order(book)
+    r = book.render_preset(A, oid, engine=engine)
+    body = dg.bodies[0]                                                  # the Direct Gen job the engine submitted
+    assert body["model"] == "wan2.2-ti2v-5b" and body["resolution"] == "272x480" and body["duration"] == 2.0
+    assert body["steps"] == 4 and body["mode"] == "DIRECT" and "mug" in body["prompt"]
+    job = book._job(A, jid)
+    ej = job["provenance"]["engine_job"]
+    assert ej["direct_gen_job_id"] != jid and ej["file"] == "video.webm" and len(ej["sha256"]) == 64
+    assert job["status"] == "completed" and job["engine"] == "direct_gen.sdcli" and job["result"]["mime"] == "video/mp4"
+    assert job["result"]["verification"]["verified"] is True and job["result"]["frames"] == 33
+    assert (job["result"]["width"], job["result"]["height"]) == (272, 480)
+    mark = ej["watermark_check"]                                         # burned AND measured in the decoded frame
+    assert mark["burned"] is True and mark["band_mean_abs_diff"] >= mark["rest_mean_abs_diff"] + 2.0
+    assert job["provenance"]["watermark"]["sha256"] == job["result"]["sha256"]
+    qm = r["qc_metrics"]
+    assert qm["moving"] is True and qm["distinct_frames"] >= 2 and qm["motion_mean"] > 0
+    assert qm["measurement"]["video_sha256"] == job["result"]["sha256"]
+    assert qm["resolution_ok"] is False and r["status"] == "qc_failed"   # a 272x480 draft is not a commercial clip
+
+
+@needs_ffmpeg
+def test_dg_engine_720p_render_reaches_owner_review_and_delivers(book, tmp_path, loop_thread):
+    dg = FakeDirectGen(tmp_path, book.jobs)
+    oid, jid = _dg_order(book, width=720, height=1280, duration_s=1.0)
+    r = book.render_preset(A, oid, engine=DirectGenStudioEngine(dg, loop_thread, poll_s=0.05, timeout_s=120))
+    assert r["status"] == "owner_review" and r["qc_metrics"]["passed_signals"] is True
+    assert r["qc_metrics"]["art_critic"]["status"] == "PASS"            # bound to the delivered file's sha256
+    assert r["qc_metrics"]["art_critic"]["media_sha256"] == book._job(A, jid)["result"]["sha256"]
+    book.approve("owner", A, oid, "yes")
+    assert book.deliver(A, oid)["status"] == "delivered"          # engine-declared watermark + disclosure, both bound
+
+
+def test_dg_engine_refuses_before_any_state_change(book, tmp_path, loop_thread):
+    dg = FakeDirectGen(tmp_path, book.jobs)
+    engine = DirectGenStudioEngine(dg, loop_thread, poll_s=0.05, timeout_s=5)
+    book.media_tools = lambda: ("ffmpeg-not-called", "ffprobe-not-called")
+
+    def refused(oid: str) -> OrderError:
+        with pytest.raises(OrderError) as e:
+            book.render_preset(A, oid, engine=engine)
+        assert book.get(A, oid)["status"] == "accepted"
+        return e.value
+
+    oid, _ = _dg_order(book, width=None, height=None, duration_s=None)     # the 1080x1920 6 s preset as defined
+    e = refused(oid)
+    assert e.status == 422 and e.code == "preset_exceeds_engine_limits" and e.problems[0]["limits"]["max_side"] == 1280
+    oid, _ = _dg_order(book, face=True)
+    e = refused(oid)
+    assert e.status == 409 and e.code == "face_render_refused"
+    oid, jid = _dg_order(book)
+    job = book._job(A, jid)
+    job["model"] = "ltx-2.5"                                                # licence UNKNOWN: not for client work
+    book.jobs.save(job)
+    e = refused(oid)
+    assert e.status == 409 and e.code == "engine_licence_not_commercial" and e.problems[0]["licence"] == "unknown"
+    missing = FakeDirectGen(tmp_path / "empty", book.jobs, weights=False)
+    oid, _ = _dg_order(book)
+    with pytest.raises(OrderError) as e:
+        book.render_preset(A, oid, engine=DirectGenStudioEngine(missing, loop_thread))
+    assert e.value.status == 503 and e.value.code == "render_engine_missing"
+    assert "weights missing" in e.value.problems[0]["reason"] and book.get(A, oid)["status"] == "accepted"
+    assert dg.bodies == [] and missing.bodies == []                       # nothing was submitted to the queue
+
+
+def test_dg_engine_unfinished_or_failed_direct_gen_job_is_never_completed(book, tmp_path, loop_thread):
+    book.media_tools = lambda: ("ffmpeg-not-called", "ffprobe-not-called")
+    for outcome, needle in (("queued", "not finished"), ("failed", "insufficient_memory")):
+        dg = FakeDirectGen(tmp_path / outcome, book.jobs, outcome=outcome)
+        oid, jid = _dg_order(book)
+        r = book.render_preset(A, oid, engine=DirectGenStudioEngine(dg, loop_thread, poll_s=0.05, timeout_s=0.5))
+        job = book._job(A, jid)
+        assert r["status"] == "reconcile_required" and r["error"] == "render_engine_error", outcome
+        assert needle in r["error_detail"] and needle in job["engine_error_detail"]
+        assert job["status"] == "failed" and job["result"] is None and job.get("timing") is None
+        assert r.get("qc_metrics") is None
+
+
+@needs_ffmpeg
+def test_dg_engine_clipped_caption_is_not_declared_as_a_watermark(tmp_path, monkeypatch, loop_thread):
+    """Live run 01.11: at 288 px width the h/26 caption ran off both edges and the band check still said "burned".
+    The fixed size fits; the old size is now refused as clipped (negative control) and nothing is declared."""
+    from bcc.direct_gen import studio_engine
+    src = tmp_path / "src.webm"
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=288x480:rate=16", "-frames:v",
+                    "9", "-c:v", "libvpx-vp9", "-b:v", "1M", str(src)], check=True, timeout=120)
+    engine = DirectGenStudioEngine(FakeDirectGen(tmp_path, JobStore(tmp_path / "d")), loop_thread)
+    ok = engine._burn_watermark(src, tmp_path / "ok.mp4")
+    assert ok["burned"] is True and ok["band_edge_mean_abs_diff"] <= ok["rest_mean_abs_diff"] + 2.0
+    real = studio_engine._drawtext
+    monkeypatch.setattr(studio_engine, "_drawtext",
+                        lambda text, font: real(text, font).replace("fontsize='min(h/26\\,w/24)'", "fontsize=h/26"))
+    clipped = engine._burn_watermark(src, tmp_path / "clipped.mp4")
+    assert clipped["burned"] is False and clipped["reason"] == "caption_clipped_at_frame_edge"
+    assert not (tmp_path / "clipped.mp4").exists()
+
+
+@needs_ffmpeg
+def test_dg_engine_still_image_video_fails_qc_as_not_moving(book, tmp_path, loop_thread):
+    dg = FakeDirectGen(tmp_path, book.jobs, source="still")
+    oid, jid = _dg_order(book, width=720, height=1280, duration_s=1.0)
+    r = book.render_preset(A, oid, engine=DirectGenStudioEngine(dg, loop_thread, poll_s=0.05, timeout_s=120))
+    qm = r["qc_metrics"]
+    assert book._job(A, jid)["result"]["verification"]["verified"] is True     # it IS a decodable multi-frame file
+    assert qm["moving"] is False and qm["passed_signals"] is False and r["status"] == "qc_failed"
+    assert qm["art_critic"]["status"] in ("REFUSED", "REJECTED")              # a still is never certified

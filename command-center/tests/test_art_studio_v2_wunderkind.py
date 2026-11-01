@@ -9,7 +9,10 @@ Tests all 4 core subsystems:
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
+import subprocess
 from pathlib import Path
 import pytest
 
@@ -322,9 +325,26 @@ def test_vlm_art_critic_deterministic_metrics_and_checklist():
 
 
 def _measured(**over):
-    base = {"source": "ffmpeg+arcface:test", "brightness": 0.58, "contrast": 0.82, "laplacian_sharpness": 12.4,
-            "non_black_ratio": 0.985, "face_cosine_score": 0.845, "audio_rms_db": -14.2, "artifacts_detected": []}
-    return [{**base, **over} for _ in range(5)]
+    """Five plausible measurement rows WITH provenance (distinct frames of one video); values vary per frame."""
+    video = hashlib.sha256(b"synthetic-video").hexdigest()
+    rows = []
+    for i in range(5):
+        base = {"source": "ffmpeg+arcface:test", "brightness": 0.55 + i / 100, "contrast": 0.30 + i / 100,
+                "laplacian_sharpness": 120.0 + i, "non_black_ratio": 0.97 + i / 1000, "face_cosine_score": 0.83,
+                "audio_rms_db": -14.2, "artifacts_detected": [], "motion_to_next": 3.0 + i,
+                "frame_sha256": hashlib.sha256(f"frame-{i}".encode()).hexdigest(), "video_sha256": video}
+        rows.append({**base, **over})
+    return rows
+
+
+def _encode(path: Path, source: str) -> Path:
+    sep = ":" if "=" in source else "="
+    subprocess.run([shutil.which("ffmpeg"), "-v", "error", "-y", "-f", "lavfi", "-i", f"{source}{sep}size=272x480:rate=16",
+                    "-frames:v", "33", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(path)], check=True, timeout=120)
+    return path
+
+
+needs_ffmpeg = pytest.mark.skipif(not (shutil.which("ffmpeg") and shutil.which("ffprobe")), reason="no ffmpeg")
 
 
 def test_vlm_art_critic_synthetic_input_is_never_certified():
@@ -351,13 +371,59 @@ def test_vlm_art_critic_flawed_measurement_is_rejected_and_score_is_never_raised
     assert blurry.status == "REJECTED" and blurry.sharpness_pass is False
 
 
-def test_vlm_art_critic_real_measurements_pass_with_a_signed_receipt():
+@needs_ffmpeg
+def test_vlm_art_critic_real_measurements_pass_with_a_signed_receipt(tmp_path):
+    """01.11: the PASS case is a REAL measurement (ffmpeg-decoded frames + numpy) bound to the measured file."""
+    from bcc.direct_gen.video_measure import measure_video
+    video = _encode(tmp_path / "moving.mp4", "testsrc2")
+    m = measure_video(video, shutil.which("ffmpeg"), shutil.which("ffprobe"))
     critic = VLMArtCritic()
-    receipt = critic.inspect_and_certify(project_id="proj_ok", media_input=_measured())
-    assert receipt.status == "PASS" and receipt.score >= 0.90
-    assert receipt.non_black_pass and receipt.face_cosine_pass and receipt.artifacts_clean_pass and receipt.sharpness_pass
-    assert all(k["source"] == "ffmpeg+arcface:test" for k in receipt.keyframes_evaluated)
+    receipt = critic.inspect_and_certify(project_id="proj_ok", media_input=m["keyframes"], media_path=video)
+    assert receipt.status == "PASS" and receipt.score >= 0.90 and receipt.refusal is None
+    assert receipt.non_black_pass and receipt.artifacts_clean_pass and receipt.sharpness_pass and receipt.motion_pass
+    assert receipt.face_cosine_pass is None                       # no face model ran: not applicable, not "passed"
+    assert receipt.media_sha256 == m["video_sha256"]
+    assert all(k["source"] == m["source"] for k in receipt.keyframes_evaluated)
     assert len(receipt.signature) == 64  # SHA-256 signature
+    # the same measurements without the file they were taken on cannot certify anything
+    unbound = critic.inspect_and_certify(project_id="proj_ok", media_input=m["keyframes"])
+    assert unbound.status == "REFUSED" and unbound.refusal.startswith("unbound_measurements")
+    # ... nor bound to ANOTHER file
+    other = _encode(tmp_path / "other.mp4", "rgbtestsrc")
+    wrong = critic.inspect_and_certify(project_id="proj_ok", media_input=m["keyframes"], media_path=other)
+    assert wrong.status == "REFUSED" and wrong.refusal.startswith("media_sha256_mismatch")
+
+
+@needs_ffmpeg
+def test_vlm_art_critic_still_image_in_a_video_container_is_never_certified(tmp_path):
+    from bcc.direct_gen.video_measure import measure_video
+    still = _encode(tmp_path / "still.mp4", "color=c=gray")
+    m = measure_video(still, shutil.which("ffmpeg"), shutil.which("ffprobe"))
+    assert m["moving"] is False and m["motion_mean"] < 0.05
+    receipt = VLMArtCritic().inspect_and_certify(project_id="still", media_input=m["keyframes"], media_path=still)
+    assert receipt.status in ("REFUSED", "REJECTED") and receipt.motion_pass is not True
+
+
+def test_vlm_art_critic_constants_passed_as_measurements_are_refused():
+    """Negative controls: the old hard-coded numbers, identical rows, or rows without provenance are not measurements."""
+    critic = VLMArtCritic()
+    video = hashlib.sha256(b"v").hexdigest()
+    legacy = [{"source": "ffmpeg", "brightness": 0.58, "contrast": 0.82, "laplacian_sharpness": 12.4,
+               "non_black_ratio": 0.985, "face_cosine_score": 0.845, "audio_rms_db": -14.2,
+               "frame_sha256": hashlib.sha256(bytes([i])).hexdigest(), "video_sha256": video} for i in range(5)]
+    r = critic.inspect_and_certify(project_id="c1", media_input=legacy)
+    assert r.status == "REFUSED" and r.refusal.startswith("placeholder_constants")
+    same = [{**row, "brightness": 0.5, "contrast": 0.3, "laplacian_sharpness": 99.0, "non_black_ratio": 0.99,
+             "face_cosine_score": None} for row in legacy]
+    r = critic.inspect_and_certify(project_id="c2", media_input=same)
+    assert r.status == "REFUSED" and r.refusal.startswith("constant_measurements")
+    bare = [{k: v for k, v in row.items() if k not in ("frame_sha256", "video_sha256")} for row in _measured()]
+    r = critic.inspect_and_certify(project_id="c3", media_input=bare)
+    assert r.status == "REFUSED" and r.refusal.startswith("measurement_provenance_missing")
+    mixed = _measured()
+    mixed[2]["video_sha256"] = hashlib.sha256(b"another video").hexdigest()
+    r = critic.inspect_and_certify(project_id="c4", media_input=mixed)
+    assert r.status == "REFUSED" and r.refusal.startswith("mixed_videos")
 
 
 # ==============================================================================

@@ -1,0 +1,82 @@
+{
+ "topic": "Studio real path: preset render through the existing Direct Gen sd-cli queue (owner item 6, 01.11)",
+ "status": "PASS_DRAFT_ONLY / COMMERCIAL_SIZE_BLOCKED",
+ "summary": {
+  "engine_wired": "bcc.direct_gen.studio_engine.DirectGenStudioEngine -> DirectGenService.create (same queue/GPU lock/memory preflight/STOP); wired in features/studio_orders._book",
+  "model": "wan2.2-ti2v-5b (Apache-2.0: local MANIFEST-local.json + HF model card Wan-AI/Wan2.2-TI2V-5B checked 01.11)",
+  "ltx_2_5": "refused on the Studio path: no licence recorded for the local weights; upstream LTX-2 is under the Lightricks LTX-2 community licence, not Apache (engine_licence_not_commercial)",
+  "run1": {
+   "sha": "64a98173f0f5afe504496bda5e73dd5c314f0af3",
+   "status": "PASS",
+   "requested": "272x480, 2 s, 20 steps",
+   "rendered": "288x480 (sd-cli/Wan VAE rounds width to a multiple of 32)",
+   "wall_s_tool": 366.84,
+   "timing_total_s_measured": 366.0,
+   "sd_cli_engine_seconds": 362.16,
+   "peak_rss_mb": 17575,
+   "delivered": {
+    "file": "run1_draft_288x480/studio_render.mp4",
+    "sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+    "bytes": 105113,
+    "codec": "h264",
+    "width": 288,
+    "height": 480,
+    "frames": "33",
+    "duration_s": "2.062500",
+    "fps": "16/1"
+   },
+   "direct_gen_raw": {
+    "sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+    "codec": "vp8",
+    "frames": "33",
+    "duration_s": "2.000000"
+   },
+   "measured": {
+    "frames_decoded": 33,
+    "distinct_frames": 33,
+    "motion_mean": 4.1618,
+    "motion_max": 30.4579,
+    "non_black_ratio_min": 0.975,
+    "laplacian_sharpness_min": 361.083,
+    "moving": true
+   },
+   "art_critic": "PASS",
+   "order_status": "qc_failed",
+   "qc_fail_reason": "resolution_ok=false (288x480 < 720x1080)",
+   "defects_found_by_looking": [
+    "caption clipped at 288 px width while the band check said burned -> fixed in 091c9fd4 (fontsize min(h/26,w/24) + edge-column check + test)",
+    "content quality poor: horizontal streak artifacts, near-white frames, mug visible only at the end; signal metrics and the critic still PASS -> they are NOT a visual-quality verdict"
+   ]
+  },
+  "run2": {
+   "sha": "091c9fd4f3fc6fcce393e284cd29cdd6305a37de",
+   "status": "BLOCKED",
+   "requested": "720x1280, 1 s (17 frames), 20 steps",
+   "wall_s_tool": 1195.5,
+   "result": "20/20 sampling steps done (~60 s/step), then sd-cli crashed in VAE decode: Vulkan ErrorOutOfDeviceMemory, GGML_ASSERT(buffer != nullptr), exit 3221226505 (0xC0000409); peak RSS 43583 MB",
+   "studio_behaviour": "order reconcile_required, studio job failed with engine_error_detail, no file, no timing, no QC (nothing faked)"
+  },
+  "negatives_live": {
+   "engine_missing": "503 render_engine_missing (weights missing on disk), order stays accepted (both runs)",
+   "default_preset_1080x1920_6s": "422 preset_exceeds_engine_limits (Wan 5B max side 1280, max 5 s), order stays accepted",
+   "face_line": "409 face_render_refused",
+   "queued_job_qc": "409 job_not_completed",
+   "png_renamed_mp4": "not_a_video_container (magic 89504e47)",
+   "one_frame_mp4": "not_a_moving_video",
+   "critic_placeholder_constants": "REFUSED",
+   "critic_identical_rows": "REFUSED",
+   "critic_other_file": "REFUSED media_sha256_mismatch",
+   "critic_unbound": "REFUSED unbound_measurements"
+  }
+ },
+ "old_t2_pass": "stays REVOKED (docs/audits/2026-10-31-15-agent-convergence/studio_revocation.md)",
+ "runs": {
+  "run1": "run1_draft_288x480/receipt.json",
+  "run2": "run2_720x1280/receipt.json"
+ },
+ "owner_must_provide_or_decide": [
+  "commercial size (>=720x1080) on Wan 5B needs a VAE-decode memory fix: try sd-cli --vae-tiling for Wan (as LTX already uses) - a change to the Direct Gen argv, then a new ~20 min run",
+  "or accept 288x480/480x288 drafts only (QC fails resolution by design)",
+  "visual quality is unproven: the 288x480 draft shows streak artifacts; a human look (owner) is required before any client work"
+ ]
+}
