@@ -1505,6 +1505,11 @@ def _api_router() -> APIRouter:
         from . import approval_scope as scope
         return await scope.auto_full_status(svc, task_id=task_id, limit_log=limit_log)
 
+    @router.get("/approvals/auto-full/folders")
+    async def auto_full_folders(svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        return {"folders": await scope.auto_full_folder_choices(svc)}
+
     @router.post("/approvals/auto-full")
     async def enable_auto_full(body: AutoFullGrantIn, svc: Services = Depends(services)):
         from . import approval_scope as scope

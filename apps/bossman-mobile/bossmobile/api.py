@@ -1088,6 +1088,11 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             params["task_id"] = int(task_id)
         return await call("GET", "/api/approvals/auto-full", params=params)
 
+    @app.get("/m/api/auto-full/folders")
+    async def auto_full_folders(_=Depends(session)):
+        """Main PC folders for the Auto Full picker (owner 01.11); each one is pre-validated by Bossman."""
+        return await call("GET", "/api/approvals/auto-full/folders")
+
     @app.post("/m/api/auto-full")
     async def enable_auto_full(body: AutoFullMobileIn, _=Depends(session)):
         return await call("POST", "/api/approvals/auto-full", json={
