@@ -74,9 +74,20 @@ becomes a regression test plus a code fix, not a note.
 
 **Jeff.** Jeff (the Telegram participant bot) is paused, including Telegram Stars, until the owner resumes it.
 
-**Cloud agents are chat-only.** Cloud models get no PC access (no terminal, files, apps, desktop). The single
-exception is **Kimi K3.1 Pro (agent 47)**: PC access with the owner's approval for **each** command. Local
-agents act on the PC only within their granted permissions.
+**Cloud agents are chat-only outside projects.** Cloud models get no PC access (no terminal, apps, desktop,
+private files). The single PC exception is **Kimi K3.1 Pro (agent 47)**: PC access with the owner's approval for
+**each** command. Local agents act on the PC only within their granted permissions.
+
+**Cloud coding agents inside a project folder — owner directive 01.11.2026.** For development projects
+(`%USERPROFILE%\Bossman\Projects\<name>`, e.g. the Roblox game `swapme-roblox`) cloud models ARE primary software
+engineers, not reviewers: inside a chat bound to a project they may read, write and patch code (`code.read` /
+`code.write` / `code.patch`, technically confined to that folder by `chat_projects.cloud_sandbox`), own whole
+features, write tests and docs. Reason: save the owner's Fable/Claude limits; measure cost per verified feature,
+not tokens. Boundaries unchanged: no terminal, no desktop, nothing outside the project folder, no secrets, STOP /
+approvals / spending caps apply. Roles: **Jev (agent 70, cheap cloud, GLM‑5.3‑Flash)** — planning, analysis,
+small changes; **Kev (agent 71, local Qwen3‑Coder 30B)** — implementation, tests, review; Fable/Claude — lead
+integrator; Bossman — orchestration, budgets, memory, verification. Studio playtests and anything PC-side run only
+through the authorized local executor; a feature is "done" only after `tools/check.sh` + a real Studio F5 receipt.
 
 **No RunPod — absolute.** No RunPod and no other GPU/pod rental, for any task or reason. Work
 runs on the owner's PC (AMD Ryzen AI Max+ 395, 128 GB) or CPU.
