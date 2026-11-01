@@ -157,12 +157,24 @@ def _call_key(row: dict) -> str:
     return f"{row.get('tool')}|{row.get('args_hash')}"
 
 
+MAX_TOOL_ERRORS_PER_RUN = 15
+
+
 async def check_identical_calls(svc, limits: Limits, run_id: int) -> Breach | None:
     """A tool called with byte-identical arguments over and over.
 
     Only `executed`/`replayed` rows count: a call the policy denied or the owner
     refused is not the model making progress in a circle, it is the gate
     working, and failing the run for that would punish the safe outcome."""
+    # Owner 01.11 (task 1005, DeepSeek): 86 FAILED code.read calls in one run (a root the sandbox could not resolve) cost
+    # 461k tokens - the identical-call guard counts only executed rows. Failed tool calls have their own ceiling.
+    async with svc.db.session() as s:
+        errors = (await s.execute(sa.select(sa.func.count()).select_from(tool_calls_t).where(
+            tool_calls_t.c.run_id == run_id, tool_calls_t.c.status == "error"))).scalar() or 0
+    if errors > MAX_TOOL_ERRORS_PER_RUN:
+        return Breach("TOOL_ERROR_LOOP",
+                      f"{errors} вызовов инструментов завершились ошибкой (предел {MAX_TOOL_ERRORS_PER_RUN}) — "
+                      f"модель повторяет неудачные действия; прогон остановлен, чтобы не тратить токены")
     if not limits.max_identical_calls:
         return None
     async with svc.db.session() as s:
