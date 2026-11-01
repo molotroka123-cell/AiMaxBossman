@@ -1,0 +1,267 @@
+{
+ "sha": "500244acda6a9d5cfff9386e63d263d51b97fd45",
+ "source": "GET https://api.github.com/repos/molotroka123-cell/AiMaxBossman/commits/<sha>/check-runs?per_page=100 (public, unauthenticated)",
+ "fetched_at": "2026-11-01T10:25:50+00:00",
+ "total": 42,
+ "counts": {
+  "queued": 1,
+  "success": 36,
+  "skipped": 1,
+  "in_progress": 2,
+  "cancelled": 2
+ },
+ "runs": [
+  {
+   "name": "ASTRA real sandbox",
+   "state": "skipped",
+   "started_at": "2026-11-01T09:42:32Z",
+   "completed_at": "2026-11-01T09:42:32Z"
+  },
+  {
+   "name": "freeze",
+   "state": "queued",
+   "started_at": "2026-11-01T10:19:33Z",
+   "completed_at": null
+  },
+  {
+   "name": "pytest (py3.12)",
+   "state": "in_progress",
+   "started_at": "2026-11-01T09:44:31Z",
+   "completed_at": null
+  },
+  {
+   "name": "pytest (py3.14)",
+   "state": "in_progress",
+   "started_at": "2026-11-01T09:45:25Z",
+   "completed_at": null
+  },
+  {
+   "name": "upstream-contracts (windows-latest)",
+   "state": "cancelled",
+   "started_at": "2026-11-01T09:43:22Z",
+   "completed_at": "2026-11-01T09:51:01Z"
+  },
+  {
+   "name": "покрытие (неснижаемый порог)",
+   "state": "cancelled",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:51:35Z"
+  },
+  {
+   "name": "ASTRA portable (ubuntu-latest)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:23Z"
+  },
+  {
+   "name": "ASTRA portable (windows-latest)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:34Z",
+   "completed_at": "2026-11-01T09:44:29Z"
+  },
+  {
+   "name": "ASTRA runner recovery",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:16Z"
+  },
+  {
+   "name": "Execute 100 actual pytest cases on Windows",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:19Z",
+   "completed_at": "2026-11-01T09:52:26Z"
+  },
+  {
+   "name": "PostgreSQL contracts (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:38Z"
+  },
+  {
+   "name": "PostgreSQL contracts (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:26Z"
+  },
+  {
+   "name": "PostgreSQL contracts (py3.14)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:32Z"
+  },
+  {
+   "name": "Real media, Web and Fleet (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:40Z",
+   "completed_at": "2026-11-01T09:51:12Z"
+  },
+  {
+   "name": "Real media, Web and Fleet (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:34Z",
+   "completed_at": "2026-11-01T09:49:16Z"
+  },
+  {
+   "name": "Windows workspace and PID contracts (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:38Z",
+   "completed_at": "2026-11-01T09:45:23Z"
+  },
+  {
+   "name": "Windows workspace and PID contracts (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:37Z",
+   "completed_at": "2026-11-01T09:45:24Z"
+  },
+  {
+   "name": "bossman-core container ships bossman-shared",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:34Z",
+   "completed_at": "2026-11-01T09:43:34Z"
+  },
+  {
+   "name": "bundle",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:28Z",
+   "completed_at": "2026-11-01T09:53:31Z"
+  },
+  {
+   "name": "chain",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:29Z",
+   "completed_at": "2026-11-01T09:48:24Z"
+  },
+  {
+   "name": "compile + секреты",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:55Z"
+  },
+  {
+   "name": "core runtime (ubuntu-latest)",
+   "state": "success",
+   "started_at": "2026-11-01T09:45:09Z",
+   "completed_at": "2026-11-01T09:50:02Z"
+  },
+  {
+   "name": "core runtime (windows-latest)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:00Z",
+   "completed_at": "2026-11-01T09:54:51Z"
+  },
+  {
+   "name": "owner scenarios (ubuntu-latest)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:46:33Z"
+  },
+  {
+   "name": "owner-experience",
+   "state": "success",
+   "started_at": "2026-11-01T09:53:59Z",
+   "completed_at": "2026-11-01T10:19:32Z"
+  },
+  {
+   "name": "pytest (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:53Z",
+   "completed_at": "2026-11-01T10:21:47Z"
+  },
+  {
+   "name": "pytest gateway-context (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:35Z"
+  },
+  {
+   "name": "pytest gateway-context (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:31Z"
+  },
+  {
+   "name": "pytest rest (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:50:22Z"
+  },
+  {
+   "name": "pytest rest (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:49:01Z"
+  },
+  {
+   "name": "pytest security (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:27Z"
+  },
+  {
+   "name": "pytest security (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:20Z"
+  },
+  {
+   "name": "pytest stage8-14 (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:43:26Z"
+  },
+  {
+   "name": "pytest stage8-14 (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:57Z",
+   "completed_at": "2026-11-01T09:43:50Z"
+  },
+  {
+   "name": "repair-and-test",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:34Z",
+   "completed_at": "2026-11-01T09:49:45Z"
+  },
+  {
+   "name": "root pytest + hygiene (py3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:26Z",
+   "completed_at": "2026-11-01T09:48:27Z"
+  },
+  {
+   "name": "root pytest + hygiene (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:33Z",
+   "completed_at": "2026-11-01T09:51:23Z"
+  },
+  {
+   "name": "safety (3.11)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:34Z",
+   "completed_at": "2026-11-01T09:42:55Z"
+  },
+  {
+   "name": "safety (3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:42:35Z",
+   "completed_at": "2026-11-01T09:42:58Z"
+  },
+  {
+   "name": "upstream-contracts (ubuntu-latest)",
+   "state": "success",
+   "started_at": "2026-11-01T09:45:27Z",
+   "completed_at": "2026-11-01T09:48:56Z"
+  },
+  {
+   "name": "windows paths (py3.12)",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:58Z",
+   "completed_at": "2026-11-01T09:47:56Z"
+  },
+  {
+   "name": "секреты, JS, запрещённые файлы",
+   "state": "success",
+   "started_at": "2026-11-01T09:43:29Z",
+   "completed_at": "2026-11-01T09:45:07Z"
+  }
+ ]
+}
