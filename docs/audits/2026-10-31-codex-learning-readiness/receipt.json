@@ -1,0 +1,61 @@
+{
+  "receipt": "codex-learning-readiness",
+  "date": "2026-10-31",
+  "branch": "feat/codex-learning-readiness-20261031",
+  "base": "996ee695ef0dfb745eba4fe0f01ee291cd8d5cf7",
+  "author": "claude",
+  "recorded_lesson_is_proven_learning": false,
+  "existing_reused": {
+    "store": "facts table (bcc/db.py) + bcc/v2/memory/facts.py — no new table, no second memory/backend",
+    "redaction": "bcc/features/pult_report.redact (+ plugin_security.redact_text)",
+    "ssrf": "plugin_security.validate_url / resolve_pinned_ip / PinnedTransport",
+    "safety_gates_unchanged": ["tools_browser", "tools_computer", "tools.chat_only", "web_access.policy deny list", "approvals", "computer STOP"]
+  },
+  "added": {
+    "command-center/bcc/v2/memory/lessons.py": "lesson rules on facts: source/observed_at/valid_from/author required; status computed from lesson_check rows; redaction; content-hash idempotency; size caps; owner-private categories closed to remote writers; freshness check with injectable fetcher",
+    "command-center/bcc/features/memory_lessons.py": "POST/GET /api/memory/lessons, /policy, /stale, /{id}, /{id}/verify (server-run eval), /{id}/refute, /{id}/freshness; tools memory.lesson.add (ask) / memory.lesson.search (auto)",
+    "command-center/bcc/business_exercises.py": "4 synthetic exercises with planted truth written outside agent roots",
+    "command-center/bcc/business_exercise_checker.py": "independent Decimal checker, receipt without expected values",
+    "command-center/bcc/features/learning_exercises.py": "GET catalog/task, POST check",
+    "tools/codex_learning_readiness.py": "read-only (GET-only enforced) PASS/WARN/FAIL probe of a running backend",
+    "command-center/tests/test_codex_learning_readiness.py": "31 tests incl. negatives",
+    "docs/audits/2026-10-31-codex-learning-readiness/live_e2e_temp_backend.py": "write-path E2E, refuses ports 8800/8801"
+  },
+  "tests": {
+    "new": {"command": "python -m pytest tests/test_codex_learning_readiness.py", "passed": 31, "failed": 0},
+    "neighbours_memory_facts_offline_capability_teacher": {"passed": 193, "failed": 0, "note": "includes the 31 new"},
+    "tool_enumeration_browser_computer": {"passed": 155, "skipped": 1, "failed": 0},
+    "chat_only_stop_browser_web_access": {"passed": 110, "failed": 0},
+    "full_suite": "NOT_RUN"
+  },
+  "negatives": [
+    "lesson without source / unknown source / private-IP source / without date / future date / bad author / bad category -> 422, 0 rows",
+    "writer sets status verified_by_test|refuted, verified, eval_ref, verified_at -> 422",
+    "codex->personal, claude->finance_private, owner+X-Bossman-Writer:cloud->personal, bossman->chats -> 403; non-loopback owner -> forbidden",
+    "remote read of private lesson -> 403",
+    "synthetic sk-proj key and password=... redacted before storage",
+    "duplicate (case/space variant) -> same id, deduped",
+    "body > 4000 chars -> 422; request > 16 KB -> 413; rate limit -> 429",
+    "verify without eval / pytest:claim / trust-me / no answer / missing skill_evaluation -> 422; wrong answer -> status stays lesson_recorded, truth not leaked",
+    "freshness: non-web source -> 422; metadata IP url -> 422 without fetch; missing text -> not_found; error -> unreachable",
+    "exercise keys dir inside data_dir -> 409, nothing written",
+    "readiness probe POST -> ReadOnlyViolation"
+  ],
+  "live_temp_backend": {
+    "port": 8897,
+    "data_dir": "temp scratchpad (BCC_DATA_DIR + LOCALAPPDATA redirected), stopped after run",
+    "readiness_probe": "readiness_temp_backend.json — verdict PASS (11 PASS, 1 WARN: health not ready — empty install has no models/providers/browser)",
+    "write_e2e": "live_e2e_temp_backend.json — PASS",
+    "owner_8801_touched": false
+  },
+  "not_proven": [
+    "Learning from Codex is NOT proven: recording a lesson != proven learning; verified_by_test only means the linked exercise was solved correctly at verified_at",
+    "lesson<->exercise relevance is declared by the writer, not checked",
+    "author is self-declared under the owner token (no per-agent identity)",
+    "rate limit is in-process memory, reset on restart",
+    "freshness against the real web not run (fake fetcher in tests)",
+    "probe not run against owner :8801 by rule",
+    "no owner-PC pult/chat live proof yet (AGENTS.md: candidate, not an added capability)",
+    "full test suite not run"
+  ]
+}

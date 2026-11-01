@@ -1,0 +1,76 @@
+{
+  "verdict": "PASS",
+  "counts": {
+    "PASS": 11,
+    "WARN": 1,
+    "FAIL": 0
+  },
+  "results": [
+    {
+      "capability": "health",
+      "status": "WARN",
+      "detail": "alive but not ready: ['browser', 'models', 'providers']"
+    },
+    {
+      "capability": "memory_lessons",
+      "status": "PASS",
+      "detail": "source+dates required, status computed by server, secrets redacted",
+      "store": "facts (existing bi-temporal table), source_kind=lesson|lesson_check"
+    },
+    {
+      "capability": "memory_lessons_list",
+      "status": "PASS",
+      "detail": "list -> 200"
+    },
+    {
+      "capability": "freshness_check",
+      "status": "PASS",
+      "detail": "stale -> 200"
+    },
+    {
+      "capability": "facts_store",
+      "status": "PASS",
+      "detail": "facts -> 200"
+    },
+    {
+      "capability": "business_exercises",
+      "status": "PASS",
+      "detail": "4 synthetic exercises; task carries no ground truth",
+      "count": 4
+    },
+    {
+      "capability": "browser_gates",
+      "status": "PASS",
+      "detail": "submit/login/download need approval"
+    },
+    {
+      "capability": "pc_control_gates",
+      "status": "PASS",
+      "detail": "computer.act/observe need approval"
+    },
+    {
+      "capability": "stop_switch",
+      "status": "PASS",
+      "detail": "STOP readable (computer.stopped=False)"
+    },
+    {
+      "capability": "approvals",
+      "status": "PASS",
+      "detail": "approvals -> 200"
+    },
+    {
+      "capability": "cloud_chat_only",
+      "status": "PASS",
+      "detail": "every cloud-model agent is chat-only"
+    },
+    {
+      "capability": "web_deny_policy",
+      "status": "PASS",
+      "detail": "deny_domains=40 (-> 200)"
+    }
+  ],
+  "read_only": true,
+  "checked_at": "2026-11-01T00:29:24+00:00",
+  "note": "Readiness of the plumbing. It does not prove that Codex taught Bossman anything.",
+  "backend": "http://127.0.0.1:8897"
+}
