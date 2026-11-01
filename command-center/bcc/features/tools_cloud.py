@@ -465,6 +465,8 @@ def reserve_paid_call_sync(data_dir: Path, *, quoted_usd: float, budget_usd: flo
     cannot both spend the last of the budget. The session budget (`session_remaining_usd`) comes from the in-memory session
     runtime of THIS process; its in-flight quotes are held through the same ledger rows.
     Fails closed: unknown spend, an unreadable/corrupt ledger or a busy lock -> no reservation, no paid call.
+    This is Bossman's LOCAL reservation against the owner's cap: it decides whether Bossman sends the call. It does not
+    limit what the provider bills; the provider's usage page is the record of the actual charge.
     """
     try:
         quoted = paid_quote(quoted_usd)           # positive, rounded UP to the micro-dollar; 0/None/NaN/str refused

@@ -293,8 +293,8 @@ class LongRunLedger:
             spent = self._spent_by_provider(self._rows())[provider]
             if spent + worst > cap + 1e-9:
                 msg = (f"LONG-RUN CAP HIT: {FAMILIES[provider]['label']} would reach "
-                       f"EUR {spent + worst:.4f} today (spent EUR {spent:.4f} + this call's worst case "
-                       f"EUR {worst:.4f}) against the daily cap EUR {cap:.2f}. The call was NOT made.")
+                       f"EUR {spent + worst:.6f} today (spent EUR {spent:.6f} + this call's worst case "
+                       f"EUR {worst:.6f}) against the daily cap EUR {cap:.6f}. The call was NOT made.")
                 self._refuse(provider, model, worst, msg)
                 raise LongRunRefused(msg)
             rid = uuid.uuid4().hex
