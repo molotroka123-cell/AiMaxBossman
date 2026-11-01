@@ -132,11 +132,15 @@ def parse_expected(raw: Any) -> list[ExpectedState]:
 
 # ------------------------------------------------------------- observers
 
-async def _observe_file(exp: ExpectedState, *, roots: list[Path]) -> tuple[ObservedState, Evidence]:
-    p = Path(exp.target).expanduser()
+def resolve_file_target(target: str, roots: list[Path]) -> tuple[Path, str]:
+    """The exact file a `file` expectation names: `(path, "")`, or `(path, error)` when it may not be read.
+
+    One resolution for every reader — `_observe_file` below and `finalize._produced_after` — so the file whose
+    freshness excuses a failed attempt is the very file the verifier then reads. Errors: "no_roots",
+    "ambiguous:<n>", "outside"."""
+    p = Path(target).expanduser()
     if not roots:
-        return (ObservedState("file", str(p), {"error": "no authorized file roots"}, time.time()),
-                Evidence("file:reopen", "refused: no authorized roots"))
+        return p, "no_roots"
     if not p.is_absolute():
         # Long-horizon run 30.10: a relative name was resolved against roots[0] only — on the owner PC that is
         # Python312\Lib — so a file the agent really wrote in its work folder read as «отсутствует», review failed
@@ -144,11 +148,24 @@ async def _observe_file(exp: ExpectedState, *, roots: list[Path]) -> tuple[Obser
         # Now: the one root that holds it; several roots holding a same-named file is ambiguous, never a guess.
         hits = [r / p for r in roots if (r / p).is_file()]
         if len(hits) > 1:
-            return (ObservedState("file", str(p), {"error": f"ambiguous relative path: found in {len(hits)} roots"},
-                                  time.time()), Evidence("file:reopen", "refused: ambiguous relative path"))
+            return p, f"ambiguous:{len(hits)}"
         p = hits[0] if hits else roots[0] / p
     p = p.resolve()
-    if roots and not _contained(p, roots):
+    if not _contained(p, roots):
+        return p, "outside"
+    return p, ""
+
+
+async def _observe_file(exp: ExpectedState, *, roots: list[Path]) -> tuple[ObservedState, Evidence]:
+    p, problem = resolve_file_target(exp.target, roots)
+    if problem == "no_roots":
+        return (ObservedState("file", str(p), {"error": "no authorized file roots"}, time.time()),
+                Evidence("file:reopen", "refused: no authorized roots"))
+    if problem.startswith("ambiguous:"):
+        n = problem.split(":", 1)[1]
+        return (ObservedState("file", str(p), {"error": f"ambiguous relative path: found in {n} roots"},
+                              time.time()), Evidence("file:reopen", "refused: ambiguous relative path"))
+    if problem == "outside":
         obs = {"error": "path outside allowed roots", "exists": False}
         return ObservedState("file", str(p), obs, time.time()), Evidence("file:reopen", "refused: outside roots")
     if not p.exists() or not p.is_file():

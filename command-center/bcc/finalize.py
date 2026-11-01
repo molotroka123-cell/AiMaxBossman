@@ -67,26 +67,65 @@ def _required_expectations(task: dict) -> list:
     return expected
 
 
-def _produced_after(expected: list, row: dict) -> bool:
-    """Every expectation is a file at an ABSOLUTE path that exists and was modified after `row` was recorded."""
-    from datetime import datetime, timezone
-    from pathlib import Path
+def _row_started(row: dict) -> float | None:
+    from datetime import datetime
     when = row.get("created_at")
     if isinstance(when, str):
         try:
             when = datetime.fromisoformat(when.replace("Z", "+00:00"))
         except ValueError:
-            return False
+            return None
     if not isinstance(when, datetime):
+        return None
+    return (when if when.tzinfo else when.replace(tzinfo=timezone.utc)).timestamp()
+
+
+def _terminal_exit(row: dict) -> int | None:
+    """The OBSERVED exit code of a terminal.run row; None = no exit observed (still running, lost, unparsable)."""
+    match = re.match(r"exit_code=(-?\d+)\b", str(row.get("result_preview") or ""))
+    return int(match[1]) if match is not None else None
+
+
+def _succeeded(row: dict) -> bool:
+    if row.get("status") != "executed" or row.get("error"):
         return False
-    started = (when if when.tzinfo else when.replace(tzinfo=timezone.utc)).timestamp()
+    return row.get("tool") != "terminal.run" or _terminal_exit(row) == 0
+
+
+def _produced_after(expected: list, row: dict, roots: list | None = None) -> bool:
+    """Every expectation is a file that exists and was last modified after `row` started.
+
+    The file is located exactly as the verifier will read it (`resolve_file_target`): with the task's verifier
+    roots a relative target (the Auto Full prompt says «use relative paths») resolves to the one root holding it;
+    without roots only an ABSOLUTE path is accepted, as before."""
+    from pathlib import Path
+    from .v2.verification import resolve_file_target
+    started = _row_started(row)
+    if started is None:
+        return False
     for e in expected:
-        target = Path(str(getattr(e, "target", "") or ""))
-        if getattr(e, "kind", "") != "file" or not target.is_absolute() or not target.is_file():
+        if getattr(e, "kind", "") != "file":
             return False
-        if target.stat().st_mtime <= started:
+        raw = str(getattr(e, "target", "") or "")
+        if roots:
+            target, problem = resolve_file_target(raw, list(roots))
+            if problem:
+                return False
+        else:
+            target = Path(raw)
+            if not target.is_absolute():
+                return False
+        if not target.is_file() or target.stat().st_mtime <= started:
             return False
     return bool(expected)
+
+
+def _superseded(failed_index: int, rows: list[dict], expected: list, roots: list | None) -> bool:
+    """A failed effectful attempt is superseded only by a LATER successful effectful call after whose start every
+    declared output was (re)written. A crashed attempt that itself left a partial output, or a later success that
+    wrote some other file, supersedes nothing; `verify_all` still re-reads the world afterwards."""
+    return any(_effectful(later) and _succeeded(later) and _produced_after(expected, later, roots)
+               for later in rows[failed_index + 1:])
 
 
 def _effectful(row: dict) -> bool:
@@ -120,7 +159,8 @@ def _effectful(row: dict) -> bool:
 _WORLD_DECIDES = ("denied", "rejected", "interrupted", "reconciled")
 
 
-def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) -> str:
+def _effect_problem(rows: list[dict], expected: list, task: dict | None = None,
+                    roots: list | None = None) -> str:
     """Reject unsuccessful effects, then check declared capability obligations.
 
     Scope is deliberate. The finalizer enforces the obligations a task actually
@@ -153,22 +193,25 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
     # A retry of the exact action may recover a failed attempt. An unrelated
     # successful probe cannot erase a failed mutation. Read-only diagnostic
     # failures are not task failure evidence.
-    latest = {}
-    for row in rows:
+    latest: dict = {}
+    for index, row in enumerate(rows):
         if _effectful(row) and not (expected and row.get("status") in _WORLD_DECIDES):
-            latest[(row.get("tool"), row.get("args_hash") or repr(row.get("args")))] = row
-    for row in latest.values():
+            latest[(row.get("tool"), row.get("args_hash") or repr(row.get("args")))] = (index, row)
+    for index, row in latest.values():
         if row.get("status") != "executed" or row.get("error"):
             return "effectful tool did not succeed: " + str(row.get("tool"))
         if row.get("tool") == "terminal.run":
-            match = re.match(r"exit_code=(-?\d+)\b", str(row.get("result_preview") or ""))
-            if match is None or int(match[1]) != 0:
-                if expected and _produced_after(expected, row):
-                    # Long-horizon run 30.10: an agent's first script attempt failed (exit 1), it rewrote the
-                    # command and the declared output verified against the planted truth — and the task still
-                    # failed here. Forgiven ONLY when every declared output is an absolute file path written AFTER
-                    # the failed attempt (security audit 30.10: a pre-existing input file must not let a crashed
-                    # run pass). `verify_all` below still reads the world. Otherwise strict as before.
+            code = _terminal_exit(row)
+            if code is None or code != 0:
+                if code is not None and expected and _superseded(index, rows, expected, roots):
+                    # Long-horizon runs 30.10 / 31.10: the agent's first attempts failed (`python3` absent → 49,
+                    # `import pandas` → 1), a rewritten command exited 0 and wrote the declared outputs, the
+                    # review verified them — and the task still failed here (31.10: the outputs were RELATIVE,
+                    # so the old absolute-only check could never forgive). Forgiven ONLY when a LATER successful
+                    # effectful call (re)wrote every declared output, located exactly as the verifier reads it;
+                    # a pre-existing file, a partial output of the crashed attempt itself, or a success on some
+                    # other file does not count, and an unobserved outcome (no exit code) never does.
+                    # `verify_all` below still reads the world.
                     continue
                 return "effectful terminal outcome is failed or still unobserved"
     if not expected:
@@ -192,7 +235,7 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
     known_kinds = {"terminal": {"file", "terminal", "github"}, "browser": {"browser", "file"},
                    "memory": {"memory", "db", "file"}, "apps": {"app", "process", "file"},
                    "opencode": {"file", "github"}}
-    for row in latest.values():
+    for _index, row in latest.values():
         supported = known_kinds.get(row.get("source"))
         if supported is not None and not kinds.intersection(supported):
             return "effectful capability has no matching post-state verifier: " + str(row.get("tool"))
@@ -289,7 +332,14 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
         expected = _required_expectations(task)
     except (TypeError, ValueError):
         return FinalizeDecision(False, "invalid required effects contract", checks)
-    problem = _effect_problem(rows, expected, task)
+    roots: list = []
+    if expected and svc is not None:
+        try:
+            from .features.chat_projects import verifier_roots      # terminal roots + this task's project folder
+            roots = await verifier_roots(svc, task)
+        except Exception:  # noqa: BLE001
+            roots = []
+    problem = _effect_problem(rows, expected, task, roots)
     if problem:
         if not expected:
             checks["failure_status"] = "failed"
@@ -325,11 +375,6 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
     if expected:
         import time as _time
         t_verify = _time.monotonic()
-        try:
-            from .features.chat_projects import verifier_roots      # terminal roots + this task's project folder
-            roots = await verifier_roots(svc, task) if svc is not None else []
-        except Exception:  # noqa: BLE001
-            roots = []
         await engine.bus.emit("observation.started", task_id=task_id, run_id=run_id, expectations=len(expected))
         status, reason, results = await verify_all(expected, svc=svc, task=task, roots=roots)
         checks["verification"] = status
@@ -394,7 +439,9 @@ async def _override_reason(svc, task: dict, rows: list[dict]) -> str:
     disagreed with the gate would be worse than none."""
     try:
         expected = _required_expectations(task)
-        reason = _effect_problem(rows, expected, task)
+        from .features.chat_projects import verifier_roots
+        roots = await verifier_roots(svc, task) if expected else []
+        reason = _effect_problem(rows, expected, task, roots)
         session_id = await _task_browser_session(svc, task)
         if _browser_task(task, rows, expected, session_id):
             challenge = await _live_browser_challenge(svc, session_id)
@@ -403,9 +450,7 @@ async def _override_reason(svc, task: dict, rows: list[dict]) -> str:
         if any(r["status"] in ("pending_approval", "approved") for r in rows):
             reason = "tool call still waiting for approval"
         if expected and not reason:
-            from .features.chat_projects import verifier_roots
-            status, reason, results = await verify_all(expected, svc=svc, task=task,
-                                                       roots=await verifier_roots(svc, task))
+            status, reason, results = await verify_all(expected, svc=svc, task=task, roots=roots)
             if status == "VERIFIED":
                 reason = ""
                 finished = [r["finished_at"].replace(tzinfo=timezone.utc).timestamp()
