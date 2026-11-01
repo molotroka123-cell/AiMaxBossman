@@ -1430,10 +1430,8 @@ async def _gate(svc):
             names = [cap.name for cap in missing]
             meta = dict(await _meta(svc, task["id"]))
             meta["action_not_executed"] = names
-            # the file/effect this hook derived for the review is not a claim any more: nothing was done by a tool
-            review = meta.get("review") if isinstance(meta.get("review"), dict) else None
-            if review and review.get("evidence"):
-                meta["review"] = {**review, "evidence": []}
+            # Existing review evidence may have been supplied by the owner or
+            # another verifier. Keep it for review_gate/finalize to evaluate.
             await _set_meta(svc, task["id"], meta)
             await svc.bus.emit("action_contract.chat_reply_without_action", task_id=task["id"], run_id=run_id,
                                capabilities=names)
