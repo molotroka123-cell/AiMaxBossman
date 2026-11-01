@@ -1,0 +1,653 @@
+{
+  "session_id": "sta3h-1793536838-135ac7",
+  "generated_at": "2026-11-01T12:40:50.691750+00:00",
+  "rule_version": "apb-2026.11.01-skills-tools-audit-v1",
+  "all_verified": true,
+  "cua_guard_passed": true,
+  "skills_audit": {
+    "ok": true,
+    "agent_skills_count": 81,
+    "agent_skills_verified": 81,
+    "catalog_skills_count": 12,
+    "catalog_skills_verified": 12,
+    "agent_skills": [
+      {
+        "slug": "active-counter-defense",
+        "path": ".agents/skills/active-counter-defense/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 64,
+        "ok": true
+      },
+      {
+        "slug": "agent-method",
+        "path": ".agents/skills/agent-method/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 36,
+        "ok": true
+      },
+      {
+        "slug": "antigravity-mastery",
+        "path": ".agents/skills/antigravity-mastery/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 21,
+        "ok": true
+      },
+      {
+        "slug": "boost-autopilot",
+        "path": ".agents/skills/boost-autopilot/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 41,
+        "ok": true
+      },
+      {
+        "slug": "bossblock-gta-miniapp",
+        "path": ".agents/skills/bossblock-gta-miniapp/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 34,
+        "ok": true
+      },
+      {
+        "slug": "bossblocks-video-style",
+        "path": ".agents/skills/bossblocks-video-style/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 58,
+        "ok": true
+      },
+      {
+        "slug": "bossman-elder-brother-agent",
+        "path": ".agents/skills/bossman-elder-brother-agent/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 66,
+        "ok": true
+      },
+      {
+        "slug": "bossman-motion-concert",
+        "path": ".agents/skills/bossman-motion-concert/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 57,
+        "ok": true
+      },
+      {
+        "slug": "bossman-orca-slicer",
+        "path": ".agents/skills/bossman-orca-slicer/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 67,
+        "ok": true
+      },
+      {
+        "slug": "bossman-owner-run-lessons",
+        "path": ".agents/skills/bossman-owner-run-lessons/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 53,
+        "ok": true
+      },
+      {
+        "slug": "bossman-receipt-proof",
+        "path": ".agents/skills/bossman-receipt-proof/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 43,
+        "ok": true
+      },
+      {
+        "slug": "bossman-self-repair-lessons",
+        "path": ".agents/skills/bossman-self-repair-lessons/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 46,
+        "ok": true
+      },
+      {
+        "slug": "bossman-shared-helper-change-safety",
+        "path": ".agents/skills/bossman-shared-helper-change-safety/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 30,
+        "ok": true
+      },
+      {
+        "slug": "bossman-windows-test-pitfalls",
+        "path": ".agents/skills/bossman-windows-test-pitfalls/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 41,
+        "ok": true
+      },
+      {
+        "slug": "browser-contract-scraping",
+        "path": ".agents/skills/browser-contract-scraping/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 55,
+        "ok": true
+      },
+      {
+        "slug": "browser-parse-tenders",
+        "path": ".agents/skills/browser-parse-tenders/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 57,
+        "ok": true
+      },
+      {
+        "slug": "browser-research",
+        "path": ".agents/skills/browser-research/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 68,
+        "ok": true
+      },
+      {
+        "slug": "context-builder",
+        "path": ".agents/skills/context-builder/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 86,
+        "ok": true
+      },
+      {
+        "slug": "defense-tender-monetization",
+        "path": ".agents/skills/defense-tender-monetization/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 47,
+        "ok": true
+      },
+      {
+        "slug": "differential-review",
+        "path": ".agents/skills/differential-review/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 64,
+        "ok": true
+      },
+      {
+        "slug": "external-evidence-check",
+        "path": ".agents/skills/external-evidence-check/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 81,
+        "ok": true
+      },
+      {
+        "slug": "facelock",
+        "path": ".agents/skills/facelock/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 80,
+        "ok": true
+      },
+      {
+        "slug": "failure-retrospective",
+        "path": ".agents/skills/failure-retrospective/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 75,
+        "ok": true
+      },
+      {
+        "slug": "frontend-design",
+        "path": ".agents/skills/frontend-design/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 65,
+        "ok": true
+      },
+      {
+        "slug": "fx-daily-rates",
+        "path": ".agents/skills/fx-daily-rates/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 73,
+        "ok": true
+      },
+      {
+        "slug": "game-3d-model",
+        "path": ".agents/skills/game-3d-model/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 28,
+        "ok": true
+      },
+      {
+        "slug": "genjutsu-character-swap",
+        "path": ".agents/skills/genjutsu-character-swap/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 61,
+        "ok": true
+      },
+      {
+        "slug": "incident-response-local",
+        "path": ".agents/skills/incident-response-local/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 62,
+        "ok": true
+      },
+      {
+        "slug": "mcp-builder",
+        "path": ".agents/skills/mcp-builder/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 67,
+        "ok": true
+      },
+      {
+        "slug": "memory-curator",
+        "path": ".agents/skills/memory-curator/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 100,
+        "ok": true
+      },
+      {
+        "slug": "memory-recall",
+        "path": ".agents/skills/memory-recall/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 76,
+        "ok": true
+      },
+      {
+        "slug": "mimik",
+        "path": ".agents/skills/mimik/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 82,
+        "ok": true
+      },
+      {
+        "slug": "model-eval",
+        "path": ".agents/skills/model-eval/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 59,
+        "ok": true
+      },
+      {
+        "slug": "motion-graphics-effectcraft",
+        "path": ".agents/skills/motion-graphics-effectcraft/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 54,
+        "ok": true
+      },
+      {
+        "slug": "night-mission",
+        "path": ".agents/skills/night-mission/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 49,
+        "ok": true
+      },
+      {
+        "slug": "north-star-tree-hygiene",
+        "path": ".agents/skills/north-star-tree-hygiene/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 65,
+        "ok": true
+      },
+      {
+        "slug": "obsidian-knowledge",
+        "path": ".agents/skills/obsidian-knowledge/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 19,
+        "ok": true
+      },
+      {
+        "slug": "open-news",
+        "path": ".agents/skills/open-news/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 132,
+        "ok": true
+      },
+      {
+        "slug": "openrouter-sync",
+        "path": ".agents/skills/openrouter-sync/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 69,
+        "ok": true
+      },
+      {
+        "slug": "pc-defense-audit",
+        "path": ".agents/skills/pc-defense-audit/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 61,
+        "ok": true
+      },
+      {
+        "slug": "permission-auditor",
+        "path": ".agents/skills/permission-auditor/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 99,
+        "ok": true
+      },
+      {
+        "slug": "photo-upscale-local",
+        "path": ".agents/skills/photo-upscale-local/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 98,
+        "ok": true
+      },
+      {
+        "slug": "plan-execution",
+        "path": ".agents/skills/plan-execution/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 26,
+        "ok": true
+      },
+      {
+        "slug": "print3d-orca",
+        "path": ".agents/skills/print3d-orca/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 78,
+        "ok": true
+      },
+      {
+        "slug": "proof-before-done",
+        "path": ".agents/skills/proof-before-done/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 98,
+        "ok": true
+      },
+      {
+        "slug": "property-based-testing",
+        "path": ".agents/skills/property-based-testing/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 67,
+        "ok": true
+      },
+      {
+        "slug": "repo-audit",
+        "path": ".agents/skills/repo-audit/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 56,
+        "ok": true
+      },
+      {
+        "slug": "requirement-clarify",
+        "path": ".agents/skills/requirement-clarify/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 77,
+        "ok": true
+      },
+      {
+        "slug": "s0710-oss-1",
+        "path": ".agents/skills/s0710-oss-1/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 22,
+        "ok": true
+      },
+      {
+        "slug": "s0710-oss-2",
+        "path": ".agents/skills/s0710-oss-2/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 22,
+        "ok": true
+      },
+      {
+        "slug": "s0710-oss-3",
+        "path": ".agents/skills/s0710-oss-3/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 21,
+        "ok": true
+      },
+      {
+        "slug": "s0710-oss-4",
+        "path": ".agents/skills/s0710-oss-4/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 21,
+        "ok": true
+      },
+      {
+        "slug": "s0710-oss-5",
+        "path": ".agents/skills/s0710-oss-5/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 21,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-01",
+        "path": ".agents/skills/s0710-top-01/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 24,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-02",
+        "path": ".agents/skills/s0710-top-02/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 23,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-03",
+        "path": ".agents/skills/s0710-top-03/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 25,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-04",
+        "path": ".agents/skills/s0710-top-04/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 22,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-05",
+        "path": ".agents/skills/s0710-top-05/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 25,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-06",
+        "path": ".agents/skills/s0710-top-06/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 22,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-07",
+        "path": ".agents/skills/s0710-top-07/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 21,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-08",
+        "path": ".agents/skills/s0710-top-08/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 28,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-09",
+        "path": ".agents/skills/s0710-top-09/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 27,
+        "ok": true
+      },
+      {
+        "slug": "s0710-top-10",
+        "path": ".agents/skills/s0710-top-10/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 25,
+        "ok": true
+      },
+      {
+        "slug": "safe-code-change",
+        "path": ".agents/skills/safe-code-change/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 62,
+        "ok": true
+      },
+      {
+        "slug": "safe-terminal",
+        "path": ".agents/skills/safe-terminal/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 83,
+        "ok": true
+      },
+      {
+        "slug": "secret-hygiene",
+        "path": ".agents/skills/secret-hygiene/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 58,
+        "ok": true
+      },
+      {
+        "slug": "skill-evaluator",
+        "path": ".agents/skills/skill-evaluator/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 102,
+        "ok": true
+      },
+      {
+        "slug": "skill-forge",
+        "path": ".agents/skills/skill-forge/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 82,
+        "ok": true
+      },
+      {
+        "slug": "smooth-3d-webgl-character-architect",
+        "path": ".agents/skills/smooth-3d-webgl-character-architect/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 16,
+        "ok": true
+      },
+      {
+        "slug": "solana-volume-suite",
+        "path": ".agents/skills/solana-volume-suite/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 69,
+        "ok": true
+      },
+      {
+        "slug": "sqlite-wal-checkpoint-guard",
+        "path": ".agents/skills/sqlite-wal-checkpoint-guard/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 48,
+        "ok": true
+      },
+      {
+        "slug": "stop-latch-preflight",
+        "path": ".agents/skills/stop-latch-preflight/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 46,
+        "ok": true
+      },
+      {
+        "slug": "systematic-debugging",
+        "path": ".agents/skills/systematic-debugging/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 63,
+        "ok": true
+      },
+      {
+        "slug": "test-driven-development",
+        "path": ".agents/skills/test-driven-development/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 63,
+        "ok": true
+      },
+      {
+        "slug": "ui-ux-pro-max",
+        "path": ".agents/skills/ui-ux-pro-max/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 263,
+        "ok": true
+      },
+      {
+        "slug": "utf8-mojibake-guard",
+        "path": ".agents/skills/utf8-mojibake-guard/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 46,
+        "ok": true
+      },
+      {
+        "slug": "variant-analysis",
+        "path": ".agents/skills/variant-analysis/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 66,
+        "ok": true
+      },
+      {
+        "slug": "video-editing",
+        "path": ".agents/skills/video-editing/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 81,
+        "ok": true
+      },
+      {
+        "slug": "video-face-swap-facefusion",
+        "path": ".agents/skills/video-face-swap-facefusion/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 83,
+        "ok": true
+      },
+      {
+        "slug": "web-trend-teacher",
+        "path": ".agents/skills/web-trend-teacher/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 42,
+        "ok": true
+      },
+      {
+        "slug": "webapp-testing",
+        "path": ".agents/skills/webapp-testing/SKILL.md",
+        "has_frontmatter": true,
+        "lines": 65,
+        "ok": true
+      }
+    ]
+  },
+  "tools_audit": {
+    "ok": true,
+    "total_tools_count": 96,
+    "verified_tools_count": 96,
+    "facade_or_broken": []
+  },
+  "antigravity_mastery": {
+    "competencies_count": 6,
+    "average_mastery_score": 1.0,
+    "written_fact_ids": [
+      86,
+      87,
+      88,
+      89,
+      90,
+      91
+    ],
+    "competencies": [
+      {
+        "id": "parallel_research_swarm",
+        "title_ru": "Параллельный ресёрч и верификация облачным роем при 0% локального GPU",
+        "mastery_score": 1.0,
+        "passed": true,
+        "fact_id": 86,
+        "statement": "На дату 2026-11-01 Bossman усвоил компетенцию Antigravity parallel_research_swarm в сессии sta3h-1793536838-135ac7: параллельный запуск независимых проверок через asyncio.gather и round-robin пул бесплатных облачных API при нулевой нагрузке на локальный видеоускоритель."
+      },
+      {
+        "id": "cua_recovery_prestep_guard",
+        "title_ru": "Предшаговый барьер состояния CUA-Recovery (StepStateGuard)",
+        "mastery_score": 1.0,
+        "passed": true,
+        "fact_id": 87,
+        "statement": "На дату 2026-11-01 Bossman усвоил компетенцию Antigravity cua_recovery_prestep_guard в сессии sta3h-1793536838-135ac7: обязательная сверка ожидаемого и наблюдаемого состояния через StepStateGuard перед каждым необратимым действием с автоматическим откатом к чекпойнту."
+      },
+      {
+        "id": "agent_proof_bench_verifier",
+        "title_ru": "Независимая криптографическая приёмка AgentProofBench (verify_criterion_with_proof)",
+        "mastery_score": 1.0,
+        "passed": true,
+        "fact_id": 88,
+        "statement": "На дату 2026-11-01 Bossman усвоил компетенцию Antigravity agent_proof_bench_verifier в сессии sta3h-1793536838-135ac7: снятие начального слепка capture_initial_snapshot и проверка конечного артефакта через verify_criterion_with_proof с отпечатком proof_sha256."
+      },
+      {
+        "id": "temporal_memory_i1_factstore",
+        "title_ru": "Темпоральная память стандарта И-1 (FactStore с двумя осями времени)",
+        "mastery_score": 1.0,
+        "passed": true,
+        "fact_id": 89,
+        "statement": "На дату 2026-11-01 Bossman усвоил компетенцию Antigravity temporal_memory_i1_factstore в сессии sta3h-1793536838-135ac7: запись самодостаточных фактов длиной от пятнадцати до восьмидесяти слов без анафорических местоимений в таблицу FactStore с автоматическим закрытием устаревших версий."
+      },
+      {
+        "id": "calm_ux_fluid_typography",
+        "title_ru": "Спокойный UX, системные токены темы и адаптивная типографика",
+        "mastery_score": 1.0,
+        "passed": true,
+        "fact_id": 90,
+        "statement": "На дату 2026-11-01 Bossman усвоил компетенцию Antigravity calm_ux_fluid_typography в сессии sta3h-1793536838-135ac7: применение плавной шкалы clamp, балансировки заголовков balance, выравнивания абзацев pretty и единых кнопок высотой от тридцати шести пикселей."
+      },
+      {
+        "id": "zero_burn_dataset_preflight",
+        "title_ru": "Защита бюджета обучения за $0.00 (фильтрация .tar.gz и LFS-дублей до аренды GPU)",
+        "mastery_score": 1.0,
+        "passed": true,
+        "fact_id": 91,
+        "statement": "На дату 2026-11-01 Bossman усвоил компетенцию Antigravity zero_burn_dataset_preflight в сессии sta3h-1793536838-135ac7: предполётная проверка gated-доступа HuggingFace и отсечение бинарных архивов и дубликатов по хэшу SHA256 на локальном компьютере до включения платного GPU."
+      }
+    ]
+  },
+  "proof_sha256": "1756480f0986d4e7be16e634d53566cc7f38255d135ae7ed99d4e4cdf021b3f4",
+  "proof_passed": true
+}
