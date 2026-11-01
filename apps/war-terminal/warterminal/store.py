@@ -62,9 +62,11 @@ def _locked(fn):
 def freshen(doc: dict, today=None) -> dict:
     """Read-time actuality (owner 22.10: listed tenders were dead). Never trust the ingest-time status or URL:
     an `open` notice whose deadline has passed is shown as `closed`, and TED links use the form that resolves."""
-    from datetime import date
+    from datetime import date, datetime
     out = dict(doc)
     today = today or date.today()
+    if isinstance(today, datetime):          # a reference «now» (datetime) compares by its calendar day
+        today = today.date()
     if out.get("status") == "open" and out.get("deadline"):
         try:
             if date.fromisoformat(str(out["deadline"])[:10]) < today:
