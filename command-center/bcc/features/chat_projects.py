@@ -287,7 +287,7 @@ async def _agent_row(svc: Any, agent_id: Any) -> dict | None:
 FILE_TOOLS = frozenset({"code.write", "code.patch", "terminal.run"})
 
 
-def prompt_note(name: str, folder: Path, *, can_write: bool, inbox: bool = False) -> str:
+def prompt_note(name: str, folder: Path, *, can_write: bool, inbox: bool = False, sandbox: bool = False) -> str:
     if inbox:
         return (f"[Рабочая папка этого чата (без проекта): {folder}. Новые файлы и код создавай там (пути относительно "
                 f"неё). Другие папки и репозитории — только указывая root/cwd явно; там действуют обычные правила "
@@ -297,6 +297,10 @@ def prompt_note(name: str, folder: Path, *, can_write: bool, inbox: bool = False
                 f"(code.write / code.patch с путями относительно этой папки, terminal.run с cwd в ней). "
                 f"Другие папки — только указывая root/cwd явно; вне папки проекта действуют обычные правила "
                 f"подтверждения.]")
+    if sandbox:
+        return (f"[Проект «{name}»: у тебя есть доступ к файлам ТОЛЬКО этой папки проекта {folder}: code.read, "
+                f"code.write, code.patch с путями относительно неё. Создавай там файлы и код. Терминала и других "
+                f"папок ПК нет; не пытайся выйти за папку проекта.]")
     return (f"[Проект «{name}», папка проекта {folder}. У этой модели нет доступа к файлам ПК: "
             f"давай код и файлы целиком в ответе — владелец сохранит их в папку проекта.]")
 
@@ -334,16 +338,36 @@ async def bind_chat_turn(svc: Any, thread_id: str, agent_id: Any, prompt: str) -
         if not can_write:
             return prompt, None
         return with_note(prompt, prompt_note(name, folder, can_write=True, inbox=True)), folder
+    if not can_write and await cloud_sandbox(svc, agent):
+        return with_note(prompt, prompt_note(name, folder, can_write=False, sandbox=True)), folder
     return with_note(prompt, prompt_note(name, folder, can_write=can_write)), folder if can_write else None
+
+
+async def cloud_sandbox(svc: Any, agent: dict | None) -> bool:
+    """Owner 31.10: every CLOUD agent (chat-only included) works inside a project folder at most."""
+    return isinstance(agent, dict) and agent.get("model_id") is not None and not await agent_works_locally(svc, agent)
+
+
+async def sandbox_for(svc: Any, agent_id: Any, folder: Path | None) -> bool:
+    """True when the task bound to `folder` runs as a project sandbox (cloud agent, a real project — never _inbox)."""
+    if folder is None or folder.name == INBOX:
+        return False
+    return await cloud_sandbox(svc, await _agent_row(svc, agent_id))
 
 
 async def set_task_workspace(svc: Any, task_id: int, folder: Path | None) -> None:
     if folder is None:
         return
-    from ..db import tasks as tasks_t
+    from ..db import fetch_one, tasks as tasks_t
     async with svc.db.session() as s:
-        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == int(task_id))
-                        .values(workspace_path=str(folder)[:500]))
+        task = await fetch_one(s, tasks_t, int(task_id))
+    values: dict[str, Any] = {"workspace_path": str(folder)[:500]}
+    if task is not None and await sandbox_for(svc, task.get("agent_id"), folder):
+        meta = dict(task.get("meta") or {}) if isinstance(task.get("meta"), dict) else {}
+        meta["project_sandbox"] = True
+        values["meta"] = meta
+    async with svc.db.session() as s:
+        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == int(task_id)).values(**values))
         await s.commit()
 
 
@@ -352,8 +376,9 @@ async def workspace_grant(ctx: Any) -> Path | None:
 
     Только когда `workspace_path` задачи — существующая папка проекта (прямой потомок корня проектов, не ссылка),
     корень проектов допустим, и агент работает на локальной модели. Ничего не создаёт и не расширяет за эту папку."""
+    from ..tools import project_sandboxed
     return await _grant(getattr(ctx, "svc", None), str(getattr(ctx, "workspace", "") or "").strip(),
-                        getattr(ctx, "agent", None))
+                        getattr(ctx, "agent", None), sandbox=project_sandboxed(getattr(ctx, "task", None)))
 
 
 async def task_project_root(svc: Any, task: dict) -> Path | None:
@@ -361,7 +386,8 @@ async def task_project_root(svc: Any, task: dict) -> Path | None:
     if not isinstance(task, dict):
         return None
     agent = await _agent_row(svc, task.get("agent_id")) if task.get("agent_id") is not None else None
-    return await _grant(svc, str(task.get("workspace_path") or "").strip(), agent)
+    from ..tools import project_sandboxed
+    return await _grant(svc, str(task.get("workspace_path") or "").strip(), agent, sandbox=project_sandboxed(task))
 
 
 async def verifier_roots(svc: Any, task: dict | None) -> list[Path]:
@@ -373,7 +399,7 @@ async def verifier_roots(svc: Any, task: dict | None) -> list[Path]:
     return [*roots, project] if project is not None and project not in roots else roots
 
 
-async def _grant(svc: Any, raw: str, agent: Any) -> Path | None:
+async def _grant(svc: Any, raw: str, agent: Any, *, sandbox: bool = False) -> Path | None:
     if not raw or svc is None or getattr(svc, "settings", None) is None:
         return None
     root = projects_root()
@@ -390,6 +416,8 @@ async def _grant(svc: Any, raw: str, agent: Any) -> Path | None:
         return None
     if real.name != INBOX and real.name not in read_registry(svc):
         return None
+    if sandbox:       # cloud agent: a real project folder only (never _inbox); tools are already narrowed to the sandbox
+        return real if real.name != INBOX else None
     if not await agent_works_locally(svc, agent):
         return None
     return real

@@ -2427,6 +2427,9 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                     task_id = int(res.inserted_primary_key[0])
                     await s.commit()
 
+            if project_ws is not None:     # owner 31.10: a cloud agent in a project chat runs as a project sandbox
+                from .chat_projects import set_task_workspace
+                await set_task_workspace(svc, task_id, project_ws)
             await svc.bus.emit("task.created", task_id=task_id, title=title, agent_id=agent["id"])
             orch.task_to_session[task_id] = session_id
 

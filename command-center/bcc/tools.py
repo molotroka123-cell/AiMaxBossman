@@ -413,6 +413,41 @@ def chat_only(agent: dict) -> bool:
     return v is not True and (v is False or v is None or str(v).strip().lower() in ("false", "0", "no", "off", ""))
 
 
+#: Owner 31.10 «глм тоже имеет доступ, но внутри определённого проекта максимум … и другие облачные агенты»: a CLOUD
+#: agent in a project chat gets exactly these file tools, confined to that project folder (features/chat_projects) —
+#: no terminal, no other roots, no routing grants. `tasks.meta.project_sandbox` is set by the server only.
+PROJECT_SANDBOX_TOOLS = ("code.read", "code.write", "code.patch")
+
+
+def project_sandboxed(task: dict | None) -> bool:
+    if not isinstance(task, dict):
+        return False
+    meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
+    return meta.get("project_sandbox") is True and bool(str(task.get("workspace_path") or "").strip())
+
+
+def sandbox_schemas_only(schemas: list[dict] | None) -> bool:
+    """Every tool schema shown to the model is one of the sandbox file tools (by spec or API name)."""
+    names = set(PROJECT_SANDBOX_TOOLS) | {to_api_name(n) for n in PROJECT_SANDBOX_TOOLS}
+    for t in schemas or []:
+        fn = (t or {}).get("function") if isinstance(t, dict) else None
+        name = (fn or {}).get("name") if isinstance(fn, dict) else (t or {}).get("name") if isinstance(t, dict) else None
+        if str(name or "") not in names:
+            return False
+    return True
+
+
+def effect_agent(task: dict | None, agent: dict) -> dict:
+    """The agent as seen by `decide_effect`: in a project sandbox the confined file tools need no per-write approval
+    (their permission is granted for this run only); every tool hook / owner rule / DENY floor still applies."""
+    if not project_sandboxed(task) or not isinstance(agent, dict):
+        return agent
+    perms = dict(agent.get("permissions") or {}) if isinstance(agent.get("permissions"), dict) else {}
+    perms["terminal.run"] = True
+    perms["filesystem.read"] = True
+    return {**agent, "permissions": perms}
+
+
 def allowed_tools_for(task: dict, agent: dict) -> list[str]:
     """Какие инструменты видит модель в этом run'е.
 
@@ -429,7 +464,10 @@ def allowed_tools_for(task: dict, agent: dict) -> list[str]:
     получает только своё + то семейство, которое роутер и раньше выдавал на
     эту задачу; каждый вызов по-прежнему идёт через decide_effect.
 
-    Агент «только чат» (chat_only) не получает НИЧЕГО — ни своих, ни скилла, ни гранта роутинга."""
+    Агент «только чат» (chat_only) не получает НИЧЕГО — ни своих, ни скилла, ни гранта роутинга.
+    Песочница проекта (облачный агент в чате проекта) — ровно PROJECT_SANDBOX_TOOLS и ничего больше."""
+    if project_sandboxed(task):
+        return list(PROJECT_SANDBOX_TOOLS)
     if chat_only(agent):
         return []
     meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}

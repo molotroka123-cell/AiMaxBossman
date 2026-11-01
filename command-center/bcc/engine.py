@@ -32,6 +32,7 @@ from .registry import Registry
 from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_tools_for,
                     approval_digest,
                     args_hash, decide_effect, execute_tool, malformed_arguments)
+from .tools import effect_agent as _effect_agent
 
 ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
 TERMINAL_TASK_STATUSES = ("completed", "failed", "stopped", "cancelled")
@@ -1441,6 +1442,11 @@ class TaskEngine:
             isinstance(m, dict) and m.get("role") == "tool" for m in messages))
         pc_granted = (agent.get("permissions") or {}).get("cloud_pc_access") is True \
             if isinstance(agent.get("permissions"), dict) else False
+        # Owner 31.10: a project sandbox (cloud agent in a project chat) may send ONLY the confined project file tools
+        # and their results to the cloud model: the folder the owner put into that project, nothing else of the PC.
+        from .tools import project_sandboxed as _sandboxed, sandbox_schemas_only as _sandbox_only
+        if _sandboxed(task) and _sandbox_only(tools):
+            pc_granted = True
 
         async def refuse_cloud_with_pc(model_id: Any) -> None:
             if not carries_pc or pc_granted or model_id is None:
@@ -1586,7 +1592,7 @@ class TaskEngine:
                 await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
                                     tool=spec.name, reason=malformed)
                 continue
-            effect, reason = decide_effect(spec, call.arguments, agent, policy_rules)
+            effect, reason = decide_effect(spec, call.arguments, _effect_agent(task, agent), policy_rules)
             if effect != "deny":
                 # A path forbidden by current owner roots must not ask for an
                 # impossible approval. Context cannot lower the existing floor.
@@ -1801,7 +1807,7 @@ class TaskEngine:
                     f"инструмент {spec.name} снят с агента после одобрения")
         # 2. Текущая политика не говорит DENY. ASK здесь не препятствие — его и
         #    закрывало одобрение; препятствие только DENY, который снять нельзя.
-        effect, why = decide_effect(spec, call.arguments, agent, policy_rules)
+        effect, why = decide_effect(spec, call.arguments, _effect_agent(task, agent), policy_rules)
         if effect == "deny":
             return ("policy_deny_at_resume",
                     f"политика запрещает {spec.name} на момент исполнения ({why})")

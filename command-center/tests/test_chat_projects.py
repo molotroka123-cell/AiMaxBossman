@@ -281,7 +281,7 @@ async def test_tool_less_agent_without_a_project_is_unchanged(env):
     assert task["workspace_path"] is None and task["prompt"] == "привет", "no file tools: nothing changes"
 
 
-async def test_cloud_agent_gets_no_folder_and_is_told_so(env):
+async def test_cloud_agent_gets_only_the_sandbox_folder(env):
     local = await _local_stack(env.client, tools=["code.write"], name="локальный")
     cloud = await _local_stack(env.client, tools=["code.write"], base_url="https://api.example-cloud.test/v1",
                                name="облако")
@@ -289,7 +289,8 @@ async def test_cloud_agent_gets_no_folder_and_is_told_so(env):
     p = await _project(env, "Cloud Proj")
     thread = (await env.client.post("/api/chat/threads", json={"project": p["slug"]})).json()
     prompt, ws = await cp.bind_chat_turn(env.svc, thread["id"], cloud["agent"]["id"], "текст")
-    assert ws is None and "нет доступа к файлам ПК" in prompt and p["path"] in prompt
+    # owner 31.10 «… внутри определённого проекта максимум»: a cloud agent is a project SANDBOX (test_project_sandbox_cloud)
+    assert ws == Path(p["path"]).resolve() and "ТОЛЬКО этой папки проекта" in prompt and p["path"] in prompt
     assert conversation_context.current_request(prompt) == "текст"
     prompt, ws = await cp.bind_chat_turn(env.svc, thread["id"], local["agent"]["id"], "текст")
     assert ws == Path(p["path"]).resolve() and "работай в папке проекта" in prompt

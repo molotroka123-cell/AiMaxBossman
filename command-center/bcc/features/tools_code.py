@@ -146,6 +146,18 @@ async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> P
     blocked_cand, reason_cand = is_private_chat_or_personal_path(candidate)
     if blocked_cand:
         raise PermissionError(reason_cand)
+    # Owner 31.10: a project sandbox (cloud agent in a project chat) works in its project folder ONLY — no scratch,
+    # no owner roots, no other project. Fail closed when the folder is not a granted project folder.
+    from ..tools import project_sandboxed
+    if ctx is not None and project_sandboxed(getattr(ctx, "task", None)):
+        from .chat_projects import workspace_grant
+        project = await workspace_grant(ctx)
+        if project is None or not _within(candidate, [project]):
+            raise PermissionError("песочница проекта: доступна только папка проекта этого чата"
+                                  + (f" ({project})" if project is not None else ""))
+        if not candidate.exists():
+            raise FileNotFoundError(candidate)
+        return candidate
     # V2.2 §9: рабочая область соседнего агента лежит внутри разрешённого корня,
     # поэтому общая проверка корней её пропустила бы — закрываем до неё.
     if ctx is not None:
