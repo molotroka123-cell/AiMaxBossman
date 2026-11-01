@@ -1,0 +1,31 @@
+{
+  "record": {
+    "id": 2,
+    "status": "lesson_recorded",
+    "proven_learning": false
+  },
+  "duplicate_deduped": true,
+  "neg_status_set": 422,
+  "neg_no_source": 422,
+  "neg_no_date": 422,
+  "neg_codex_personal": 403,
+  "neg_oversized": 413,
+  "secret_redacted": true,
+  "neg_verify_by_claim": 422,
+  "wrong_answer": {
+    "eval_passed": false,
+    "status": "lesson_recorded"
+  },
+  "right_answer": {
+    "eval_passed": true,
+    "status": "verified_by_test",
+    "eval_ref": "business_exercise:fx_price_comparison_v1",
+    "receipt_sha256": "9197eecb8277fcd4f2fa9f400b5b987dec96767822d2871d6443d72b5f87a785",
+    "proven_learning": false
+  },
+  "stale_total_30d": 0,
+  "keys_files_outside_data_dir": [
+    "fx_price_comparison_v1.json"
+  ],
+  "verdict": "PASS"
+}
