@@ -683,7 +683,8 @@ async def _task_views(svc: Any, ids: list[Any]) -> dict[int, dict]:
         runs: list[dict] = []
         for chunk in _chunks(wanted):
             tasks += rows_dicts((await s.execute(sa.select(
-                tasks_t.c.id, tasks_t.c.status, tasks_t.c.meta).where(tasks_t.c.id.in_(chunk)))).fetchall())
+                tasks_t.c.id, tasks_t.c.status, tasks_t.c.meta, tasks_t.c.agent_id)
+                .where(tasks_t.c.id.in_(chunk)))).fetchall())
             runs += rows_dicts((await s.execute(sa.select(
                 runs_t.c.id, runs_t.c.task_id, runs_t.c.status, runs_t.c.result, runs_t.c.error,
                 runs_t.c.model_alias, runs_t.c.tokens_in, runs_t.c.tokens_out, runs_t.c.cost_usd)
@@ -720,6 +721,7 @@ async def _task_views(svc: Any, ids: list[Any]) -> dict[int, dict]:
         out[tid] = {
             "status": status, "result": done[-1]["result"] if done else None, "error": error,
             "failure_summary": failure_summary,
+            "agent_id": int(task["agent_id"]) if isinstance(task.get("agent_id"), int) else None,
             "run": ({"id": last["id"], "status": last["status"], "model_alias": last["model_alias"],
                      "tokens_in": last["tokens_in"], "tokens_out": last["tokens_out"],
                      "cost_usd": last["cost_usd"],
@@ -1363,15 +1365,45 @@ async def get_thread(thread_id: str, request: Request):
     raw = data["raw"]
     turns = _turns(raw)
     views = await _task_views(svc, [turn["task_id"] for _, turn in turns])
+    agents, models, providers = (await _catalog(svc)) if turns else ([], {}, {})
+    agent_by_id = {int(a["id"]): a for a in agents if isinstance(a.get("id"), int)}
+    model_by_alias: dict[str, dict] = {}
+    for m_row in models.values():
+        for k in (m_row.get("alias"), m_row.get("name")):
+            if k:
+                model_by_alias[str(k)] = m_row
     items = []
     for idx, turn in turns:
         view = views.get(int(turn["task_id"]))
+        has_synth = bool(turn.get("synthetic_status") or turn.get("synthetic_result") or turn.get("synthetic_error"))
+        status = view["status"] if view else (str(turn.get("synthetic_status") or "completed") if has_synth else "missing")
+        result = view["result"] if view else (turn.get("synthetic_result") if has_synth else None)
+        error = view["error"] if view else (turn.get("synthetic_error") if has_synth else None)
+        ag_id = view.get("agent_id") if view else turn.get("agent_id")
+        run_obj = view["run"] if view else None
+        m_row = None
+        if isinstance(ag_id, int) and ag_id in agent_by_id:
+            m_row = models.get(agent_by_id[ag_id].get("model_id"))
+        if m_row is None and isinstance(run_obj, dict) and run_obj.get("model_alias"):
+            m_row = model_by_alias.get(str(run_obj["model_alias"]))
+        p_row = providers.get(m_row.get("provider_id")) if isinstance(m_row, dict) else None
+        mv = _model_view(m_row, p_row) if m_row else None
         item = {"idx": idx, "task_id": int(turn["task_id"]), "text": str(turn.get("text") or ""),
-                "at": turn.get("at"), "status": view["status"] if view else "missing",
-                "result": view["result"] if view else None, "error": view["error"] if view else None,
+                "at": turn.get("at"), "status": status,
+                "result": result, "error": error,
                 "failure_summary": view.get("failure_summary") if view else None,
-                "run": view["run"] if view else None,
+                "agent_id": int(ag_id) if isinstance(ag_id, int) else None,
+                "model": ({
+                    "id": mv.get("id"),
+                    "alias": mv.get("alias"),
+                    "locality": mv.get("locality"),
+                    "locality_detail": mv.get("locality_detail"),
+                    "provider": (p_row or {}).get("name") or (p_row or {}).get("kind"),
+                } if mv else None),
+                "run": run_obj,
                 "action_not_executed": view.get("action_not_executed") if view else None}
+        if turn.get("mode"):
+            item["mode"] = turn["mode"]
         if isinstance(turn.get("attachments"), list):
             item["attachments"] = [a for a in turn["attachments"] if isinstance(a, dict)]
         files = await asyncio.to_thread(_agent_files, svc, int(turn["task_id"]))

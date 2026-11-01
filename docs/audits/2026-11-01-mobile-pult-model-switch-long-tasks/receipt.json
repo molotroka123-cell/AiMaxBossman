@@ -1,0 +1,193 @@
+{
+  "schema": "bossman.mobile_pult.model_switch_long_tasks.audit.v1",
+  "ts": "2026-11-01T14:45:13.767574+00:00",
+  "thread_id": "20261101-064229-1e5759",
+  "all_passed": true,
+  "steps": [
+    {
+      "step": "1_owner_login",
+      "ok": true
+    },
+    {
+      "step": "2_catalog_discovery",
+      "ok": true,
+      "total_agents": 28,
+      "cloud_count": 3,
+      "local_count": 25,
+      "cloud_primary": {
+        "id": 46,
+        "name": "GLM 5.3 Flash Uncensored (7API)",
+        "model": {
+          "alias": "7api-glm-5.3-flash-uncensored",
+          "name": "glm-5.3-flash-uncensored",
+          "context_window": 1000000,
+          "health": "healthy"
+        }
+      },
+      "cloud_secondary": {
+        "id": 51,
+        "name": "DeepSeek V4.1 Flash Uncensored (Outrun) — тест приложений",
+        "model": {
+          "alias": "outrun-deepseek-v4.1-flash-uncensored",
+          "name": "deepseek-v4.1-flash-1017-uncensored-3",
+          "context_window": 1000000,
+          "health": "healthy"
+        }
+      },
+      "local_primary": {
+        "id": 40,
+        "name": "Argon PC-Agent",
+        "model": {
+          "alias": "owner-local-gemma4-uncensored",
+          "name": "gemma4-31b-uncensored:latest",
+          "context_window": 32768,
+          "health": "healthy"
+        }
+      }
+    },
+    {
+      "step": "3_create_thread",
+      "ok": true,
+      "thread_id": "20261101-064229-1e5759"
+    },
+    {
+      "step": "4_turn1_cloud_chat_long_task",
+      "ok": true,
+      "task_id": 997,
+      "agent_id": 46,
+      "model_reported": {
+        "id": 105,
+        "alias": "7api-glm-5.3-flash-uncensored",
+        "locality": "cloud",
+        "locality_detail": "cloud",
+        "billing": "paid"
+      },
+      "steer_status": 202,
+      "status": "completed",
+      "result_chars": 3541
+    },
+    {
+      "step": "5_context_gauge_on_model_switch",
+      "ok": true,
+      "cloud2_context": {
+        "session_id": "20261101-064229-1e5759",
+        "turns_total": 1,
+        "turns_in_context": 1,
+        "turns_dropped": 0,
+        "compact_suggested": false,
+        "compacted": false,
+        "compacted_at_turn": 0,
+        "summary_chars": 0,
+        "used_tokens": 16401,
+        "context_window": 1000000,
+        "used_pct": 1.6,
+        "left_tokens": 983599,
+        "left_pct": 98.4,
+        "level": "ok",
+        "source": "provider_usage",
+        "compact": {
+          "state": "idle",
+          "task_id": null,
+          "finished_at": null,
+          "error": null
+        }
+      },
+      "local1_context": {
+        "session_id": "20261101-064229-1e5759",
+        "turns_total": 1,
+        "turns_in_context": 1,
+        "turns_dropped": 0,
+        "compact_suggested": false,
+        "compacted": false,
+        "compacted_at_turn": 0,
+        "summary_chars": 0,
+        "used_tokens": 16401,
+        "context_window": 32768,
+        "used_pct": 50.1,
+        "left_tokens": 16367,
+        "left_pct": 49.9,
+        "level": "ok",
+        "source": "provider_usage",
+        "compact": {
+          "state": "idle",
+          "task_id": null,
+          "finished_at": null,
+          "error": null
+        }
+      }
+    },
+    {
+      "step": "6_turn2_agent_mode_cloud_switch",
+      "ok": true,
+      "task_id": 1001,
+      "agent_id": 51,
+      "route": {
+        "selected_id": "local:gemma4-31b-uncensored:latest",
+        "model": "gemma4-31b-uncensored:latest",
+        "worker": null,
+        "locality": "local",
+        "tier": 1,
+        "paid": false,
+        "reason": "Локальная модель gemma4-31b-uncensored:latest (Tier 1)",
+        "fallback_chain": [
+          "local:qwen3.8-flash-next-iq3_s",
+          "local:gemma4-31b-uncensored:latest",
+          "local:qwen3-coder:30b"
+        ]
+      },
+      "model": {
+        "id": 109,
+        "alias": "outrun-deepseek-v4.1-flash-uncensored",
+        "locality": "cloud",
+        "locality_detail": "cloud",
+        "billing": "paid"
+      },
+      "status": "completed",
+      "result_chars": 4157
+    },
+    {
+      "step": "7_sse_history_and_seq_verification",
+      "ok": true,
+      "events_count": 47,
+      "max_seq": 145831
+    },
+    {
+      "step": "8_queue_with_switched_agent_and_cancel",
+      "ok": true,
+      "queued_agent_id": 40,
+      "cancelled_id": "qa46fca3da23f"
+    },
+    {
+      "step": "9_reopen_thread_preserves_per_turn_badges",
+      "ok": true,
+      "turns": [
+        {
+          "idx": 0,
+          "task_id": 997,
+          "agent_id": null,
+          "model": "7api-glm-5.3-flash-uncensored",
+          "status": "completed"
+        },
+        {
+          "idx": 1,
+          "task_id": 1001,
+          "agent_id": null,
+          "model": "outrun-deepseek-v4.1-flash-uncensored",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "step": "10_compact_with_selected_cloud_model",
+      "ok": true,
+      "initial": {
+        "session_id": "20261101-064229-1e5759",
+        "task_id": 1003,
+        "status": "running"
+      },
+      "final_state": "done"
+    }
+  ],
+  "ollama_unloaded": [],
+  "sha256": "b94db682e8e1653a7c6d7ccc40377450f2d342e6085ea3e6931c85c0012a2f6a"
+}

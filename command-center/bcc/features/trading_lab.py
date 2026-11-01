@@ -105,4 +105,26 @@ async def trading_lab_memory() -> dict:
     return snapshot
 
 
+@router.get("/trading-lab/pump-launchpad")
+async def trading_lab_pump_launchpad(
+    project_name: str = "Bossman Neural Sentinel",
+    ticker: str = "BSENT",
+    twitter_handle: str = "@owner_project",
+    total_sol_budget: float = 3.0,
+) -> dict:
+    """Генератор долгосрочного токена Pump.fun: X/Twitter тренды, 5 кошельков, объём и комиссии."""
+    build_case = _load(
+        "bossman.trading_learning.pump_project_launchpad",
+        "build_computer_use_harness_case",
+    )
+    if build_case is None:
+        return dict(UNWIRED)
+    return build_case(
+        project_name=project_name,
+        ticker=ticker,
+        twitter_handle=twitter_handle,
+        total_sol_budget=total_sol_budget,
+    )
+
+
 FEATURE = Feature(name="trading_lab", router=router)

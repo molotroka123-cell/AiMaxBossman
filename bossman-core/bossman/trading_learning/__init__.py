@@ -23,6 +23,7 @@ __all__ = [
     "EXTERNAL_WRITE_ACTIONS", "EvidenceClass", "OwnerApproval",
     "LiveExecutionForbidden", "OwnerApprovalRequired", "UnknownProviderPrice",
     "assert_no_live_execution", "router", "pipeline_status", "run_benchmark",
+    "launchpad_overview",
 ]
 
 
@@ -36,4 +37,7 @@ def __getattr__(name: str):
     if name == "run_benchmark":
         from .benchmark import run_benchmark
         return run_benchmark
+    if name == "launchpad_overview":
+        from .pump_project_launchpad import launchpad_overview
+        return launchpad_overview
     raise AttributeError(name)

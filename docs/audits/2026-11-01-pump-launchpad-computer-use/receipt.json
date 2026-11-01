@@ -1,0 +1,104 @@
+{
+  "schema": "bossman.pump_launchpad.computer_use_proof.v1",
+  "generated_at": "2026-11-01T15:10:58+00:00",
+  "case_id": "case-bsent-genesis-5w",
+  "safety_invariants": {
+    "trading_execution": "OFF",
+    "paper_trading_only": true,
+    "owner_approval_required": true,
+    "external_write_actions": "DENY"
+  },
+  "token_generator": {
+    "project_name": "Bossman Neural Sentinel",
+    "ticker": "BSENT",
+    "plan_sha256": "f5fe2bb6eba14a5b7914c3bc5529d9cdec1fdeb00e2795913ec60ef872eef176"
+  },
+  "five_wallet_genesis_summary": {
+    "wallets_count": 5,
+    "tranches_count": 12,
+    "total_sol_budget": 3.0,
+    "total_supply_pct": 9.7545,
+    "max_tranche_impact_bps": 114.0,
+    "all_tranches_within_120bps_gate": true,
+    "holder_monitor_check": {
+      "holders_counted": 5,
+      "excluded_infra": 1,
+      "gini": 0.1494,
+      "hhi": 0.2149,
+      "effective_holders": 4.65,
+      "risk_level": "VERY_HIGH",
+      "creator_sold": false,
+      "notes": [
+        "only 5 holders in the sample: metrics are coarse",
+        "1 infrastructure accounts excluded (pool/burn/curve/program/exchange)"
+      ]
+    }
+  },
+  "volume_and_fee_control_summary": {
+    "cumulative_creator_fee_usd": 6742.5,
+    "cumulative_creator_fee_sol": 37.4583,
+    "live_readiness_gate": {
+      "verdict": "NO_GO",
+      "passed_count": 0,
+      "failed_count": 20,
+      "blockers": [
+        "G1 >= 100 out-of-sample trades",
+        "G1 >= 3 independent periods",
+        "G2 95% CI lower bound of net return > 0",
+        "G2 net return still > 0 at 2x costs",
+        "G3 beats best benchmark (CI lower bound of difference > 0)",
+        "G4 max drawdown <= 20% of capital"
+      ]
+    }
+  },
+  "twitter_marketing_summary": {
+    "account_handle": "@owner_project",
+    "publish_mode": "OWNER_APPROVAL_GATE_ONLY",
+    "posts_count": 4
+  },
+  "computer_use_steps": [
+    {
+      "step": 1,
+      "action": "READ_ONLY_TREND_SCAN",
+      "tool": "trading_lab.pump_launchpad.analyze_twitter_trends",
+      "status": "COMPLETED_IN_SANDBOX",
+      "detail": "Выбран тренд 'Autonomous AI Agents & Utility Copilots' (score=89.91)"
+    },
+    {
+      "step": 2,
+      "action": "TOKEN_MANIFEST_AND_EMBLEM_GENERATION",
+      "tool": "trading_lab.pump_launchpad.build_project_launch_plan",
+      "status": "COMPLETED_IN_SANDBOX",
+      "detail": "Сгенерирован паспорт $BSENT (plan_sha256=f5fe2bb6eba14a5b...)"
+    },
+    {
+      "step": 3,
+      "action": "FIVE_WALLET_GENESIS_SIMULATION",
+      "tool": "trading_lab.pump_launchpad.simulate_five_wallet_genesis_launch",
+      "status": "COMPLETED_IN_SANDBOX",
+      "detail": "Рассчитана закупка на 5 целевых кошельков (12 траншей, max impact 114.0 bps <= 120 bps)"
+    },
+    {
+      "step": 4,
+      "action": "COMPUTER_USE_DASHBOARD_INSPECTION",
+      "tool": "computer.browser_inspect_readonly",
+      "status": "READY_FOR_HARNESS_VERIFY",
+      "detail": "Проверка витрины /api/trading-lab/pump-launchpad и карточек 5 кошельков через Harness"
+    },
+    {
+      "step": 5,
+      "action": "OWNER_APPROVAL_CHECKPOINT",
+      "tool": "bossman.approvals.enqueue",
+      "status": "GATED_BY_OWNER_APPROVAL",
+      "detail": "Mainnet-подпись и постинг в X/Twitter заблокированы (TRADING_EXECUTION=OFF, PAPER_TRADING_ONLY=True)"
+    }
+  ],
+  "live_harness_checks": {
+    "bcc_8801_reachable": true,
+    "bcc_trading_execution_mode": "OFF",
+    "mobile_8840_login_ok": true,
+    "preview_html_path": "docs/audits/2026-11-01-pump-launchpad-computer-use/pump_launchpad_preview.html",
+    "preview_html_sha256": "3f813d29d6efb60c2897cc63b562d0bf3ed14a2e6c10c4e308305c032682fe5c"
+  },
+  "receipt_sha256": "3b29142992b29ad8344196f32bae6010aa904b183ea53834a07751ac36bbd9cd"
+}

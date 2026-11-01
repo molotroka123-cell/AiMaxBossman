@@ -155,22 +155,16 @@ async def _last_turn_agent_id(svc: Any, raw: dict | None) -> int | None:
 
 
 async def _resolve_session_agent_id(svc: Any, cfg: dict, raw: dict | None = None) -> int | None:
-    """Найти исполнителя сессии: cfg -> агент последнего хода в базе -> первый включённый локальный агент."""
+    """Найти исполнителя сессии: cfg.agent_id -> агент последнего хода в базе -> cfg.model -> первый включённый локальный агент."""
+    if cfg.get("agent_id") is not None:
+        return int(cfg["agent_id"])
+    last_ag = await _last_turn_agent_id(svc, raw)
+    if last_ag is not None:
+        return last_ag
     clean = str(cfg.get("model") or "").removeprefix("local:").strip()
-    agent_id = await _resolve_agent_id_for_model(svc, cfg.get("agent_id"), clean)
+    agent_id = await _resolve_agent_id_for_model(svc, None, clean)
     if agent_id is not None:
         return agent_id
-    if isinstance(raw, dict):
-        turns = _turns(raw)
-        task_ids = [int(t["task_id"]) for _, t in reversed(turns[-12:]) if int(t["task_id"]) > 0]
-        if task_ids:
-            async with svc.db.session() as s:
-                from ..db import tasks as tasks_t
-                row = (await s.execute(sa.select(tasks_t.c.agent_id)
-                                       .where(tasks_t.c.id.in_(task_ids), tasks_t.c.agent_id.is_not(None))
-                                       .order_by(tasks_t.c.id.desc()).limit(1))).first()
-                if row and row[0] is not None:
-                    return int(row[0])
     agents, models, providers = await _catalog(svc)
     for a in agents:
         if not a.get("enabled"):
@@ -283,7 +277,13 @@ async def context_view(svc: Any, session_id: str, raw: dict, agent_id: int | Non
         await _compose_prompt(svc, raw, "", [], agent_id=session_agent, info=fit)
     except Exception:  # noqa: BLE001 - датчик не должен падать из-за отказа сборки промпта
         fit = {}
-    if anchor is not None:
+    last_turn_agent = await _last_turn_agent_id(svc, raw)
+    switched_agent = (
+        agent_id is not None
+        and last_turn_agent is not None
+        and int(agent_id) != int(last_turn_agent)
+    )
+    if anchor is not None and not switched_agent and int(fit.get("turns_dropped") or 0) == 0:
         anchor_idx, anchored = anchor
         since = [(i, t) for i, t in live if i > anchor_idx][-SINCE_ANCHOR_TURNS:]
         views = await _task_views(svc, [t["task_id"] for _, t in since])
@@ -325,6 +325,7 @@ async def get_session_context(session_id: str, request: Request, agent_id: int |
 
 class CompactIn(BaseModel):
     instruction: str | None = Field(default=None, max_length=500)
+    agent_id: int | None = Field(default=None, ge=1)
 
 
 class _ReplayRequest:
@@ -457,13 +458,19 @@ async def compact_session(session_id: str, request: Request, body: CompactIn | N
         raise _fail(409, f"действует STOP владельца: {why}", code="AGENT_STOP_ACTIVE")
 
     cfg = _session_cfg(svc, session_id)
-    agent_id = await _resolve_session_agent_id(svc, cfg, raw)
+    explicit_agent_id = int(body.agent_id) if (body and body.agent_id is not None) else None
+    agent_id = explicit_agent_id if explicit_agent_id is not None else await _resolve_session_agent_id(svc, cfg, raw)
     if agent_id is None:
         raise _fail(409, "для сессии нет исполнителя с моделью", code="AGENT_COMPACT_NO_AGENT")
     model = await _model_of_agent(svc, agent_id) or {}
     if model.get("locality") == "cloud":
-        # Сжатие идёт на собственном агенте сессии и не уходит в облако молча.
-        if not cfg["allow_cloud"]:
+        cloud_allowed = bool(cfg["allow_cloud"] or explicit_agent_id is not None)
+        if not cloud_allowed:
+            async with svc.db.session() as s:
+                ag_perms = (await s.execute(sa.select(agents_t.c.permissions).where(agents_t.c.id == int(agent_id)))).scalar()
+            if isinstance(ag_perms, dict) and bool(ag_perms.get("mobile_cloud_ok")):
+                cloud_allowed = True
+        if not cloud_allowed:
             raise _fail(409, "агент сессии работает на облачной модели, а облако для этой сессии выключено",
                         code="AGENT_COMPACT_CLOUD_BLOCKED", hint="включите allow_cloud сессии или выберите локальную модель")
         if model.get("free") is not True and (await _session_detail(svc, session_id))["budget_remaining_usd"] <= 0:

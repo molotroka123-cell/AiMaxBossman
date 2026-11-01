@@ -2234,18 +2234,38 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                     requested_bypass=raw_bypass,
                     text=body.text,
                 )
-            allow_cloud = body.allow_cloud if body.allow_cloud is not None else cfg["allow_cloud"]
-            req_model = body.model or cfg["model"]
+            req_agent_id = body.agent_id if body.agent_id is not None else cfg.get("agent_id")
+            ag_row_sel = None
+            ag_model_name = ""
+            ag_is_cloud = False
+            if req_agent_id is not None:
+                _ags, _mds, _prvs = await _cached_catalog(svc)
+                ag_row_sel = next((a for a in _ags if int(a.get("id") or 0) == int(req_agent_id)), None)
+                if ag_row_sel is not None:
+                    m_sel = _mds.get(ag_row_sel.get("model_id")) or {}
+                    p_sel = _prvs.get(m_sel.get("provider_id")) or {}
+                    ag_model_name = str(m_sel.get("alias") or m_sel.get("name") or "")
+                    ag_is_cloud = (
+                        m_sel.get("kind") == "cloud"
+                        or (bool(p_sel) and p_sel.get("kind") not in (None, "local", "ollama"))
+                    )
+            allow_cloud = (
+                body.allow_cloud
+                if body.allow_cloud is not None
+                else (True if (body.agent_id is not None and ag_is_cloud) else cfg["allow_cloud"])
+            )
+            req_model = body.model or (ag_model_name if body.agent_id is not None and ag_model_name else cfg["model"])
             req_worker = body.worker if body.worker is not None else cfg["worker"]
 
             # Update persistent session config if changed
             if (effective_mode != cfg["mode"] or bypass_permissions != cfg["bypass_permissions"]
                     or allow_cloud != cfg["allow_cloud"]
-                    or req_model != cfg["model"] or req_worker != cfg["worker"]):
+                    or req_model != cfg["model"] or req_worker != cfg["worker"]
+                    or req_agent_id != cfg.get("agent_id")):
                 with ptrace.span("session.load", cache_hit=False):
                     cfg = await _update_session_cfg(
                         svc, session_id, mode=effective_mode, bypass_permissions=bypass_permissions,
-                        allow_cloud=allow_cloud, model=req_model, worker=req_worker,
+                        allow_cloud=allow_cloud, model=req_model, worker=req_worker, agent_id=req_agent_id,
                     )
 
             # Fast budget + cached router catalog
@@ -2254,14 +2274,31 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
             with ptrace.span("model.catalog", cache_hit=orch.router_catalog_cache is not None):
                 catalog = await build_model_router_catalog(svc)
             with ptrace.span("model.route", mode=effective_mode):
-                route = select_route_for_request(
-                    catalog,
-                    mode=effective_mode,
-                    requested_model=req_model,
-                    requested_worker=req_worker,
-                    allow_cloud=allow_cloud,
-                    budget_remaining_usd=budget_rem,
-                )
+                if ag_row_sel is not None and ag_is_cloud and not req_worker:
+                    if not allow_cloud:
+                        raise HTTPException(409, {
+                            "message": "Облачные модели отключены для этой сессии (включите allow_cloud)",
+                            "code": "CLOUD_NOT_ENABLED",
+                        })
+                    route = {
+                        "selected_id": f"cloud:{ag_model_name or req_model}",
+                        "model": ag_model_name or req_model,
+                        "worker": None,
+                        "locality": "cloud",
+                        "tier": 3,
+                        "paid": False,
+                        "reason": f"Выбран облачный агент {ag_row_sel.get('name')} ({ag_model_name or req_model})",
+                        "fallback_chain": [],
+                    }
+                else:
+                    route = select_route_for_request(
+                        catalog,
+                        mode=effective_mode,
+                        requested_model=req_model,
+                        requested_worker=req_worker,
+                        allow_cloud=allow_cloud,
+                        budget_remaining_usd=budget_rem,
+                    )
 
             # 1. SELF-IMPROVE mode (`/improve`)
             if effective_mode == "SELF-IMPROVE":

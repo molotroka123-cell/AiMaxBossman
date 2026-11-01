@@ -226,6 +226,7 @@ class CompactIn(BaseModel):
     """POST /m/api/agent/sessions/{id}/compact: an optional hint for the summary; nothing else is forwarded."""
     model_config = ConfigDict(extra="forbid")
     instruction: str | None = Field(default=None, max_length=2000)
+    agent_id: int | None = Field(default=None, ge=1)
 
 
 class MemoryIn(BaseModel):
@@ -1023,8 +1024,12 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.get("/m/api/tasks/{task_id}/events")
     async def task_events(task_id: int, request: Request, after: int = 0, _=Depends(session)):
+        eff_after = max(0, after)
+        last_id = (request.headers.get("last-event-id") or "").strip()
+        if last_id.isdigit():
+            eff_after = max(eff_after, int(last_id))
         try:
-            r = await bm.send("GET", "/api/events/stream", params={"task_id": task_id, "after": max(0, after)},
+            r = await bm.send("GET", "/api/events/stream", params={"task_id": task_id, "after": eff_after},
                               headers={"accept": "text/event-stream"}, stream=True, timeout=None)
         except BossmanUnavailable as exc:
             raise fail(502, str(exc), "BOSSMAN_UNAVAILABLE") from None
@@ -2140,9 +2145,9 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     @app.post("/m/api/agent/sessions/{session_id}/messages")
     async def m_agent_session_messages(session_id: str, body: AgentMessageIn, _=Depends(session)):
         tid = _tid(session_id)
-        await mobile_agent_or_fail(body.agent_id, body.attachments)
+        agent = await mobile_agent_or_fail(body.agent_id, body.attachments)
         payload: dict[str, Any] = {"text": body.text, "mode": body.mode, "agent_id": body.agent_id,
-                                   "allow_cloud": False}
+                                   "allow_cloud": bool(agent.get("cloud"))}
         if body.client_request_id:
             payload["client_request_id"] = body.client_request_id
         if body.attachments:
@@ -2190,6 +2195,8 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.post("/m/api/agent/sessions/{session_id}/compact", status_code=202)
     async def m_agent_session_compact(session_id: str, body: CompactIn | None = None, _=Depends(session)):
+        if body and body.agent_id is not None:
+            await mobile_agent_or_fail(body.agent_id, [])
         payload = body.model_dump(exclude_none=True) if body else {}
         return slash.compact_view(await call("POST", f"/api/agent/sessions/{_tid(session_id)}/compact", json=payload, timeout=60))
 
@@ -2555,6 +2562,31 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     @app.api_route("/m/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def m_api_unknown(rest: str):
         raise fail(404, "нет такого вызова", "BM_NOT_ALLOWED")
+
+    @app.get("/m/api/trading-lab/pump-launchpad")
+    async def m_trading_lab_pump_launchpad(
+        project_name: str = "Bossman Neural Sentinel",
+        ticker: str = "BSENT",
+        twitter_handle: str = "@owner_project",
+        total_sol_budget: float = 3.0,
+        _=Depends(session),
+    ):
+        params = {
+            "project_name": project_name,
+            "ticker": ticker,
+            "twitter_handle": twitter_handle,
+            "total_sol_budget": total_sol_budget,
+        }
+        try:
+            return await call("GET", "/api/trading-lab/pump-launchpad", params=params)
+        except HTTPException:
+            from bossman.trading_learning.pump_project_launchpad import build_computer_use_harness_case
+            return build_computer_use_harness_case(
+                project_name=project_name,
+                ticker=ticker,
+                twitter_handle=twitter_handle,
+                total_sol_budget=total_sol_budget,
+            )
 
     # ------------------------------------------------------------------ app shell
     @app.get("/m", include_in_schema=False)

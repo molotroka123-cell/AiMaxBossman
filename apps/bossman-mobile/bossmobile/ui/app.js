@@ -531,7 +531,18 @@
         tap();
         const changed = a.id !== S.agentId;
         S.agentId = a.id; store.set('agent', a.id); renderModelChip(); closeModelSheet();
-        if (changed && S.threadId) { toast(`Дальше отвечает «${a.name}» — с контекстом всего чата`); refreshContext().catch(() => {}); }
+        if (changed && S.threadId) {
+          toast(`Дальше отвечает «${a.name}» — с контекстом всего чата`);
+          refreshContext().catch(() => {});
+          if (S.csrf) {
+            const patchBody = { agent_id: a.id, allow_cloud: !!a.cloud };
+            if (S.agentMode === 'AUTO') {
+              patchBody.mode = S.agentMode;
+              patchBody.bypass_permissions = !curAgentCloud();
+            }
+            api('PATCH', `/agent/sessions/${encodeURIComponent(S.threadId)}`, patchBody).catch(() => {});
+          }
+        }
       });
       list.appendChild(b);
     });
@@ -939,7 +950,8 @@
     if (b.rerouted) return el('span', 'badge-local', 'локально · облако не получило запрос');
     const a = agentOf(b.agentId != null ? b.agentId : S.agentId);
     const cloud = b.locality ? b.locality === 'cloud' : !!(a && !a.local);
-    return cloud ? el('span', 'badge-cloud', `облако${a && a.provider ? ' · ' + a.provider : ''}`) : el('span', 'badge-local', 'локально');
+    const prov = b.provider || (a && a.provider);
+    return cloud ? el('span', 'badge-cloud', `облако${prov ? ' · ' + prov : ''}`) : el('span', 'badge-local', 'локально');
   }
   /* ---- окно модели (владелец 31.10): модель видит весь чат, сколько влезает в её окно; не влезло — сказано и
      предложено сжатие, а после ответа контекст сжимается сам (кнопкой «Не сжимать» — отменить) ---- */
@@ -1100,6 +1112,10 @@
   }
 
   function applyEvent(b, ev, live) {
+    if (live && typeof ev.seq === 'number' && ev.seq > 0) {
+      if (b.lastSeq && ev.seq <= b.lastSeq) return;
+      b.lastSeq = ev.seq;
+    }
     switch (ev.kind) {
       case 'task.queued': if (live) { liveSet(b, ev.attempt ? 'Повтор: другая модель…' : 'В очереди…'); queueWhy(b, ev.task_id != null ? ev.task_id : b.taskId); } break;
       case 'task.started': if (live) liveSet(b, `Модель${b.model ? ` «${b.model}»` : ''} думает…`); break;
@@ -1149,7 +1165,23 @@
         if (turn.kind === 'note') { addNote(turn); continue; }   // Bossman's own note (e.g. the finished photo edit)
         const desc = photoDesc(turn.text);
         addUser(desc != null ? `${PHOTO_MARK} ${desc}` : turn.text, turn.attachments); const b = addBot(turn.text);
-        b.taskId = turn.task_id; if (turn.model) b.model = turn.model.alias || turn.model.id || turn.model; if (desc != null) b.photo = { desc };
+        b.taskId = turn.task_id;
+        if (turn.agent_id != null) b.agentId = turn.agent_id;
+        if (turn.model) {
+          b.model = turn.model.alias || turn.model.id || (typeof turn.model === 'string' ? turn.model : null);
+          if (turn.model.locality) b.locality = turn.model.locality;
+          if (turn.model.provider) b.provider = turn.model.provider;
+        } else if (turn.run && turn.run.model_alias) {
+          b.model = turn.run.model_alias;
+        }
+        const matchedAg = (b.agentId != null && agentOf(b.agentId))
+          || (b.model && S.agents.find((a) => a.model && (a.model.alias === b.model || a.model.name === b.model)));
+        if (matchedAg) {
+          if (b.agentId == null) b.agentId = matchedAg.id;
+          if (!b.locality) b.locality = matchedAg.cloud ? 'cloud' : 'local';
+          if (!b.provider && matchedAg.provider) b.provider = matchedAg.provider;
+        }
+        if (desc != null) b.photo = { desc };
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
         b.ended = true;
         if (b.photo) { b.text = turn.result || ''; restorePhotoTurn(b, turn); continue; }
@@ -1162,7 +1194,11 @@
             b.ans.appendChild(note);
           }
         } else if (turn.failure_summary || turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.failure_summary || turn.error; }
-        b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
+        if (b.locality || b.agentId != null || b.model) {
+          b.meta.replaceChildren(placeBadge(b), el('span', '', [b.model, `задача #${turn.task_id}`, stRu(turn.status)].filter(Boolean).join(' · ')));
+        } else {
+          b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
+        }
         showAgentFiles(b, turn.files);
         if (turn.result) msgActions(b);
         if (turns.indexOf(turn) >= turns.length - 6) {
@@ -1430,7 +1466,9 @@
         try { await api('DELETE', `/threads/${encodeURIComponent(tid)}/queue/${encodeURIComponent(it.id)}`); } catch (err) { if (err.status !== 404) toast(errText(err)); }
         if (S.threadId === tid) loadChatQueue();
       });
-      row.append(el('span', 'q-tag', it.kind === 'steer_leftover' ? 'следующим ходом' : 'в очереди'), el('span', 'q-text', it.text || ''), x);
+      const qa = it.agent_id != null ? agentOf(it.agent_id) : null;
+      const qLabel = (it.kind === 'steer_leftover' ? 'следующим ходом' : 'в очереди') + (qa && qa.name ? ` · ${qa.name}` : '');
+      row.append(el('span', 'q-tag', qLabel), el('span', 'q-text', it.text || ''), x);
       box.appendChild(row);
     });
     box.hidden = !box.children.length;
@@ -1449,11 +1487,16 @@
     } catch (err) { input.value = text; toast(errText(err, 'Не удалось поставить в очередь')); }
   }
   /* после ответа: если в очереди что-то было, ПК уже отправляет следующее — открыть чат заново, когда ход появится */
-  function followQueue(tid, before) {
+  function followQueue(tid, before, lastTaskId) {
     let tries = 0;
     const tick = async () => {
       if (S.threadId !== tid || ++tries > 15) return;
-      try { const t = await api('GET', `/threads/${encodeURIComponent(tid)}`); if ((t.turns || []).length > before) { openThread(tid); return; } } catch { /* retry */ }
+      try {
+        const t = await api('GET', `/threads/${encodeURIComponent(tid)}`);
+        const turns = t.turns || [];
+        const lastTurn = turns[turns.length - 1];
+        if (turns.length > before || (lastTaskId != null && lastTurn && lastTurn.task_id !== lastTaskId)) { openThread(tid); return; }
+      } catch { /* retry */ }
       setTimeout(tick, 1000);
     };
     setTimeout(tick, 800);
@@ -1524,8 +1567,10 @@
               ? 'SELF-IMPROVE'
               : null;
       const mode = b.photo ? 'CHAT' : (slashMode || S.agentMode || 'CHAT');
+      const sentFrom = S.threadId; b.threadId = sentFrom;
       if (mode !== 'CHAT') {
-        const r = await api('POST', `/agent/sessions/${encodeURIComponent(S.threadId)}/messages`, { ...payload, mode });
+        const r = await api('POST', `/agent/sessions/${encodeURIComponent(sentFrom)}/messages`, { ...payload, mode });
+        if (S.threadId !== sentFrom) return;
         if (r.improve) {
           const imp = r.improve;
           finish(b, (r.turn && r.turn.synthetic_result) || `Цикл самоулучшения ${imp.id}: ${imp.status}`, null, 'completed');
@@ -1539,7 +1584,6 @@
         follow(r.task.id, b);
         return;
       }
-      const sentFrom = S.threadId; b.threadId = sentFrom;
       const r = await api('POST', `/threads/${encodeURIComponent(sentFrom)}/send`, payload);
       if (S.threadId !== sentFrom) return;          // the owner moved on: the turn runs on the PC, reopening shows it
       if (r.admission && r.admission.ok === false) { finish(b, null, r.admission.reason || 'Bossman не принял задачу', 'blocked'); return; }
@@ -1588,7 +1632,7 @@
     if (tid && tid === S.threadId) {
       if (b.autoCompact && status === 'completed' && !CP.run) { b.autoCompact = false; setTimeout(() => { if (S.threadId === tid) runCompact(''); }, 300); }
       const before = msgs.querySelectorAll('.msg.user').length;
-      loadChatQueue().then((items) => { if (items.length) followQueue(tid, before); });
+      loadChatQueue().then((items) => { if (items.length) followQueue(tid, before, taskId || b.taskId); });
     }
   }
 
@@ -2792,7 +2836,7 @@
       body.appendChild(stat('Прямой генератор', dg.sd_cli ? dg.sd_cli.present : null, [kv('сейчас', q.running ? 'идёт генерация' : 'свободен'), kv('в очереди', q.waiting), kv('ОЗУ свободно', mem.measured ? `${(mem.free_mb / 1024).toFixed(1)} из ${(mem.total_mb / 1024).toFixed(0)} ГБ` : '—')]));
       const w = s.war_terminal || {}; body.appendChild(stat('War Terminal', w.up, [kv('состояние', w.up ? `работает · ${w.version || ''} ${w.mode || ''}` : 'не запущен')]));
       const mob = s.mobile || {}; const out = el('button', 'btn danger', 'Выйти на этом телефоне'); out.id = 'status-logout'; out.addEventListener('click', async () => { try { await api('POST', '/logout'); } catch { /* */ } store.set('draft', null); input.value = ''; showLogin(); });
-      body.appendChild(stat('Bossman Mobile', true, [kv('версия', mob.version), kv('активных сессий', mob.sessions), kv('модели чата', 'только локальные (сервер отклоняет облачные)'), out]));
+      body.appendChild(stat('Bossman Mobile', true, [kv('версия', mob.version), kv('активных сессий', mob.sessions), kv('модели чата', 'локальные + разрешённые облачные'), out]));
     } catch (err) { body.replaceChildren(el('p', 'error-text pad', err.message)); }
   }
   $('status-reload').addEventListener('click', () => { tap(); loadStatus(); });
@@ -3051,7 +3095,7 @@
     if (S.threadId && S.csrf) {
       api('PATCH', `/agent/sessions/${encodeURIComponent(S.threadId)}`, {
         mode,
-        bypass_permissions: mode === 'AUTO',
+        bypass_permissions: mode === 'AUTO' && !curAgentCloud(),
       }).catch(() => {});
     }
   }
@@ -3827,6 +3871,9 @@
     const c = sysCard('Сжатие контекста', 'refresh'); const line = cardNote(c, 'Запускаю сжатие…', 'busy');
     const run = { sid, c, line, before: compactSnapshot(sid), t0: Date.now(), fails: 0, idle: 0, seen: false, instruction };
     CP.run = run;
+    if (curAgentCloud() && S.agentId != null && S.csrf) {
+      await api('PATCH', `/agent/sessions/${enc(sid)}`, { agent_id: S.agentId, allow_cloud: true }).catch(() => {});
+    }
     try { await api('POST', `/agent/sessions/${enc(sid)}/compact`, instruction ? { instruction } : {}); }
     catch (err) {
       if (err.code === 'AGENT_COMPACT_RUNNING') { run.seen = true; runLine(run, ERR_RU.AGENT_COMPACT_RUNNING); refreshContext().catch(() => {}); return; }

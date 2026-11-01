@@ -152,6 +152,18 @@ def cmd_seed(args) -> int:
     return EXIT_OK
 
 
+def cmd_pump_launchpad(args) -> int:
+    from .pump_project_launchpad import build_computer_use_harness_case
+    case = build_computer_use_harness_case(
+        project_name=args.project_name,
+        ticker=args.ticker,
+        twitter_handle=args.twitter_handle,
+        total_sol_budget=args.sol_budget,
+    )
+    _emit(case)
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="trading_learning",
                                      description="K1MBA Trading Learning Lab (paper/replay only)")
@@ -196,6 +208,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status").set_defaults(func=cmd_status)
     sub.add_parser("seed").set_defaults(func=cmd_seed)
+
+    p = sub.add_parser("pump_launchpad")
+    p.add_argument("--project-name", dest="project_name", default="Bossman Neural Sentinel")
+    p.add_argument("--ticker", default="BSENT")
+    p.add_argument("--twitter-handle", dest="twitter_handle", default="@owner_project")
+    p.add_argument("--utility-thesis", dest="utility_thesis",
+                   default=("Long-term AI agent telemetry, on-chain holder risk monitor, and "
+                            "automated creator-fee buyback & ecosystem grant vault powered by Bossman."))
+    p.add_argument("--sol-budget", dest="sol_budget", type=float, default=15.0)
+    p.add_argument("--daily-volume-usd", dest="daily_volume_usd", type=float, default=125_000.0)
+    p.add_argument("--market-cap-usd", dest="market_cap_usd", type=float, default=140_000.0)
+    p.add_argument("--bonding-curve-only", dest="bonding_curve_only", action="store_true")
+    p.set_defaults(func=cmd_pump_launchpad)
     return parser
 
 

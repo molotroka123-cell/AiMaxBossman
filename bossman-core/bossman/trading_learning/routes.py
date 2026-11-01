@@ -63,6 +63,12 @@ def pipeline_status() -> dict:
          "evidence_class": "REAL_BROWSER_READONLY",
          "detail": ("только чтение уже открытой владельцем вкладки; DOM, потом "
                     "локальный OCR; облачное зрение выключено; ордеров нет")},
+        {"step": "pump_project_launchpad", "status": "OK",
+         "evidence_class": "SIMULATED",
+         "detail": ("долгосрочный Pump.fun лаунчпад: анализ трендов X/Twitter, "
+                    "прозрачный genesis-бандл с вестингом, черновики тредов "
+                    "X/Twitter через очередь одобрений владельца и расчёт "
+                    "комиссии создателя по реальным таблицам Pump.fun / PumpSwap")},
     ]
     blocked = [s["step"] for s in steps if s["status"] == "BLOCKED"]
     return {
@@ -137,6 +143,23 @@ async def seed() -> dict:
 async def benchmark() -> dict:
     from .benchmark import run_benchmark
     return run_benchmark().as_dict()
+
+
+@router.get("/pump-launchpad", dependencies=[Depends(require_scope(SCOPE_CHAT))])
+async def pump_launchpad(
+    project_name: str = "Bossman Neural Sentinel",
+    ticker: str = "BSENT",
+    twitter_handle: str = "@owner_project",
+    total_sol_budget: float = 3.0,
+) -> dict:
+    """Долгосрочный Pump.fun лаунчпад: X/Twitter тренды, 5-кошельковый генезис, контроль объёма и комиссии."""
+    from .pump_project_launchpad import build_computer_use_harness_case
+    return build_computer_use_harness_case(
+        project_name=project_name,
+        ticker=ticker,
+        twitter_handle=twitter_handle,
+        total_sol_budget=total_sol_budget,
+    )
 
 
 @router.post("/ingest", dependencies=[Depends(require_scope(SCOPE_ADMIN))])
