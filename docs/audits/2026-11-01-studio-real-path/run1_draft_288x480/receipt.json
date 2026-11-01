@@ -1,0 +1,799 @@
+{
+ "topic": "studio real path (owner item 6)",
+ "started_at": "2026-11-01T10:28:19+00:00",
+ "code_sha": "64a98173f0f5afe504496bda5e73dd5c314f0af3",
+ "inputs": {
+  "preset": "product_spin",
+  "brief": "a plain matte white ceramic coffee mug, no people, no hands, no text, no logos",
+  "width": 272,
+  "height": 480,
+  "duration_s": 2.0,
+  "steps": 20,
+  "seed": 20261101,
+  "model": "wan2.2-ti2v-5b",
+  "synthetic": true,
+  "faces": false
+ },
+ "temp_backend": {
+  "port": 8893,
+  "data_dir": "temp (deleted after)",
+  "workers": false,
+  "ollama_url": "http://127.0.0.1:9 (closed: owner's Ollama untouched)",
+  "bcc_imported_from": "C:\\Users\\asd\\Bossman\\integration-20261006\\.claude\\worktrees\\agent-aec34543aee1fc9b8\\command-center\\bcc\\__init__.py",
+  "build_sha": "64a98173f0f5afe504496bda5e73dd5c314f0af3",
+  "startup_s": 4.5
+ },
+ "machine_before": {
+  "at": "2026-11-01T10:28:21+00:00",
+  "gpu_jobs": [],
+  "ollama_loaded": [
+   {
+    "name": "qwen3-coder-30b-ctx32k:latest",
+    "size_gb": 20.3
+   }
+  ],
+  "free_ram_gb": 78.2,
+  "wan22_5b_needs_gb": 15.8,
+  "enough_ram": true
+ },
+ "negative_engine_missing": {
+  "http_status": 503,
+  "code": "render_engine_missing",
+  "problems": [
+   {
+    "code": "render_engine_missing",
+    "engine": "direct_gen.sdcli",
+    "reason": "weights missing on disk: diffusion (wan22-ti2v-5b/Wan2.2-TI2V-5B-Q8_0.gguf); vae (wan22-ti2v-5b/wan2.2_vae.safetensors); text_encoder (wan22-ti2v-5b/umt5-xxl-encoder-Q8_0.gguf)"
+   }
+  ],
+  "order_status_after": "accepted"
+ },
+ "negative_api": {
+  "default_preset_1080x1920_6s": {
+   "http_status": 422,
+   "code": "preset_exceeds_engine_limits",
+   "problems": [
+    {
+     "code": "preset_exceeds_engine_limits",
+     "requested": {
+      "width": 1080,
+      "height": 1920,
+      "duration_s": 6.0
+     },
+     "limits": {
+      "min_side": 256,
+      "max_side": 1280,
+      "side_multiple": 16,
+      "max_seconds": 5
+     }
+    }
+   ],
+   "order_status_after": "accepted"
+  },
+  "face_line": {
+   "http_status": 409,
+   "code": "face_render_refused",
+   "problems": [
+    {
+     "code": "face_render_refused"
+    }
+   ],
+   "order_status_after": "accepted"
+  },
+  "queued_job_cannot_pass_qc": {
+   "http_status": 409,
+   "code": "job_not_completed",
+   "problems": [
+    {
+     "code": "job_not_completed"
+    }
+   ],
+   "job_status": "queued"
+  }
+ },
+ "machine_before_render": {
+  "at": "2026-11-01T10:28:34+00:00",
+  "gpu_jobs": [],
+  "ollama_loaded": [
+   {
+    "name": "qwen3-coder-30b-ctx32k:latest",
+    "size_gb": 20.3
+   }
+  ],
+  "free_ram_gb": 45.6,
+  "wan22_5b_needs_gb": 15.8,
+  "enough_ram": true
+ },
+ "machine_after_render": {
+  "at": "2026-11-01T10:34:43+00:00",
+  "gpu_jobs": [],
+  "ollama_loaded": [
+   {
+    "name": "qwen3-coder-30b-ctx32k:latest",
+    "size_gb": 20.3
+   }
+  ],
+  "free_ram_gb": 52.2,
+  "wan22_5b_needs_gb": 15.8,
+  "enough_ram": true
+ },
+ "render_call": {
+  "http_status": 200,
+  "wall_s_measured_by_tool": 366.84,
+  "order_status": "qc_failed",
+  "error": null,
+  "error_detail": null
+ },
+ "direct_gen_job": {
+  "job_id": "562a0a2ab3194ed899b4a37a42295a3d",
+  "model": "wan2.2-ti2v-5b",
+  "status": "completed",
+  "params": {
+   "duration": 2.0,
+   "width": 272,
+   "height": 480,
+   "seed": 20261101,
+   "steps": 20,
+   "fps": 16,
+   "frames": 33,
+   "ref_images_count": 0
+  },
+  "command": [
+   "sd-cli.exe",
+   "-M",
+   "vid_gen",
+   "--diffusion-model",
+   "Wan2.2-TI2V-5B-Q8_0.gguf",
+   "--vae",
+   "wan2.2_vae.safetensors",
+   "--t5xxl",
+   "umt5-xxl-encoder-Q8_0.gguf",
+   "--video-frames",
+   "33",
+   "--fps",
+   "16",
+   "--flow-shift",
+   "5.0",
+   "--cfg-scale",
+   "5.0",
+   "--sampling-method",
+   "euler",
+   "-p",
+   "<prompt>",
+   "-W",
+   "272",
+   "-H",
+   "480",
+   "--steps",
+   "20",
+   "-s",
+   "20261101",
+   "-o",
+   "video.webm",
+   "-n",
+   "blurry, watermark, third-party logo, face, person"
+  ],
+  "engine_seconds": 362.16,
+  "peak_rss_mb": 17575,
+  "licence": "Apache-2.0",
+  "weights": [
+   {
+    "role": "diffusion",
+    "found": true,
+    "file": "Wan2.2-TI2V-5B-Q8_0.gguf",
+    "size_bytes": 5400179040,
+    "sha256": "57bece983817ab2f957546683bb670f13be7d99022d45674840cd999a050ea8f"
+   },
+   {
+    "role": "vae",
+    "found": true,
+    "file": "wan2.2_vae.safetensors",
+    "size_bytes": 1409400960,
+    "sha256": "e40321bd36b9709991dae2530eb4ac303dd168276980d3e9bc4b6e2b75fed156"
+   },
+   {
+    "role": "text_encoder",
+    "found": true,
+    "file": "umt5-xxl-encoder-Q8_0.gguf",
+    "size_bytes": 6043068256,
+    "sha256": "2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc"
+   }
+  ],
+  "started_at": "2026-11-01T10:28:34.788635+00:00",
+  "finished_at": "2026-11-01T10:34:37.734262+00:00",
+  "timeline": [
+   {
+    "stage": "queued",
+    "at": "2026-11-01T10:28:34.763581+00:00"
+   },
+   {
+    "stage": "loading",
+    "at": "2026-11-01T10:28:34.788635+00:00"
+   },
+   {
+    "stage": "generating",
+    "at": "2026-11-01T10:28:36.038335+00:00"
+   },
+   {
+    "stage": "postprocessing",
+    "at": "2026-11-01T10:34:36.992439+00:00"
+   },
+   {
+    "stage": "completed",
+    "at": "2026-11-01T10:34:37.734762+00:00"
+   }
+  ]
+ },
+ "studio_job": {
+  "job_id": "2009569f03cf4f4293d12b591a7af3a4",
+  "status": "completed",
+  "engine": "direct_gen.sdcli",
+  "timing": {
+   "total_s": 366.0,
+   "clock": "time.monotonic around engine call",
+   "measured": true
+  },
+  "result": {
+   "file": "video.mp4",
+   "bytes": 105113,
+   "sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+   "mime": "video/mp4",
+   "width": 288,
+   "height": 480,
+   "fps": 16.0,
+   "duration_s": 2.062,
+   "frames": 33,
+   "engine": "direct_gen.sdcli"
+  },
+  "verification_by_render_preset": {
+   "verified": true,
+   "container": "mp4",
+   "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+   "codec": "h264",
+   "width": 288,
+   "height": 480,
+   "fps": 16.0,
+   "duration_s": 2.062,
+   "frames": 33,
+   "checked_by": "magic_bytes+ffprobe"
+  },
+  "watermark": {
+   "mark": "AI-generated · Bossman Motion Studio",
+   "sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+   "declared_by": "direct_gen.sdcli"
+  },
+  "watermark_check": {
+   "burned": true,
+   "mark": "AI-generated · Bossman Motion Studio",
+   "method": "ffmpeg drawtext (libx264 crf 16)",
+   "checked_frame_index": 16,
+   "band_mean_abs_diff": 41.563,
+   "rest_mean_abs_diff": 0.261,
+   "min_gain": 2.0
+  }
+ },
+ "order_after_render": {
+  "order_id": "c3f22ea557c74271a11b99a77ec38144",
+  "status": "qc_failed",
+  "qc": {
+   "passed": false,
+   "note": "auto_qc_contact_sheet",
+   "at": "2026-11-01T10:34:41.521125+00:00",
+   "attempt": 1
+  },
+  "qc_metrics": {
+   "source": "decoded_frames",
+   "video_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+   "frames_sampled_at_s": [
+    0.206,
+    0.722,
+    1.34,
+    1.856
+   ],
+   "sharpness_laplacian": 1203.62,
+   "flicker_score": 0.1529,
+   "duration_s": 2.062,
+   "fps": 16.0,
+   "width": 288,
+   "height": 480,
+   "resolution_ok": false,
+   "duration_ok": true,
+   "frames_decoded": 33,
+   "distinct_frames": 33,
+   "motion_mean": 4.1618,
+   "moving": true,
+   "non_black_ratio_min": 0.975,
+   "non_black_ok": true,
+   "laplacian_variance_min": 361.083,
+   "thresholds": {
+    "min_sharpness": 50.0,
+    "max_flicker": 0.25,
+    "min_non_black": 0.5,
+    "resolution": ">=1080 long side and >=720 short side",
+    "duration_s": [
+     0.5,
+     10.0
+    ],
+    "moving": "distinct frames >= 2 and motion_mean > 0"
+   },
+   "art_critic": {
+    "status": "PASS",
+    "score": 1.0,
+    "refusal": null,
+    "non_black_pass": true,
+    "sharpness_pass": true,
+    "motion_pass": true,
+    "face_cosine_pass": null,
+    "media_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+    "receipt_id": "QC-c3f22ea5-cce7efb4",
+    "signature": "fa18a9817cce035c0a9dd0bb0176b26822bebc6bd01cb3979a9e376f432e0997"
+   },
+   "passed_signals": false,
+   "contact_sheet_file": "contact_sheet.png",
+   "contact_sheet_sha256": "0ccbdacb14b0d93127e7edbe488f8ad896eda6ed4e7c605203183f5ae98e8126",
+   "measured_at": "2026-11-01T10:34:41.517102+00:00"
+  },
+  "receipt": {
+   "currency": "USD",
+   "price": "15.00",
+   "cost": "0.002745",
+   "margin": "14.997255",
+   "margin_ratio": "0.9998",
+   "seconds": "366.0",
+   "energy_kwh": "0.018300",
+   "power_watts": "180.00",
+   "kwh_price": "0.15",
+   "cost_basis": "recorded generation seconds x power_watts x kwh_price",
+   "cost_complete": true,
+   "lines": [
+    {
+     "kind": "clip",
+     "price": "15.00",
+     "seconds": "366.0",
+     "energy_kwh": "0.018300",
+     "cost": "0.002745",
+     "jobs": [
+      {
+       "job_id": "2009569f03cf4f4293d12b591a7af3a4",
+       "status": "completed",
+       "seconds": "366.0"
+      }
+     ]
+    }
+   ],
+   "licence_warnings": []
+  },
+  "licence_warnings": []
+ },
+ "independent": {
+  "delivered_mp4": {
+   "file": "video.mp4",
+   "bytes": 105113,
+   "sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+   "magic_hex": "000000206674797069736f6d",
+   "ffprobe": {
+    "streams": [
+     {
+      "index": 0,
+      "codec_name": "h264",
+      "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+      "profile": "High",
+      "codec_type": "video",
+      "codec_tag_string": "avc1",
+      "codec_tag": "0x31637661",
+      "mime_codec_string": "avc1.640015",
+      "width": 288,
+      "height": 480,
+      "coded_width": 288,
+      "coded_height": 480,
+      "has_b_frames": 2,
+      "sample_aspect_ratio": "1:1",
+      "display_aspect_ratio": "3:5",
+      "pix_fmt": "yuv420p",
+      "level": 21,
+      "color_range": "tv",
+      "color_space": "bt470bg",
+      "chroma_location": "left",
+      "field_order": "progressive",
+      "refs": 4,
+      "is_avc": "true",
+      "nal_length_size": "4",
+      "id": "0x1",
+      "r_frame_rate": "16/1",
+      "avg_frame_rate": "16/1",
+      "time_base": "1/16384",
+      "start_pts": 0,
+      "start_time": "0.000000",
+      "duration_ts": 33792,
+      "duration": "2.062500",
+      "bit_rate": "395523",
+      "bits_per_raw_sample": "8",
+      "nb_frames": "33",
+      "nb_read_frames": "33",
+      "extradata_size": 49,
+      "tags": {
+       "language": "eng",
+       "handler_name": "VideoHandler",
+       "encoder": "Lavc63.1.102 libx264"
+      }
+     }
+    ],
+    "format": {
+     "nb_streams": 1,
+     "nb_programs": 0,
+     "nb_stream_groups": 0,
+     "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+     "format_long_name": "QuickTime / MOV",
+     "start_time": "0.000000",
+     "duration": "2.062500",
+     "size": "105113",
+     "bit_rate": "407711",
+     "probe_score": 100,
+     "tags": {
+      "major_brand": "isom",
+      "minor_version": "512",
+      "compatible_brands": "isomiso2avc1mp41",
+      "encoder": "Lavf63.1.102",
+      "comment": "Studio commercial 360 product spin on turntable, crisp rim lighting, clean background: a plain matte white ceramic coffee mug, no people, no hands, no text, no logos\nNegative prompt: blurry, watermark, third-party logo, face, person\nSteps: 20, CFG scale: 5.000000, Guidance: 3.500000, Eta: inf, Seed: 20261101, Size: 272x480, Model: , RNG: cuda, Sampler: euler discrete, TE: umt5-xxl-encoder-Q8_0.gguf, Unet: Wan2.2-TI2V-5B-Q8_0.gguf, VAE: wan2.2_vae.safetensors, Version: stable-diffusion.cpp, SDCPP: {\"auto_resize_ref_image\":true,\"clip_skip\":-1,\"control_strength\":0.8999999761581421,\"generator\":{\"commit\":\"74988b2\",\"name\":\"stable-diffusion.cpp\",\"version\":\"unknown\"},\"height\":480,\"high_noise_sampling\":{\"eta\":null,\"extra_sample_args\":\"\",\"flow_shift\":null,\"guidance\":{\"distilled_guidance\":3.5,\"img_cfg\":null,\"slg\":{\"end\":0.20000000298023224,\"layers\":[7,8,9],\"scale\":0.0,\"start\":0.009999999776482582},\"txt_cfg\":7.0},\"method\":\"euler\",\"shifted_timestep\":0,\"steps\":20},\"increase_ref_index\":false,\"ip_adapter_strength\":1.0,\"mode\":\"vid_gen\",\"models\":{\"diffusion_model\":\"Wan2.2-TI2V-5B-Q8_0.gguf\",\"t5xxl\":\"umt5-xxl-encoder-Q8_0.gguf\",\"vae\":\"wan2.2_vae.safetensors\"},\"moe_boundary\":0.875,\"prompt\":{\"negative\":\"blurry, watermark, third-party logo, face, person\",\"positive\":\"Studio commercial 360 product spin on turntable, crisp rim lighting, clean background: a plain matte white ceramic coffee mug, no people, no hands, no text, no logos\"},\"rng\":\"cuda\",\"sampling\":{\"custom_sigmas\":[],\"eta\":null,\"extra_sample_args\":\"\",\"flow_shift\":5.0,\"guidance\":{\"distilled_guidance\":3.5,\"img_cfg\":null,\"slg\":{\"end\":0.20000000298023224,\"layers\":[7,8,9],\"scale\":0.0,\"start\":0.009999999776482582},\"txt_cfg\":5.0},\"method\":\"euler\",\"scheduler\":\"discrete\",\"shifted_timestep\":0,\"steps\":20},\"schema\":\"sdcpp.image.params/v1\",\"seed\":20261101,\"strength\":0.75,\"vace_strength\":1.0,\"video\":{\"fps\":16,\"frame_count\":33},\"width\":272}"
+     }
+    }
+   },
+   "measurement": {
+    "source": "ffmpeg_decoded_frames+numpy",
+    "metric_version": "studio-measure-v1",
+    "video_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+    "width": 288,
+    "height": 480,
+    "frames_decoded": 33,
+    "distinct_frames": 33,
+    "motion_mean": 4.1618,
+    "motion_max": 30.4579,
+    "identical_consecutive_pairs": 0,
+    "non_black_luma_threshold": 16,
+    "non_black_ratio_min": 0.975,
+    "laplacian_sharpness_min": 361.083,
+    "motion_min_threshold": 0.05,
+    "moving": true,
+    "keyframes": [
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 0,
+      "frame_index": 0,
+      "frame_sha256": "4cc96724cf4e289fe83a6d79f5abe5ea48f817dcecf5a785c7cacc407aa91ade",
+      "video_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+      "brightness": 0.849,
+      "contrast": 0.2031,
+      "laplacian_sharpness": 467.729,
+      "non_black_ratio": 0.997,
+      "motion_to_next": 4.4391,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     },
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 25,
+      "frame_index": 8,
+      "frame_sha256": "f3e45ebccf5f1e8863ec4631759e944d80583adb15fa481281d0c0b83fbc1018",
+      "video_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+      "brightness": 0.8736,
+      "contrast": 0.1517,
+      "laplacian_sharpness": 361.083,
+      "non_black_ratio": 1.0,
+      "motion_to_next": 3.2286,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     },
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 50,
+      "frame_index": 16,
+      "frame_sha256": "afd37040eaf5a17a9a86e29ae201ca5c1e8278748e1533385a6c38ff2eab7c34",
+      "video_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+      "brightness": 0.8831,
+      "contrast": 0.1386,
+      "laplacian_sharpness": 367.545,
+      "non_black_ratio": 1.0,
+      "motion_to_next": 11.6687,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     },
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 75,
+      "frame_index": 24,
+      "frame_sha256": "843efd60a11e37afc8c6211d894be7c76c07bd030f9ccd061e44b83d404877d8",
+      "video_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+      "brightness": 0.6955,
+      "contrast": 0.274,
+      "laplacian_sharpness": 412.128,
+      "non_black_ratio": 0.9832,
+      "motion_to_next": 6.7228,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     },
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 100,
+      "frame_index": 32,
+      "frame_sha256": "b3efc566886db8ce86d76b2b1d3c0b2c9291c8c2410051bb02ac02efecd4cdd3",
+      "video_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+      "brightness": 0.6917,
+      "contrast": 0.2795,
+      "laplacian_sharpness": 407.503,
+      "non_black_ratio": 0.975,
+      "motion_to_next": 2.6697,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     }
+    ]
+   },
+   "art_critic": {
+    "status": "PASS",
+    "score": 1.0,
+    "refusal": null,
+    "non_black_pass": true,
+    "sharpness_pass": true,
+    "motion_pass": true,
+    "face_cosine_pass": null,
+    "artifacts_clean_pass": true,
+    "media_sha256": "a392f06009feabe219cc7516592bb73b3c299801672bba8d21b88347315d87f0",
+    "receipt_id": "QC-c3f22ea5-1a1cfa24",
+    "signature": "e97ef0a2ad0cee0078bd483f892e746c771fb57c2c29abf6165a1dddb4c3b5a4"
+   }
+  },
+  "direct_gen_raw": {
+   "file": "video.webm",
+   "bytes": 165222,
+   "sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+   "magic_hex": "1a45dfa39f4286810142f781",
+   "ffprobe": {
+    "streams": [
+     {
+      "index": 0,
+      "codec_name": "vp8",
+      "codec_long_name": "On2 VP8",
+      "profile": "0",
+      "codec_type": "video",
+      "codec_tag_string": "[0][0][0][0]",
+      "codec_tag": "0x0000",
+      "mime_codec_string": "vp8",
+      "width": 288,
+      "height": 480,
+      "coded_width": 288,
+      "coded_height": 480,
+      "has_b_frames": 0,
+      "sample_aspect_ratio": "1:1",
+      "display_aspect_ratio": "3:5",
+      "pix_fmt": "yuv420p",
+      "level": -99,
+      "field_order": "progressive",
+      "refs": 1,
+      "r_frame_rate": "16/1",
+      "avg_frame_rate": "16/1",
+      "time_base": "1/1000",
+      "start_pts": 0,
+      "start_time": "0.000000",
+      "nb_read_frames": "33",
+      "tags": {
+       "language": "eng"
+      }
+     }
+    ],
+    "format": {
+     "nb_streams": 1,
+     "nb_programs": 0,
+     "nb_stream_groups": 0,
+     "format_name": "matroska,webm",
+     "format_long_name": "Matroska / WebM",
+     "start_time": "0.000000",
+     "duration": "2.000000",
+     "size": "165222",
+     "bit_rate": "660888",
+     "probe_score": 100,
+     "tags": {
+      "encoder": "stable-diffusion.cpp",
+      "COMMENT": "Studio commercial 360 product spin on turntable, crisp rim lighting, clean background: a plain matte white ceramic coffee mug, no people, no hands, no text, no logos\nNegative prompt: blurry, watermark, third-party logo, face, person\nSteps: 20, CFG scale: 5.000000, Guidance: 3.500000, Eta: inf, Seed: 20261101, Size: 272x480, Model: , RNG: cuda, Sampler: euler discrete, TE: umt5-xxl-encoder-Q8_0.gguf, Unet: Wan2.2-TI2V-5B-Q8_0.gguf, VAE: wan2.2_vae.safetensors, Version: stable-diffusion.cpp, SDCPP: {\"auto_resize_ref_image\":true,\"clip_skip\":-1,\"control_strength\":0.8999999761581421,\"generator\":{\"commit\":\"74988b2\",\"name\":\"stable-diffusion.cpp\",\"version\":\"unknown\"},\"height\":480,\"high_noise_sampling\":{\"eta\":null,\"extra_sample_args\":\"\",\"flow_shift\":null,\"guidance\":{\"distilled_guidance\":3.5,\"img_cfg\":null,\"slg\":{\"end\":0.20000000298023224,\"layers\":[7,8,9],\"scale\":0.0,\"start\":0.009999999776482582},\"txt_cfg\":7.0},\"method\":\"euler\",\"shifted_timestep\":0,\"steps\":20},\"increase_ref_index\":false,\"ip_adapter_strength\":1.0,\"mode\":\"vid_gen\",\"models\":{\"diffusion_model\":\"Wan2.2-TI2V-5B-Q8_0.gguf\",\"t5xxl\":\"umt5-xxl-encoder-Q8_0.gguf\",\"vae\":\"wan2.2_vae.safetensors\"},\"moe_boundary\":0.875,\"prompt\":{\"negative\":\"blurry, watermark, third-party logo, face, person\",\"positive\":\"Studio commercial 360 product spin on turntable, crisp rim lighting, clean background: a plain matte white ceramic coffee mug, no people, no hands, no text, no logos\"},\"rng\":\"cuda\",\"sampling\":{\"custom_sigmas\":[],\"eta\":null,\"extra_sample_args\":\"\",\"flow_shift\":5.0,\"guidance\":{\"distilled_guidance\":3.5,\"img_cfg\":null,\"slg\":{\"end\":0.20000000298023224,\"layers\":[7,8,9],\"scale\":0.0,\"start\":0.009999999776482582},\"txt_cfg\":5.0},\"method\":\"euler\",\"scheduler\":\"discrete\",\"shifted_timestep\":0,\"steps\":20},\"schema\":\"sdcpp.image.params/v1\",\"seed\":20261101,\"strength\":0.75,\"vace_strength\":1.0,\"video\":{\"fps\":16,\"frame_count\":33},\"width\":272}"
+     }
+    }
+   },
+   "measurement": {
+    "source": "ffmpeg_decoded_frames+numpy",
+    "metric_version": "studio-measure-v1",
+    "video_sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+    "width": 288,
+    "height": 480,
+    "frames_decoded": 33,
+    "distinct_frames": 33,
+    "motion_mean": 4.3538,
+    "motion_max": 31.0796,
+    "identical_consecutive_pairs": 0,
+    "non_black_luma_threshold": 16,
+    "non_black_ratio_min": 0.9743,
+    "laplacian_sharpness_min": 50.053,
+    "motion_min_threshold": 0.05,
+    "moving": true,
+    "keyframes": [
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 0,
+      "frame_index": 0,
+      "frame_sha256": "04e30f5ca832d7bacc8071f2d1f8619cca713c34a247eff3990e56ae6d0db90a",
+      "video_sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+      "brightness": 0.8749,
+      "contrast": 0.188,
+      "laplacian_sharpness": 161.872,
+      "non_black_ratio": 0.997,
+      "motion_to_next": 4.5455,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     },
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 25,
+      "frame_index": 8,
+      "frame_sha256": "d0a428038a85e7b00acb8c987d3c13ae7e662dd410fb1e9226fe9e44d286e5cd",
+      "video_sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+      "brightness": 0.8993,
+      "contrast": 0.1257,
+      "laplacian_sharpness": 50.053,
+      "non_black_ratio": 1.0,
+      "motion_to_next": 3.3011,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     },
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 50,
+      "frame_index": 16,
+      "frame_sha256": "2c1ac96dbbd06d68fd827f4a0683521a4b3d3b8f0344072d35376f700a53f457",
+      "video_sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+      "brightness": 0.9089,
+      "contrast": 0.1076,
+      "laplacian_sharpness": 78.732,
+      "non_black_ratio": 1.0,
+      "motion_to_next": 12.1027,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     },
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 75,
+      "frame_index": 24,
+      "frame_sha256": "eb6310960c978d226021f8704e15f05912dceefa7390780689774a3064595cc0",
+      "video_sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+      "brightness": 0.718,
+      "contrast": 0.2714,
+      "laplacian_sharpness": 102.637,
+      "non_black_ratio": 0.9824,
+      "motion_to_next": 7.0501,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     },
+     {
+      "source": "ffmpeg_decoded_frames+numpy",
+      "metric_version": "studio-measure-v1",
+      "position_pct": 100,
+      "frame_index": 32,
+      "frame_sha256": "2be7e68033766a8f4eaafe27c1226b20fdaae1710a1e702605a69c12c7020f75",
+      "video_sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+      "brightness": 0.7148,
+      "contrast": 0.2783,
+      "laplacian_sharpness": 120.403,
+      "non_black_ratio": 0.9743,
+      "motion_to_next": 2.8944,
+      "face_cosine_score": null,
+      "artifacts_detected": []
+     }
+    ]
+   },
+   "art_critic": {
+    "status": "PASS",
+    "score": 1.0,
+    "refusal": null,
+    "non_black_pass": true,
+    "sharpness_pass": true,
+    "motion_pass": true,
+    "face_cosine_pass": null,
+    "artifacts_clean_pass": true,
+    "media_sha256": "6737441c7a6d1cf0adaeda7cad98d07f21693644d64acbcb88ce3efb734c9bba",
+    "receipt_id": "QC-c3f22ea5-1a1cfa24",
+    "signature": "dd2ec1cd601ae0e3698687b21a9d69a255e94adb9d546c067bb4c06301d4502c"
+   }
+  }
+ },
+ "negative_files": {
+  "png_renamed_mp4": {
+   "verified": false,
+   "reason": "not_a_video_container",
+   "magic": "89504e470d0a1a0a"
+  },
+  "one_frame_mp4": {
+   "verified": false,
+   "reason": "not_a_moving_video",
+   "container": "mp4",
+   "format_name": "mov,mp4,m4a,3gp,3g2,mj2"
+  },
+  "critic_legacy_constants": {
+   "status": "REFUSED",
+   "score": 1.0,
+   "refusal": "placeholder_constants: the pre-31.10 hard-coded values are not a measurement",
+   "non_black_pass": true,
+   "sharpness_pass": true,
+   "motion_pass": true,
+   "face_cosine_pass": true,
+   "artifacts_clean_pass": true,
+   "media_sha256": null,
+   "receipt_id": "QC-neg-a5b87cb5",
+   "signature": "6e50265a8d0c0f003ad23a57478bc7cce1960595b7d60ee50657dae15b2674d4"
+  },
+  "critic_identical_rows": {
+   "status": "REFUSED",
+   "score": 1.0,
+   "refusal": "constant_measurements: every keyframe has identical metrics",
+   "non_black_pass": true,
+   "sharpness_pass": true,
+   "motion_pass": true,
+   "face_cosine_pass": null,
+   "artifacts_clean_pass": true,
+   "media_sha256": null,
+   "receipt_id": "QC-neg-a5b87cb5",
+   "signature": "0c0d2b3994467f0de409e009dfe5e6d34736fda4ca3e3a1bdcde723456d189cf"
+  },
+  "critic_other_file": {
+   "status": "REFUSED",
+   "score": 1.0,
+   "refusal": "media_sha256_mismatch: the measurements were not taken on this file",
+   "non_black_pass": true,
+   "sharpness_pass": true,
+   "motion_pass": true,
+   "face_cosine_pass": null,
+   "artifacts_clean_pass": true,
+   "media_sha256": null,
+   "receipt_id": "QC-neg-a5b87cb5",
+   "signature": "5f203d00c9bb1fe3eb6f6258230091fcd8170b565ea2e6bd4346d525a524fbf8"
+  },
+  "critic_unbound": {
+   "status": "REFUSED",
+   "score": 1.0,
+   "refusal": "unbound_measurements: a PASS needs media_path (the measured file)",
+   "non_black_pass": true,
+   "sharpness_pass": true,
+   "motion_pass": true,
+   "face_cosine_pass": null,
+   "artifacts_clean_pass": true,
+   "media_sha256": null,
+   "receipt_id": "QC-neg-a5b87cb5",
+   "signature": "d394553ecdfbc97071b96f49b897d36fd0c618562f4037f0c78ab30278b17331"
+  }
+ },
+ "checks": {
+  "engine_missing_503": true,
+  "default_preset_refused_422": true,
+  "face_refused_409": true,
+  "queued_job_not_completed": true,
+  "real_video_verified": true,
+  "time_measured": true,
+  "moving_measured": true,
+  "png_renamed_refused": true,
+  "one_frame_refused": true,
+  "critic_constants_refused": true,
+  "critic_other_file_refused": true,
+  "critic_unbound_not_pass": true
+ },
+ "commercial_qc": {
+  "order_status": "qc_failed",
+  "passed_signals": false,
+  "resolution_ok": false
+ },
+ "status": "PASS",
+ "finished_at": "2026-11-01T10:34:44+00:00"
+}
