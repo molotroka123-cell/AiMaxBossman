@@ -873,6 +873,27 @@
     m.append(tools, ans, meta); msgs.appendChild(m); autoScroll();
     return { m, tools, ans, meta, cards: {}, text: '', prompt: prompt || '', committed: 0, live: null, raf: 0 };
   }
+  const UNVERIFIED_ACTION = 'Действие не подтверждено. Проверьте исполнителя и доступ к нужному инструменту; для работы на ПК выберите локального агента.';
+  function isUnverifiedAction(value) {
+    return typeof value === 'string' && (value.includes('no_verified_action') || value.includes('effectful tool did not succeed'));
+  }
+  function isActionFailure(error, summary) {
+    return error != null && error !== '' ? isUnverifiedAction(error) : isUnverifiedAction(summary);
+  }
+  function partialUnverifiedAnswer(summary) {
+    if (typeof summary !== 'string') return '';
+    const marker = '\n\nДействие не подтверждено.';
+    const index = summary.lastIndexOf(marker);
+    if (index >= 0) return summary.slice(0, index).trim();
+    if (summary.startsWith('Действие не подтверждено.') || summary.startsWith('Действие не выполнено:') || isUnverifiedAction(summary)) return '';
+    return summary;
+  }
+  function actionFailureNotice(b) {
+    if (b.actionFailure) return;
+    const notice = el('div', 'notice privacy action-failure', UNVERIFIED_ACTION);
+    notice.setAttribute('role', 'alert');
+    b.m.insertBefore(notice, b.meta); b.actionFailure = notice;
+  }
   function typing(b, on, label) {
     const old = b.ans.querySelector('.typing');
     if (on && !b.text) {
@@ -1153,10 +1174,13 @@
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
         b.ended = true;
         if (b.photo) { b.text = turn.result || ''; restorePhotoTurn(b, turn); continue; }
-        if (turn.result) { b.text = turn.result; rich(b.ans, turn.result); } else if (turn.failure_summary || turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.failure_summary || turn.error; }
+        const actionFailed = turn.status === 'failed' && isActionFailure(turn.error, turn.failure_summary);
+        const shownResult = turn.result || (actionFailed ? partialUnverifiedAnswer(turn.failure_summary) : '');
+        if (shownResult) { b.text = shownResult; rich(b.ans, shownResult); } else if (!actionFailed && (turn.failure_summary || turn.error)) { b.ans.classList.add('error'); b.ans.textContent = turn.failure_summary || turn.error; }
+        if (actionFailed) actionFailureNotice(b);
         b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
         showAgentFiles(b, turn.files);
-        if (turn.result) msgActions(b);
+        if (shownResult) msgActions(b);
         if (turns.indexOf(turn) >= turns.length - 6) {
           api('GET', `/tasks/${turn.task_id}/history`).then((h) => (h.events || []).forEach((ev) => { if (ev.kind.startsWith('run.tool') || ev.kind.startsWith('approval') || ev.kind === 'tool.denied' || ev.kind === 'run.notice') applyEvent(b, ev, false); })).catch(() => {});
         }
@@ -1557,11 +1581,10 @@
     if (b.done) return; b.done = true; closeStream();
     try { t = t || await api('GET', `/tasks/${taskId}`); } catch { t = t || {}; }
     const lastRunRes = t.runs && t.runs.length ? t.runs[t.runs.length - 1].result : null;
-    const rawErr = t.failure_summary || lastRunRes || t.error || `задача: ${stRu(t.status)}`;
-    const ruErr = (typeof rawErr === 'string' && (rawErr.includes('effectful tool did not succeed') || rawErr.includes('no_verified_action')))
-      ? (rawErr.startsWith('Действие не выполнено:') ? rawErr : `Действие не выполнено: запрос отклонён вами или инструмент не выполнен (${rawErr}).`)
-      : rawErr;
-    finish(b, t.result, t.status === 'completed' ? null : ruErr, t.status, taskId);
+    const actionFailed = t.status === 'failed' && isActionFailure(t.error, t.failure_summary);
+    const rawErr = actionFailed ? UNVERIFIED_ACTION : t.failure_summary || lastRunRes || t.error || `задача: ${stRu(t.status)}`;
+    const partialResult = actionFailed ? (lastRunRes || partialUnverifiedAnswer(t.failure_summary)) : null;
+    finish(b, t.result || partialResult, t.status === 'completed' ? null : rawErr, t.status, taskId);
   }
   function finish(b, result, error, status, taskId) {
     if (!b.threadId || b.threadId === S.threadId) busy(false);
@@ -1569,8 +1592,9 @@
     if (result) { endStream(b, result); b.text = result; }
     else {
       if (b.text) endStream(b, b.text); else { stopPaint(b); b.ended = true; }
-      if (error && !b.text) { b.ans.classList.add('error'); b.ans.textContent = error; }
+      if (error && !b.text && error !== UNVERIFIED_ACTION) { b.ans.classList.add('error'); b.ans.textContent = error; }
     }
+    if (status === 'failed' && error === UNVERIFIED_ACTION) actionFailureNotice(b);
     const total = b.t0 ? (performance.now() - b.t0) / 1000 : null; const first = b.first && b.t0 ? (b.first - b.t0) / 1000 : null;
     b.meta.replaceChildren(placeBadge(b), el('span', '', [b.model, taskId ? `#${taskId}` : '', b.ctxNote || '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
     if (b.photo) photoAfterPrompt(b, status, error); else if (b.text) msgActions(b);

@@ -708,15 +708,8 @@ async def _task_views(svc: Any, ids: list[Any]) -> dict[int, dict]:
         last = task_runs[-1] if task_runs else None
         failure_summary = None
         if status == "failed" and not done:
-            last_res = str((last or {}).get("result") or "").strip()
-            if last_res:
-                failure_summary = last_res
-            elif error:
-                failure_summary = (
-                    f"Действие не выполнено: запрос отклонён владельцем или инструмент не выполнен ({error})."
-                    if ("effectful tool did not succeed" in str(error) or "no_verified_action" in str(error))
-                    else f"Задача завершилась с ошибкой: {error}"
-                )
+            from ..task_failure_summary import failure_summary as summarize_failure
+            failure_summary = summarize_failure(error, (last or {}).get("result"))
         out[tid] = {
             "status": status, "result": done[-1]["result"] if done else None, "error": error,
             "failure_summary": failure_summary,
