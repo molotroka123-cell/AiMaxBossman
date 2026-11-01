@@ -136,7 +136,9 @@ async def test_stop_clears_only_this_chats_queue(env, monkeypatch):
     assert [i["text"] for i in (await env.client.get(f"/api/chat/threads/{b}/queue")).json()["items"]] == ["B2"]
 
 
-async def test_queue_refusals(env):
+async def test_queue_refusals(env, monkeypatch):
+    # Only the refusals are under test: no drainer sends these 50 items (CI py3.14 hung on teardown with one running).
+    monkeypatch.setattr(ct, "_ensure_drainer", lambda *a, **k: None)
     agent = await _agent(env, "q4")
     tid = await _thread(env)
     for i in range(ct.QUEUE_MAX):

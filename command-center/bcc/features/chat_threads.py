@@ -1843,7 +1843,10 @@ async def _drain_queue(svc: Any, caller: _Caller, thread_id: str) -> None:
     уходит первым обычным ходом — ни одно слово владельца не теряется. Owner STOP — очередь стоит, не отправляется."""
     from .tools_cloud import stop_reason
     deadline = time.monotonic() + QUEUE_MAX_WAIT_S
+    stopping = getattr(svc, "_stopping", None)
     while time.monotonic() < deadline:
+        if stopping is not None and stopping.is_set():     # Bossman is shutting down: the queue file stays, resumes later
+            return
         items = (await asyncio.to_thread(_queue_read, svc)).get(thread_id) or []
         data = _load_session(svc, thread_id)
         if data is None:
