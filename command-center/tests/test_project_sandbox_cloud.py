@@ -121,3 +121,22 @@ async def test_set_task_workspace_marks_only_cloud_project_tasks(env):
         ids.append(t["id"])
     assert (await _task(env, ids[0]))["meta"].get("project_sandbox") is True
     assert not ((await _task(env, ids[1]))["meta"] or {}).get("project_sandbox")
+
+
+async def test_cloud_agent_outside_a_project_gets_no_tools_at_all(env):
+    """Live cloud matrix 01.11: Kimi/DeepSeek (cloud_pc_access True) asked the owner to approve a terminal in a chat
+    WITHOUT a project. Outside a project a cloud agent gets no tools; a local agent is untouched (negative control)."""
+    rich = (await _local_stack(env.client, tools=["terminal.run", "code.search"], base_url=CLOUD, name="kimi"))["agent"]
+    local = (await _local_stack(env.client, tools=["terminal.run"], name="loc"))["agent"]
+    ids = {}
+    for name, agent in (("cloud", rich), ("local", local)):
+        t = (await env.client.post("/api/tasks", json={"prompt": "x", "title": "x", "agent_id": agent["id"],
+                                                       "run_now": False})).json()["task"]
+        ids[name] = (t["id"], await cp.restrict_cloud_without_project(env.svc, t["id"], agent["id"], None))
+    assert ids["cloud"][1] is True and ids["local"][1] is False
+    cloud_task = await _task(env, ids["cloud"][0])
+    assert cloud_task["meta"]["allowed_tools"] == []
+    assert tools_mod.allowed_tools_for(cloud_task, {"tools": ["terminal.run"], "permissions": {"cloud_pc_access": True}}) == []
+    # in a project the sandbox rule applies, not this one
+    p = await _project(env, "With project")
+    assert await cp.restrict_cloud_without_project(env.svc, ids["cloud"][0], rich["id"], Path(p["path"])) is False

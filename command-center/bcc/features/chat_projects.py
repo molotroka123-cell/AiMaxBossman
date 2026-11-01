@@ -355,6 +355,29 @@ async def sandbox_for(svc: Any, agent_id: Any, folder: Path | None) -> bool:
     return await cloud_sandbox(svc, await _agent_row(svc, agent_id))
 
 
+async def restrict_cloud_without_project(svc: Any, task_id: int, agent_id: Any, folder: Path | None) -> bool:
+    """Owner 01.11 «облачные агенты - внутри проекта максимум»: a CLOUD agent's chat turn outside a project gets no
+    tools at all (`allowed_tools: []`), so it answers in text instead of asking the owner to approve a terminal
+    (live cloud matrix 01.11: Kimi 47 / DeepSeek 51 tasks 941/947 sat in waiting_approval). In a project the sandbox
+    applies (set_task_workspace). Returns True when the turn was restricted."""
+    if folder is not None:
+        return False
+    if not await cloud_sandbox(svc, await _agent_row(svc, agent_id)):
+        return False
+    from ..db import fetch_one, tasks as tasks_t
+    async with svc.db.session() as s:
+        task = await fetch_one(s, tasks_t, int(task_id))
+    if task is None:
+        return False
+    meta = dict(task.get("meta") or {}) if isinstance(task.get("meta"), dict) else {}
+    meta["allowed_tools"] = []
+    meta["cloud_outside_project"] = True
+    async with svc.db.session() as s:
+        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == int(task_id)).values(meta=meta))
+        await s.commit()
+    return True
+
+
 async def set_task_workspace(svc: Any, task_id: int, folder: Path | None) -> None:
     if folder is None:
         return

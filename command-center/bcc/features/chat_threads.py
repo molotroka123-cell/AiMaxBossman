@@ -1650,6 +1650,8 @@ async def _send_core(request: Any, thread_id: str, body: SendIn) -> dict:
     if created.get("replayed"):
         return await _replay(request, svc, thread_id, task, text, body.attachments)
     await set_task_workspace(svc, int(task["id"]), workspace)
+    from .chat_projects import restrict_cloud_without_project
+    await restrict_cloud_without_project(svc, int(task["id"]), agent["id"], workspace)
 
     # 3. Ход в файл сессии (его увидит и `bossman chat`), затем запуск.
     turn = _new_turn(int(task["id"]), text, attachments)
