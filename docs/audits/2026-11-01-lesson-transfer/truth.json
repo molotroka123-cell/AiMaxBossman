@@ -1,0 +1,356 @@
+{
+ "truth": {
+  "C01": {
+   "kind": "money",
+   "value": "19203.56"
+  },
+  "C02": {
+   "kind": "money",
+   "value": "29270.38"
+  },
+  "C03": {
+   "kind": "money",
+   "value": "5300.41"
+  },
+  "C04": {
+   "kind": "money",
+   "value": "248.00"
+  },
+  "C05": {
+   "kind": "number",
+   "value": "232"
+  },
+  "C06": {
+   "kind": "number",
+   "value": "7"
+  },
+  "C07": {
+   "kind": "number",
+   "value": "19"
+  },
+  "C08": {
+   "kind": "number",
+   "value": "391"
+  },
+  "C09": {
+   "kind": "number",
+   "value": "210"
+  },
+  "C10": {
+   "kind": "number",
+   "value": "360"
+  },
+  "C11": {
+   "kind": "number",
+   "value": "6"
+  },
+  "C12": {
+   "kind": "text",
+   "value": "воскресенье"
+  },
+  "H01": {
+   "diag": {
+    "half_up_would_be": "29598.49",
+    "no_margin_would_be": "28736.40"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "1200",
+    "ccy": "USDT",
+    "mid": "23.947",
+    "side": "BUY"
+   },
+   "value": "29598.50"
+  },
+  "H02": {
+   "diag": {
+    "half_up_would_be": "20050.19",
+    "no_margin_would_be": "20670.30"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "850",
+    "ccy": "EUR",
+    "mid": "24.318",
+    "side": "SELL"
+   },
+   "value": "20050.19"
+  },
+  "H03": {
+   "diag": {
+    "half_up_would_be": "16074.59",
+    "no_margin_would_be": "15606.40"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "640",
+    "ccy": "EUR",
+    "mid": "24.385",
+    "side": "BUY"
+   },
+   "value": "16074.60"
+  },
+  "H04": {
+   "diag": {
+    "half_up_would_be": "53260.66",
+    "no_margin_would_be": "54907.90"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "2300",
+    "ccy": "USDT",
+    "mid": "23.873",
+    "side": "SELL"
+   },
+   "value": "53260.66"
+  },
+  "H05": {
+   "diag": {
+    "half_up_would_be": "76609.13",
+    "no_margin_would_be": "74377.80"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "3150",
+    "ccy": "USD",
+    "mid": "23.612",
+    "side": "BUY"
+   },
+   "value": "76609.14"
+  },
+  "H06": {
+   "diag": {
+    "half_up_would_be": "10831.77",
+    "no_margin_would_be": "11166.78"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "475",
+    "ccy": "USD",
+    "mid": "23.509",
+    "side": "SELL"
+   },
+   "value": "10831.77"
+  },
+  "H07": {
+   "diag": {
+    "half_up_would_be": "24686.90",
+    "no_margin_would_be": "23967.86"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "980",
+    "ccy": "EUR",
+    "mid": "24.457",
+    "side": "BUY"
+   },
+   "value": "24686.90"
+  },
+  "H08": {
+   "diag": {
+    "half_up_would_be": "38650.08",
+    "no_margin_would_be": "39845.44"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "1640",
+    "ccy": "EUR",
+    "mid": "24.296",
+    "side": "SELL"
+   },
+   "value": "38650.07"
+  },
+  "H09": {
+   "diag": {
+    "half_up_would_be": "67926.18",
+    "no_margin_would_be": "65947.75"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "2750",
+    "ccy": "USDT",
+    "mid": "23.981",
+    "side": "BUY"
+   },
+   "value": "67926.19"
+  },
+  "H10": {
+   "diag": {
+    "half_up_would_be": "16784.65",
+    "no_margin_would_be": "17303.76"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "720",
+    "ccy": "USDT",
+    "mid": "24.033",
+    "side": "SELL"
+   },
+   "value": "16784.64"
+  },
+  "H11": {
+   "diag": {
+    "half_up_would_be": "12453.37",
+    "no_margin_would_be": "12090.66"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "515",
+    "ccy": "USD",
+    "mid": "23.477",
+    "side": "BUY"
+   },
+   "value": "12453.38"
+  },
+  "H12": {
+   "diag": {
+    "half_up_would_be": "89108.57",
+    "no_margin_would_be": "91864.50"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "3900",
+    "ccy": "USD",
+    "mid": "23.555",
+    "side": "SELL"
+   },
+   "value": "89108.56"
+  },
+  "H13": {
+   "diag": {
+    "half_up_would_be": "47139.88",
+    "no_margin_would_be": "45766.88"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "1875",
+    "ccy": "EUR",
+    "mid": "24.409",
+    "side": "BUY"
+   },
+   "value": "47139.89"
+  },
+  "H14": {
+   "diag": {
+    "half_up_would_be": "26590.49",
+    "no_margin_would_be": "27412.88"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "1125",
+    "ccy": "EUR",
+    "mid": "24.367",
+    "side": "SELL"
+   },
+   "value": "26590.48"
+  },
+  "H15": {
+   "diag": {
+    "half_up_would_be": "10586.64",
+    "no_margin_would_be": "10278.29"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "430",
+    "ccy": "USDT",
+    "mid": "23.903",
+    "side": "BUY"
+   },
+   "value": "10586.64"
+  },
+  "H16": {
+   "diag": {
+    "half_up_would_be": "120647.44",
+    "no_margin_would_be": "124378.80"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "5200",
+    "ccy": "USDT",
+    "mid": "23.919",
+    "side": "SELL"
+   },
+   "value": "120647.43"
+  },
+  "H17": {
+   "diag": {
+    "half_up_would_be": "49083.95",
+    "no_margin_would_be": "47654.33"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "2025",
+    "ccy": "USD",
+    "mid": "23.533",
+    "side": "BUY"
+   },
+   "value": "49083.96"
+  },
+  "H18": {
+   "diag": {
+    "half_up_would_be": "16378.44",
+    "no_margin_would_be": "16884.99"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "690",
+    "ccy": "EUR",
+    "mid": "24.471",
+    "side": "SELL"
+   },
+   "value": "16378.44"
+  },
+  "H19": {
+   "diag": {
+    "half_up_would_be": "37698.00",
+    "no_margin_would_be": "36600.00"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "1500",
+    "ccy": "EUR",
+    "mid": "24.400",
+    "side": "BUY"
+   },
+   "value": "37698.00"
+  },
+  "H20": {
+   "diag": {
+    "half_up_would_be": "45590.00",
+    "no_margin_would_be": "47000.00"
+   },
+   "kind": "money",
+   "params": {
+    "amount": "2000",
+    "ccy": "USD",
+    "mid": "23.500",
+    "side": "SELL"
+   },
+   "value": "45590.00"
+  },
+  "I01": {
+   "kind": "money",
+   "value": "14394.48"
+  },
+  "I02": {
+   "kind": "money",
+   "value": "62703.83"
+  },
+  "I03": {
+   "kind": "money",
+   "value": "431.12"
+  },
+  "I04": {
+   "kind": "money",
+   "value": "1098.090"
+  },
+  "I05": {
+   "kind": "money",
+   "value": "23.26"
+  },
+  "I06": {
+   "kind": "money",
+   "value": "314.58"
+  }
+ }
+}

@@ -1,0 +1,1276 @@
+{
+ "schema": "lesson-transfer-results.v1",
+ "prereg_commit": "cc40df39",
+ "truth_json_sha256": "41a77862e34e7e152a8e41ef9e4151df932f567158e164c418a68df1a9ebd743",
+ "model": "qwen3-coder-30b-ctx32k:latest",
+ "repetitions": 3,
+ "decision": {
+  "verdict": "FAIL",
+  "reasons": [
+   "delta 3 <= 3"
+  ],
+  "heldout": {
+   "baseline": 0,
+   "after": 3,
+   "of": 20,
+   "delta": 3,
+   "improved": [
+    "H03",
+    "H09",
+    "H20"
+   ],
+   "worsened": [],
+   "sign_test_p_one_sided": 0.125
+  },
+  "independent": {
+   "baseline": 0,
+   "after": 3,
+   "of": 6,
+   "delta": 3,
+   "generalises": true
+  },
+  "control": {
+   "baseline": 10,
+   "after": 11,
+   "of": 12,
+   "regressions": [],
+   "gains": [
+    "C03"
+   ]
+  },
+  "recall": {
+   "after_heldout_rate": 1.0,
+   "baseline_lesson_recalls": 0,
+   "after_independent_rate": 1.0,
+   "after_control_rate": 0.9167
+  },
+  "infra_failure_share": {
+   "baseline": 0.0,
+   "after": 0.0
+  },
+  "run_level": {
+   "baseline": {
+    "heldout": "0/60",
+    "independent": "0/18",
+    "control": "30/36"
+   },
+   "after": {
+    "heldout": "9/60",
+    "independent": "9/18",
+    "control": "32/36"
+   }
+  }
+ },
+ "lesson": {
+  "id": 2,
+  "status_at_record": "lesson_recorded",
+  "proven_learning_flag": false,
+  "duplicate_deduped": true,
+  "author": "claude",
+  "source": "file:bossman_shared/exchange_assistant/quote.py",
+  "observed_at": "2026-11-01T00:00:00",
+  "valid_from": "2026-10-19T00:00:00",
+  "remote_writer": true,
+  "limitations": [
+   "Только наценка по умолчанию 3 %: если менеджер задал свою ставку или включён строгий режим compute_quote_strict (COM-UP-1), коэффициенты 1.03/0.97 не действуют.",
+   "mid в задачах берётся из условия; настоящий стол берёт курсы ЧНБ/ЕЦБ/ручные с TTL, USDT через USDT/USD.",
+   "Проверено на синтетических котировках и упражнении swap_desk_quote_v1; на реальных сделках не проверялось.",
+   "Запись урока — не обучение весов модели; применение урока доказывается отдельным экспериментом."
+  ],
+  "provenance_negatives_http": {
+   "cloud_header_owner_personal": 403,
+   "codex_finance_private": 403,
+   "claude_credentials": 403,
+   "writer_sets_verified": 422,
+   "no_source": 422,
+   "verify_by_claim": 422,
+   "verify_wrong_exercise_kind": 422
+  },
+  "lessons_total_incl_private_after_negatives": 1
+ },
+ "restart_survival": {
+  "all_same": true,
+  "fields": {
+   "id": true,
+   "title": true,
+   "body": true,
+   "author": true,
+   "source": true,
+   "observed_at": true,
+   "valid_from": true,
+   "limitations": true,
+   "category": true,
+   "content_hash": true,
+   "status": true,
+   "remote_writer": true
+  }
+ },
+ "exercise_verify": {
+  "eval_passed": false,
+  "status": "lesson_recorded",
+  "receipt": {
+   "checker": "bizcheck-2026.10.31-v1",
+   "exercise_id": "swap_desk_quote_v1",
+   "passed": false,
+   "fields_checked": 4,
+   "fields_failed": 2,
+   "failed_fields": [
+    "czk.Q-3",
+    "czk.Q-4"
+   ],
+   "score": 0.5,
+   "answer_sha256": "13fe970f6969ad39a61d636131eb19fd49628e76b1fc95735c691a5eb24d4cdf",
+   "key_sha256": "05ade1220d63efccc6c3038a2688af9c9d9b7c3ca347597c5f1b731d1d562c1f",
+   "checked_at": "2026-11-01T12:12:27+00:00",
+   "simulated": true,
+   "receipt_sha256": "adb3de90b30f35e7238450dfe6c559dc30eae7ace9aab61e1728b11a4b822b62"
+  },
+  "proven_learning": false
+ },
+ "exercise_model_answer": {
+  "czk": {
+   "Q-1": "25750.00",
+   "Q-2": "24250.00",
+   "Q-3": "18369.75",
+   "Q-4": "29964.37"
+  }
+ },
+ "timing_seconds": {
+  "baseline": {
+   "median": 4.06,
+   "max": 32.27,
+   "n": 114
+  },
+  "after": {
+   "median": 6.52,
+   "max": 306.2,
+   "n": 114
+  }
+ },
+ "per_task": {
+  "C01": {
+   "set": "control",
+   "truth": "19203.56",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "19203.56",
+     "19203.56",
+     "19203.56"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "19203.56",
+     "19203.56",
+     "19203.56"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C02": {
+   "set": "control",
+   "truth": "29270.38",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "29270.38",
+     "29270.38",
+     "29270.38"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "29270.38",
+     "29270.38",
+     "29270.38"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C03": {
+   "set": "control",
+   "truth": "5300.41",
+   "diag": null,
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "5301.41",
+     "5301.41",
+     "5301.41"
+    ]
+   },
+   "after": {
+    "n_correct": 2,
+    "pass": true,
+    "parsed": [
+     "5300.41",
+     "5300.41",
+     "5301.41"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C04": {
+   "set": "control",
+   "truth": "248.00",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "248",
+     "248",
+     "248"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "248",
+     "248",
+     "248"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C05": {
+   "set": "control",
+   "truth": "232",
+   "diag": null,
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "243",
+     "243",
+     "243"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "242",
+     "242",
+     "242"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C06": {
+   "set": "control",
+   "truth": "7",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "7",
+     "7",
+     "7"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "7",
+     "7",
+     "7"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C07": {
+   "set": "control",
+   "truth": "19",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "19",
+     "19",
+     "19"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "19",
+     "19",
+     "19"
+    ],
+    "lesson_recalled": [
+     false,
+     false,
+     false
+    ]
+   }
+  },
+  "C08": {
+   "set": "control",
+   "truth": "391",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "391",
+     "391",
+     "391"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "391",
+     "391",
+     "391"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C09": {
+   "set": "control",
+   "truth": "210",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "210",
+     "210",
+     "210"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "210",
+     "210",
+     "210"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C10": {
+   "set": "control",
+   "truth": "360",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "360",
+     "360",
+     "360"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "360",
+     "360",
+     "360"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C11": {
+   "set": "control",
+   "truth": "6",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "6",
+     "6",
+     "6"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "6",
+     "6",
+     "6"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "C12": {
+   "set": "control",
+   "truth": "воскресенье",
+   "diag": null,
+   "baseline": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "воскресенье",
+     "воскресенье",
+     "воскресенье"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "воскресенье",
+     "воскресенье",
+     "воскресенье"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H01": {
+   "set": "heldout",
+   "truth": "29598.50",
+   "diag": {
+    "half_up_would_be": "29598.49",
+    "no_margin_would_be": "28736.40"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "28736.4",
+     "28736.4",
+     "28736.4"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "29698.60",
+     "29698.60",
+     "29698.60"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H02": {
+   "set": "heldout",
+   "truth": "20050.19",
+   "diag": {
+    "half_up_would_be": "20050.19",
+    "no_margin_would_be": "20670.30"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "20670.3",
+     "20670.3",
+     "20670.3"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "19167.49",
+     "19167.49",
+     "19167.49"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H03": {
+   "set": "heldout",
+   "truth": "16074.60",
+   "diag": {
+    "half_up_would_be": "16074.59",
+    "no_margin_would_be": "15606.40"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "15606.4",
+     "15606.4",
+     "15606.4"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "16074.60",
+     "16074.60",
+     "16074.60"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H04": {
+   "set": "heldout",
+   "truth": "53260.66",
+   "diag": {
+    "half_up_would_be": "53260.66",
+    "no_margin_would_be": "54907.90"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "54907.9",
+     "54907.9",
+     "54907.9"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "53259.66",
+     "53259.66",
+     "53259.66"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H05": {
+   "set": "heldout",
+   "truth": "76609.14",
+   "diag": {
+    "half_up_would_be": "76609.13",
+    "no_margin_would_be": "74377.80"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "74478.8",
+     "74478.8",
+     "74478.8"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "76610.17",
+     "76609.17",
+     "76590.17"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H06": {
+   "set": "heldout",
+   "truth": "10831.77",
+   "diag": {
+    "half_up_would_be": "10831.77",
+    "no_margin_would_be": "11166.78"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "11181.775",
+     "11181.775",
+     "11181.775"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "10454.22",
+     "10454.22",
+     "10536.41"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H07": {
+   "set": "heldout",
+   "truth": "24686.90",
+   "diag": {
+    "half_up_would_be": "24686.90",
+    "no_margin_would_be": "23967.86"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "23967.86",
+     "23967.86",
+     "23967.86"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "24687.00",
+     "24687.00",
+     "24687.00"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H08": {
+   "set": "heldout",
+   "truth": "38650.07",
+   "diag": {
+    "half_up_would_be": "38650.08",
+    "no_margin_would_be": "39845.44"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "39823.04",
+     "39823.04",
+     "39823.04"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "37096.59",
+     "37096.61",
+     "37096.59"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H09": {
+   "set": "heldout",
+   "truth": "67926.19",
+   "diag": {
+    "half_up_would_be": "67926.18",
+    "no_margin_would_be": "65947.75"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "65947.75",
+     "65947.75",
+     "65947.75"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "67926.19",
+     "67926.19",
+     "67926.19"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H10": {
+   "set": "heldout",
+   "truth": "16784.64",
+   "diag": {
+    "half_up_would_be": "16784.65",
+    "no_margin_would_be": "17303.76"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "17293.76",
+     "17293.76",
+     "17293.76"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "16788.82",
+     "16788.82",
+     "16788.82"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H11": {
+   "set": "heldout",
+   "truth": "12453.38",
+   "diag": {
+    "half_up_would_be": "12453.37",
+    "no_margin_would_be": "12090.66"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "12087",
+     "12087",
+     "12087"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "12454.01",
+     "12449.36",
+     "12449.36"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H12": {
+   "set": "heldout",
+   "truth": "89108.56",
+   "diag": {
+    "half_up_would_be": "89108.57",
+    "no_margin_would_be": "91864.50"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "91864.5",
+     "91864.5",
+     "91864.5"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "87168.54",
+     "87168.54",
+     "87168.54"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H13": {
+   "set": "heldout",
+   "truth": "47139.89",
+   "diag": {
+    "half_up_would_be": "47139.88",
+    "no_margin_would_be": "45766.88"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "45768",
+     "45767.625",
+     "45768"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "47140.66",
+     "47140.66",
+     "47140.66"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H14": {
+   "set": "heldout",
+   "truth": "26590.48",
+   "diag": {
+    "half_up_would_be": "26590.49",
+    "no_margin_would_be": "27412.88"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "27438.375",
+     "27450.375",
+     "27450.375"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "26515.22",
+     "26515.22",
+     "26515.22"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H15": {
+   "set": "heldout",
+   "truth": "10586.64",
+   "diag": {
+    "half_up_would_be": "10586.64",
+    "no_margin_would_be": "10278.29"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "10278.29",
+     "10278.29",
+     "10278.29"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "10586.65",
+     "10586.65",
+     "10586.65"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H16": {
+   "set": "heldout",
+   "truth": "120647.43",
+   "diag": {
+    "half_up_would_be": "120647.44",
+    "no_margin_would_be": "124378.80"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "124378.8",
+     "124378.8",
+     "124378.8"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "120646.43",
+     "120646.43",
+     "120646.43"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H17": {
+   "set": "heldout",
+   "truth": "49083.96",
+   "diag": {
+    "half_up_would_be": "49083.95",
+    "no_margin_would_be": "47654.33"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "47489",
+     "47489",
+     "47489"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "49078.91",
+     "49130.54",
+     "49078.91"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H18": {
+   "set": "heldout",
+   "truth": "16378.44",
+   "diag": {
+    "half_up_would_be": "16378.44",
+    "no_margin_would_be": "16884.99"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "16884.99",
+     "16884.99",
+     "16884.99"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "16388.44",
+     "16388.44",
+     "16388.44"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H19": {
+   "set": "heldout",
+   "truth": "37698.00",
+   "diag": {
+    "half_up_would_be": "37698.00",
+    "no_margin_would_be": "36600.00"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "36600",
+     "36600",
+     "36600"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "37798.00",
+     "37798.00",
+     "37798.00"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "H20": {
+   "set": "heldout",
+   "truth": "45590.00",
+   "diag": {
+    "half_up_would_be": "45590.00",
+    "no_margin_would_be": "47000.00"
+   },
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "46530",
+     "46647.5",
+     "46530"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "45590.00",
+     "45590.00",
+     "45590.00"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "I01": {
+   "set": "independent",
+   "truth": "14394.48",
+   "diag": null,
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "14871.68",
+     "14871.68",
+     "14871.68"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "14394.48",
+     "14394.48",
+     "14394.48"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "I02": {
+   "set": "independent",
+   "truth": "62703.83",
+   "diag": null,
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "60877.5",
+     "60877.5",
+     "60877.5"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "62693.83",
+     "63733.89",
+     "63733.89"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "I03": {
+   "set": "independent",
+   "truth": "431.12",
+   "diag": null,
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "3",
+     "14.3706",
+     "3"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "615.55",
+     "323.45",
+     "321.28"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "I04": {
+   "set": "independent",
+   "truth": "1098.090",
+   "diag": null,
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "274.5225",
+     "549.045",
+     "274.5225"
+    ]
+   },
+   "after": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "1188.09",
+     "1188.09",
+     "1188.09"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "I05": {
+   "set": "independent",
+   "truth": "23.26",
+   "diag": null,
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "23.987",
+     "23.987",
+     "23.987"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "23.26",
+     "23.26",
+     "23.26"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  "I06": {
+   "set": "independent",
+   "truth": "314.58",
+   "diag": null,
+   "baseline": {
+    "n_correct": 0,
+    "pass": false,
+    "parsed": [
+     "305.4125",
+     "305.4125",
+     "305.4125"
+    ]
+   },
+   "after": {
+    "n_correct": 3,
+    "pass": true,
+    "parsed": [
+     "314.58",
+     "314.58",
+     "314.58"
+    ],
+    "lesson_recalled": [
+     true,
+     true,
+     true
+    ]
+   }
+  }
+ }
+}
