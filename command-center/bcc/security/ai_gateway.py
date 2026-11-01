@@ -308,7 +308,12 @@ _TWELVE_LOWER_WORDS_RE = re.compile(r"\b([a-z]{3,8}(?:\s+[a-z]{3,8}){11,23})\b")
 # Confidential domains / markers (personal memory, private repo files, keys/vaults)
 _CONFIDENTIAL_PATH_RE = re.compile(
     r"(?i)(?:^|[\s/\\])(?:\.env(?:\.[a-z0-9_\-]+)?|provider-keys\.env|id_rsa|id_ed25519|"
-    r"[^\s/\\]*vault[^\s/\\]*\.(?:db|json|key)|[^\s/\\]*\.pem|[^\s/\\]*\.key)(?:$|[\s/\\])"
+    r"[^\s/\\]*vault[^\s/\\]*\.(?:db|json|key)|[^\s/\\]*\.pem|"
+    # owner 01.11 (Roblox game, GLM blocked): any word ending in «.key» («pass.key» in a code comment) was a «secret
+    # file». A .key is a secret when its name says so (private/server/tls/ssh/api/wallet/cred...) or it sits in a path.
+    r"[^\s/\\]*(?:priv|secret|server|client|tls|ssl|cert|ssh|sign|api|master|wallet|cred|token|auth)[^\s/\\]*\.key)"
+    r"(?:$|[\s/\\])"
+    r"|(?<=[/\\])[^\s/\\]+\.key(?:$|[\s/\\])"
 )
 _PERSONAL_HINTS = tuple(
     "".join(parts)
