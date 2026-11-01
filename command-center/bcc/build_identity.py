@@ -46,6 +46,36 @@ _lock = threading.Lock()
 _cached: tuple[float, dict[str, Any]] | None = None
 
 
+#: Sibling packages of this repo that the backend imports. Each must come from the SAME checkout as bcc.
+SIBLING_PACKAGES = ("bossman_shared", "bossman")
+
+
+def _foreign_packages() -> list[str]:
+    """Sibling packages that would be (or were) imported from outside this checkout."""
+    import importlib.util
+    import sys
+    repo = Path(__file__).resolve().parents[2]
+    out: list[str] = []
+    for name in SIBLING_PACKAGES:
+        mod = sys.modules.get(name)
+        origin = getattr(mod, "__file__", None) if mod is not None else None
+        if origin is None:
+            try:
+                spec = importlib.util.find_spec(name)
+            except (ImportError, ValueError):
+                spec = None
+            origin = spec.origin if spec is not None else None
+        if not origin:
+            continue
+        own = (repo / name).resolve()
+        try:
+            Path(origin).resolve().relative_to(repo)
+        except ValueError:
+            if own.is_dir() or (repo / "bossman-core" / name).is_dir():   # the checkout has its own copy: mixed
+                out.append(f"{name} из {Path(origin).resolve().parent}")
+    return out
+
+
 def _resolve() -> dict[str, Any]:
     from .run_provenance import NOT_CAPTURED, repository_sha
 
@@ -66,6 +96,15 @@ def _resolve() -> dict[str, Any]:
                 "detail": ("установленная сборка без bcc/_build.json"
                            if installed else
                            "рабочее дерево не является чистым git-чекаутом этого пакета")}
+    foreign = [] if installed else _foreign_packages()
+    if foreign:
+        # Owner audit 01.11: the runtime ran bcc from a clean checkout while `bossman_shared` was imported from
+        # ANOTHER checkout (a global editable install) - identity said PASS for a mixed tree.
+        return {"build_sha": None, "build_sha_short": None,
+                "release_version": RELEASE_VERSION,
+                "source_identity": UNKNOWN,
+                "git_clean": False, "source": "checkout",
+                "detail": "смешанные источники: " + "; ".join(foreign)}
     return {"build_sha": sha, "build_sha_short": sha[:12],
             "release_version": RELEASE_VERSION,
             "source_identity": "PASS",
