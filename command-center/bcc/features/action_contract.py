@@ -67,6 +67,8 @@ capability/action-contract слой (эта пара хуков), а не по �
 """
 from __future__ import annotations
 
+import asyncio
+
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1413,10 +1415,26 @@ async def _gate(svc):
                          f"пересказывай шаги владельцу. Текстовая инструкция не завершает задачу."))
 
         names = [cap.name for cap in missing]
+        # Live owner run 31.10 (task 866): «Запомни кодовое слово X. Ответь: ок» in a pult CHAT, to an agent without
+        # any memory tool, failed the turn. In a chat the turn itself is kept in the chat history (that is what the next
+        # turn and a model switch read), so the request is honoured without a memory tool — not a false claim.
+        # Only MEMORY_ACTION, only without memory tools, only for a turn of a pult chat; everything else is unchanged.
+        if not has_tools and names == ["MEMORY_ACTION"] * len(names) and await _is_chat_turn(svc, int(task["id"])):
+            await svc.bus.emit("action_contract.memory_kept_in_chat", task_id=task["id"], run_id=run_id)
+            return _verdict("NOT_APPLICABLE")
         await svc.bus.emit("action_contract.blocked", task_id=task["id"], run_id=run_id,
                            capabilities=names, has_tools=has_tools)
         return _verdict("FAIL", rule=RULE, requeue=False, status="failed")
     return gate_completion
+
+
+async def _is_chat_turn(svc, task_id: int) -> bool:
+    """The task is a turn of a pult/CLI chat session (its id is recorded in a session file)."""
+    try:
+        from .chat_threads import _thread_of_task
+        return await asyncio.to_thread(_thread_of_task, svc, task_id, exclude="") is not None
+    except Exception:                  # no chat store / unreadable session: not a chat turn (fail closed = old rule)
+        return False
 
 
 async def _on_step(svc):
