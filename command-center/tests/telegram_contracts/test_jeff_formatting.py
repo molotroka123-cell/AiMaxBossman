@@ -96,7 +96,9 @@ def test_send_uses_html_then_falls_back_plain():
     assert sent[1]["text"] == "Ответ с **жирным** и `кодом`"
 
 
-def test_send_without_parse_mode_stays_plain():
+def test_send_with_parse_mode_none_stays_plain():
+    # Owner 31.10 (0d8e27db): the default became parse_mode="HTML"; a deliberately raw message
+    # passes parse_mode=None and must still go out untouched, with no parse_mode at all.
     sent = []
 
     def handler(request: httpx.Request):
@@ -106,10 +108,13 @@ def test_send_without_parse_mode_stays_plain():
     async def run():
         tg = Telegram(cfg(bot_token="test-fixture"), transport=httpx.MockTransport(handler))
         try:
-            await tg.send(OWNER, "**не форматировать**")
+            await tg.send(OWNER, "**не форматировать**", parse_mode=None)
+            await tg.send(OWNER, "**жирный** <i>x</i>")
         finally:
             await tg.close()
 
     asyncio.run(run())
     assert "parse_mode" not in sent[0]
     assert sent[0]["text"] == "**не форматировать**"
+    assert sent[1]["parse_mode"] == "HTML"                      # default: rendered, markup in text escaped
+    assert sent[1]["text"] == "<b>жирный</b> &lt;i&gt;x&lt;/i&gt;"

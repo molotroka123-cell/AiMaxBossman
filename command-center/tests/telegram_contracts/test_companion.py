@@ -203,7 +203,9 @@ def test_getme_is_only_auth_not_full_readiness():
     asyncio.run(run())
 
 
-def test_token_redaction_and_literal_unformatted_messages():
+def test_token_redaction_and_markup_in_text_arrives_literally():
+    # Owner 31.10 (0d8e27db): pult messages go as parse_mode=HTML. Markup INSIDE the text must
+    # still arrive literally: to_telegram_html escapes everything before its own whitelist.
     token='123456789:' + 'A' * 35
     assert token not in scrub('https://api.telegram.org/bot' + token + '/getMe')
     sent=[]
@@ -214,7 +216,8 @@ def test_token_redaction_and_literal_unformatted_messages():
         try: await tg.send(OWNER,'<b>text</b> '+token)
         finally: await tg.close()
     asyncio.run(run())
-    assert token not in sent[0]['text'] and 'parse_mode' not in sent[0]
+    assert token not in sent[0]['text'] and sent[0]['parse_mode'] == 'HTML'
+    assert '<b>' not in sent[0]['text'] and '&lt;b&gt;text&lt;/b&gt;' in sent[0]['text']
     assert sent[0]['disable_web_page_preview'] is True
 
 

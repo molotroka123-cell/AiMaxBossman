@@ -274,7 +274,9 @@ def test_worker_roundtrip_owner_gets_main_reply_stranger_gets_nothing(tmp_path):
     buttons = messages[0].pop('reply_markup')['inline_keyboard'][0]
     assert [b['text'] for b in buttons] == ['🔁 Ещё раз', '⚡ Ответить быстрой']
     assert all(len(b['callback_data']) == 18 and 'Как дела' not in b['callback_data'] for b in buttons)
-    assert messages == [{'chat_id': OWNER.chat_id, 'text': '🧠 Лучшая · main-fixture\n\nMAIN ответ', 'disable_web_page_preview': True}]
+    # owner 31.10 (0d8e27db): pult text goes as Telegram HTML, escaped first
+    assert messages == [{'chat_id': OWNER.chat_id, 'text': '🧠 Лучшая · main-fixture\n\nMAIN ответ', 'disable_web_page_preview': True,
+                         'parse_mode': 'HTML'}]
     assert all(b.get('chat_id') == OWNER.chat_id for _, b in sent)
     assert {m for m, _ in sent} <= {'sendMessage', 'sendChatAction'}
 

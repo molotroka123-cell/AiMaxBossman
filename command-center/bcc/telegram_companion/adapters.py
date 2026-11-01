@@ -1159,11 +1159,11 @@ class Core:
             raise CompanionError("EXECUTOR_CHANGED_REVIEW_AGAIN")
         if before_submit is not None:
             before_submit()
-        from .formatting import TELEGRAM_STYLE_GUIDE
-        title = "Telegram: " + prompt[:60]
-        prompt = prompt.rstrip() + "\n\n[Ответ уйдёт в Telegram-пульт владельца]\n" + TELEGRAM_STYLE_GUIDE
+        # The executor receives EXACTLY the text the owner saw in the preview and confirmed
+        # (owner scenario OS-110). Appending the Telegram style guide here (0d8e27db) sent a
+        # prompt the owner never saw; the answer is still rendered as Telegram HTML on delivery.
         payload = {
-            "prompt": prompt, "title": title,
+            "prompt": prompt, "title": "Telegram: " + prompt[:60],
             "agent_id": person.agent_id, "run_now": True, "max_retries": 0,
         }
         if client_request_id:

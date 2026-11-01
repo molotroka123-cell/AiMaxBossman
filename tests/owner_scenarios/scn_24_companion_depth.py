@@ -182,7 +182,8 @@ def os107_the_message_to_the_owner_carries_no_key(ctx) -> None:
     telegram = Telegram(settings, transport=httpx.MockTransport(serve))
     leaky = (f"Отчёт за ночь. Бот {secrets['bot_token']}, ядро {secrets['core_token']}, "
              f"облако {secrets['cloud_token']}, локальный {secrets['local_token']}. "
-             f"Адрес https://api.telegram.org/bot{secrets['bot_token']}/getMe")
+             f"Адрес https://api.telegram.org/bot{secrets['bot_token']}/getMe "
+             '<a href="https://evil.example/login">открыть отчёт</a> <b onclick="x">!</b>')
 
     async def deliver() -> None:
         try:
@@ -211,9 +212,15 @@ def os107_the_message_to_the_owner_carries_no_key(ctx) -> None:
                  "/bot" + secrets["bot_token"] not in flat
                  and "[REDACTED]" in body.get("text", ""),
                  body.get("text", "")[-60:])
-    ctx.negative("разметка не включена: текст владельца уходит буквально",
-                 "parse_mode" not in body and body.get("disable_web_page_preview") is True,
-                 f"ключи тела={sorted(body)}")
+    # Owner 31.10 (0d8e27db): pult messages are Telegram HTML by default. The contract that
+    # remains: the text is ESCAPED FIRST, so markup inside the message (a disguised link, an
+    # attribute) arrives as literal characters, and link previews stay off.
+    text = body.get("text", "")
+    ctx.negative("разметка из текста не исполняется: HTML экранирован, ссылка-маска не проходит",
+                 body.get("parse_mode") == "HTML" and "<a " not in text and "evil.example/login\">" not in text
+                 and "&lt;a href=" in text and "<b onclick" not in text and "&lt;b onclick" in text
+                 and body.get("disable_web_page_preview") is True,
+                 f"parse_mode={body.get('parse_mode')}, ключи тела={sorted(body)}")
     ctx.negative("ключи не показываются и в самом описании настроек",
                  not any(value in repr(settings) for value in secrets.values()),
                  repr(settings)[:90])
