@@ -53,6 +53,11 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 AGENT_ROOT = Path(r"C:\Users\asd\Bossman\wt-agent-proof-20261025")      # already an allowed terminal root
 RUNS = AGENT_ROOT / "lh-runs"                                           # round folders only (agent-visible)
+
+
+def evidence_path(ws: Path, rel: str) -> Path:
+    """A step's evidence is written Windows-style (`out\\x.json`); on Linux CI that is ONE file name, not a path."""
+    return ws.joinpath(*str(rel).replace("\\", "/").split("/"))
 TRUTH_ROOT = Path(r"D:\Bossman\long-horizon")       # outside every agent root: truth, code word, state, driver log
 DONE = ("executed", "ok", "completed", "success", "done")   # tool_calls.status of a call that ran
 DRIVER_VERSION = 2
@@ -740,7 +745,7 @@ class Driver:
     def verify_step(self, name: str, spec: dict, truth: dict) -> list[str]:
         problems = []
         for rel in spec["evidence"]:
-            f = self.ws / rel
+            f = evidence_path(self.ws, rel)
             if not f.is_file() or f.stat().st_size == 0:
                 problems.append(f"missing or empty: {rel}")
         if problems:
@@ -942,7 +947,7 @@ class Driver:
                 self.rsave(blocked=name)
                 return "blocked"
             rec["checkpoint"] = {"round": k, "task_id": rec["task_id"], "sha": ident["head"],
-                                 "result_sha256": {rel: hashlib.sha256((self.ws / rel).read_bytes()).hexdigest()[:16] for rel in spec["evidence"]},
+                                 "result_sha256": {rel: hashlib.sha256(evidence_path(self.ws, rel).read_bytes()).hexdigest()[:16] for rel in spec["evidence"]},
                                  "next_step": plan[i + 1]["name"] if i + 1 < len(plan) else None}
             self.R.pop("blocked", None)
             self.rsave(next=i + 1)

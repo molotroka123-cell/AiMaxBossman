@@ -435,3 +435,12 @@ def test_max_hours_cap_ends_partial(rig, monkeypatch):
     res = d.state["result"]
     assert res["verdict"] == "PARTIAL" and res["rounds_passed"] == 1
     assert any("max-hours" in x for x in res["reasons"])
+
+
+def test_windows_style_evidence_is_a_path_on_every_os(tmp_path):
+    """Root CI (Linux) went red after v2: `ws / "out\verify.py"` is ONE file name there, so every step looked missing."""
+    assert lh.evidence_path(tmp_path, r"out\verify.py") == tmp_path / "out" / "verify.py"
+    assert lh.evidence_path(tmp_path, "out/verify.py") == tmp_path / "out" / "verify.py"
+    assert lh.evidence_path(tmp_path, "REPORT.md") == tmp_path / "REPORT.md"
+    from pathlib import PurePosixPath                 # Linux semantics on any OS: the real CI failure
+    assert lh.evidence_path(PurePosixPath("/w"), r"out\verify.py") == PurePosixPath("/w/out/verify.py")
