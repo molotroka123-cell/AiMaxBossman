@@ -1,0 +1,345 @@
+{
+ "schema": "bossman-15-directions-matrix/1",
+ "audit": "Owner item 8: 15 directions, promise -> code -> tests -> live receipt -> status on the current SHA",
+ "audited_at": "2026-11-01",
+ "auditor": "Claude (independent, read-only; 5 read-only sub-auditors ran the per-direction test files)",
+ "current_sha": "500244acda6a9d5cfff9386e63d263d51b97fd45",
+ "current_sha_short": "500244ac",
+ "current_sha_note": "origin/main at audit time = live runtime :8801 (GET /health/live 01.11 02:20 PDT: build_sha 500244ac, source_identity PASS, git_clean true). Only change vs c0f6d2e4: command-center/bcc/features/model_freshness.py + its test. Freeze tag freeze-20261031 = f39337b8 (two commits behind).",
+ "runtime_tree": "C:\\Users\\asd\\Bossman\\wt-bossman-20-argon (branch main)",
+ "rules_applied": [
+  "PASS only for a live receipt made on 500244ac; none exists for any direction (the narrow runtime-identity check is recorded under Ops).",
+  "A receipt made on another SHA or without a recorded SHA is HISTORICAL; its PASS is not carried over.",
+  "Tests passing = 'tests PASS, live NOT_RUN', never PASS.",
+  "Owner-paused integrations (Jeff, Telegram Stars, real trading, real outreach) = PAUSED, not FAIL; nothing was activated.",
+  "Read-only: no product code changed, no backend restart, only GET calls to :8801 (docs/audits/2026-11-01-15-directions/live_get.py), no chat/personal content read."
+ ],
+ "status_legend": {
+  "PASS": "live receipt on the current SHA",
+  "FAIL": "a defect reproduced on the current SHA or a live check failing right now",
+  "BLOCKED": "cannot run without an owner action or a missing resource (named)",
+  "NOT_RUN": "can run, but no live proof on the current SHA",
+  "PAUSED": "owner decision"
+ },
+ "ci_current_sha": {
+  "file": "docs/audits/2026-11-01-15-directions/ci_500244ac.json",
+  "counts": {"success": 36, "in_progress": 2, "queued": 1, "cancelled": 2, "skipped": 1, "failure": 0},
+  "in_progress": ["pytest (py3.12)", "pytest (py3.14)", "freeze (queued)"],
+  "cancelled": ["upstream-contracts (windows-latest)", "coverage floor (покрытие, неснижаемый порог)"],
+  "verdict": "NOT GREEN YET (incomplete) at 2026-11-01T10:25Z; at 10:19Z pytest py3.11 and owner-experience were still running and have since succeeded"
+ },
+ "north_star_ladder": {
+  "proven": "SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT",
+  "not_proven": ["SELF_REPAIR_SINGLE_CYCLE_PASS", "SELF_REPAIR_3_CYCLE_PASS", "TRANSFER_MEASURED_GAIN", "24H_SOAK_PASS", "48H_SOAK_PASS", "WEEK_MODE_READY", "REVENUE_CAPABLE_PILOT"],
+  "evidence": ["docs/evidence/north-star-ladder-20261010.md", "docs/audits/2026-10-28-self-repair-d036/README_RU.md", "docs/audits/2026-10-29-m4-transfer/receipt.json", "live GET /api/autonomy/status promotion.clean_cycles 0 of 25"]
+ },
+ "terminal_run_contract": "Terminal Run 1.2 remains a control surface of the SAME Bossman; this audit used only the live backend's GET API and the repo; no second backend, data dir or task engine.",
+ "directions": [
+  {
+   "id": 1, "direction": "Jeff",
+   "promise": "Jeff (Telegram participant bot) turns a request into one task ID and answers with that task's status/receipt (J1); fresh facts with source date or UNKNOWN (J2); owner corrections become revocable lessons (J3).",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#1. Jeff", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.1", "AGENTS.md#1 Jeff (paused incl. Stars)"],
+   "code": ["command-center/bcc/telegram_companion/service.py", "command-center/bcc/telegram_companion/stars.py", "command-center/bcc/features/jeff_master_parser.py", "command-center/bcc/features/jeff_settings.py", "command-center/bcc/features/jeff_kb.py", "command-center/bcc/features/tools_jeff.py"],
+   "tests": {"files": ["command-center/tests/test_jeff_2_safety.py", "command-center/tests/test_jeff_local_only.py", "command-center/tests/test_jeff_privacy_in_code.py", "command-center/tests/test_jeff_outbound_guard.py", "command-center/tests/test_jeff_ux_isolation.py", "command-center/tests/test_mobile_dag_devices_upgrade.py"],
+             "command": "cd command-center && python -m pytest -q -p no:cacheprovider tests/test_jeff_2_safety.py tests/test_jeff_local_only.py tests/test_jeff_privacy_in_code.py tests/test_jeff_outbound_guard.py tests/test_jeff_ux_isolation.py tests/test_mobile_dag_devices_upgrade.py",
+             "passed": 228, "failed": 0, "skipped": 0, "errors": 0, "notes": "Offline only; no Telegram network call."},
+   "latest_receipt": {"path": "docs/audits/2026-10-28-mobile-dag-devices-freeze/receipt.json", "date": "2026-10-28", "sha": null, "verdict_in_receipt": "PASS (Stars two-phase reserve/refund logic + tests; no live Telegram call)", "classification": "HISTORICAL"},
+   "live_now": "GET /api/jeff-settings/status: jeff_configured true; telegram and window heartbeats state=stopped; last Jeff process build_sha 6de18f8d (started 2026-10-17); replies_ok 0; isolation ok true.",
+   "status": "PAUSED",
+   "status_detail": "Owner paused Jeff and Telegram Stars (AGENTS.md §1). Live: both Jeff surfaces stopped. No Jeff dialog receipt on any recent SHA. Contradiction: README.md capability row says «Jeff ... ON — включён владельцем 28.10», while AGENTS.md says paused and live shows stopped since 17.10.",
+   "blocker": "Owner decision (pause). The last Jeff process ran build 6de18f8d, not 500244ac.",
+   "next_step": "Nothing until the owner writes «resume Jeff» in the pult. Then start Jeff from the 500244ac tree, confirm GET /api/jeff-settings/status heartbeat build_sha = 500244ac, run one synthetic J1 scenario and write docs/audits/<date>-jeff-j1/receipt.json. Doc fix now: README.md Jeff row -> PAUSED."
+  },
+  {
+   "id": 2, "direction": "UX",
+   "promise": "One task feed: pult, mobile UI and Command Center show the same task ID, step, cost, waiting state and receipt from one backend (U1, P0); preview before approval (U2); phone<->PC handoff with STOP on both (U3).",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#2. UX", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.2", "AGENTS.md#0 item 1; #3 One runtime = one tree"],
+   "code": ["command-center/ui/app.js", "command-center/bcc/events.py", "command-center/bcc/features/chat_threads.py", "command-center/bcc/features/chat_projects.py", "command-center/bcc/features/chat_share_file.py", "apps/bossman-mobile/bossmobile/api.py", "apps/bossman-mobile/bossmobile/ui/app.js", "tools/prove_pult_chat_ux_owner.py", "tools/prove_chat_files_owner.py"],
+   "tests": {"files": ["command-center/tests/test_cc_ux_p1_findings.py", "command-center/tests/test_cc_ux_p2_findings.py", "command-center/tests/test_events_stream_keepalive.py", "command-center/tests/test_events_stream_last_event_id.py", "command-center/tests/test_events_stream_reconnect.py", "command-center/tests/test_chat_threads.py", "command-center/tests/test_chat_projects.py", "command-center/tests/test_chat_queue_steer.py", "apps/bossman-mobile/tests/test_mobile.py", "apps/bossman-mobile/tests/test_mobile_chat_parallel.py", "apps/bossman-mobile/tests/test_mobile_projects.py", "apps/bossman-mobile/tests/test_glass_ui.py", "apps/bossman-mobile/tests/test_stop_banner.py"],
+             "command": "(a) cd command-center && python -m pytest -q -p no:cacheprovider tests/test_cc_ux_p1_findings.py tests/test_cc_ux_p2_findings.py tests/test_events_stream_keepalive.py tests/test_events_stream_last_event_id.py tests/test_events_stream_reconnect.py tests/test_chat_threads.py tests/test_chat_projects.py tests/test_chat_queue_steer.py ; (b) cd apps/bossman-mobile && python -m pytest -q -p no:cacheprovider tests/test_mobile.py tests/test_mobile_chat_parallel.py tests/test_mobile_projects.py tests/test_glass_ui.py tests/test_stop_banner.py",
+             "passed": 191, "failed": 0, "skipped": 0, "errors": 0, "notes": "(a) 96 passed, (b) 95 passed. API/unit only; no browser, no real iPhone."},
+   "latest_receipt": {"path": "docs/audits/2026-10-31-pult-chat-ux-owner/receipt.json", "date": "2026-10-31", "sha": "10df5245", "verdict_in_receipt": "PASS 9/9 via the real pult :8840 -> :8801 (history: 75de1859 FAIL 6/9, 03b66902 FAIL 8/9)", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-31-chat-files-owner/receipt.json", "date": "2026-10-31", "sha": null, "verdict": "PASS 3/3"},
+    {"path": "docs/audits/2026-10-31-auto-full-owner/receipt.json", "date": "2026-10-31", "sha": null, "verdict": "PASS 7/7"},
+    {"path": "docs/audits/2026-10-29-full-emulator-buttons-proof/receipt.json", "date": "2026-10-29", "sha": "735f4267", "verdict": "PASS 38/38"},
+    {"path": "docs/audits/2026-10-28-glass-ui/receipt.json", "date": "2026-10-28", "sha": null, "verdict": "BETA (emulator only)"}
+   ],
+   "live_now": "Pult :8840 answers (GET / -> 307). No UX scenario run on 500244ac.",
+   "status": "NOT_RUN",
+   "status_detail": "Newest live proof is on 10df5245; chat_threads/queue drainer (f39337b8), action_contract (c0f6d2e4) and model_freshness (500244ac) changed since, so 9/9 is not carried over. U1 (same facts in 3 surfaces) and U3 (handoff + STOP on both) never had an exact-SHA receipt. Real-iPhone Safari never checked. COVERAGE_MATRIX rows 1.1/3.3/5.2 cite apps/bossman-mobile/bossmobile/server.py, which does not exist.",
+   "blocker": "None for the pult chat proof (it is just not run). Uses local agent 41 + cloud agent 46 (GLM 5.3 Flash via 7API: small paid call inside the owner cap). Real-iPhone check needs the owner's phone.",
+   "next_step": "From the 500244ac runtime tree: python -X utf8 tools/prove_pult_chat_ux_owner.py --local 41 --cloud 46, then python -X utf8 tools/prove_chat_files_owner.py; stamp both receipts with build_sha from GET /health/live (the UX tool does not record the SHA itself)."
+  },
+  {
+   "id": 3, "direction": "Apps",
+   "promise": "Every app gets an action passport run through the shared Task Kernel; one app starts/stops by the shared contract (APP1). War Terminal yields a verifiable tender report from open data, cross-checked on 5 records (APP2). A failing app action is isolated with no false 'completed' (APP3).",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#3. Apps", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.3", "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 3"],
+   "code": ["command-center/bcc/features/apps.py", "command-center/bcc/features/apps_control.py", "command-center/bcc/features/tools_apps.py", "command-center/bcc/v2/app_passport.py", "apps/war-terminal", "apps/bossblock"],
+   "tests": {"files": ["command-center/tests/test_apps_control.py", "command-center/tests/test_apps_launchable.py", "command-center/tests/test_apps_probe_isolation.py", "command-center/tests/test_apps_release_runtime.py", "command-center/tests/test_war_terminal_proxy.py", "command-center/tests/test_cu_task_apps_binding.py", "apps/war-terminal/tests", "tests/test_bossblock.py"],
+             "command": "(a) cd command-center && python -m pytest -q -p no:cacheprovider tests/test_apps_control.py tests/test_apps_launchable.py tests/test_apps_probe_isolation.py tests/test_apps_release_runtime.py tests/test_war_terminal_proxy.py tests/test_cu_task_apps_binding.py ; (b) cd apps/war-terminal && python -m pytest tests -q -p no:cacheprovider ; (c) python -m pytest -q -p no:cacheprovider tests/test_bossblock.py",
+             "passed": 432, "failed": 0, "skipped": 1, "errors": 0, "notes": "(a) 126 passed, 1 skipped (solana-volume-suite quarantined); (b) 301 passed; (c) 5 passed."},
+   "latest_receipt": {"path": "docs/audits/2026-10-31-bossblock-dnipro-gamedev/receipt.json", "date": "2026-10-31", "sha": null, "verdict_in_receipt": "no verdict field (BossBlock Dnipro capture, pytest 3 passed)", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-28-mobile-dag-devices-freeze/receipt.json", "date": "2026-10-28", "sha": null, "verdict": "PASS (AppActionPassport created; tests only; partly REVOKED, see REVOKED_RU.md)"},
+    {"path": "docs/audits/2026-10-24-earn-tender-dossier/receipt.json", "date": "2026-10-24", "sha": null, "verdict": "PASS, CAPABILITY ONLY (fixtures, network 0)"}
+   ],
+   "live_now": "GET /api/apps/health-matrix: total 13, live 1, unidentified 0 (12 of 13 registered apps not running).",
+   "status": "NOT_RUN",
+   "status_detail": "Tests PASS; no live app receipt on 500244ac. APP1: no app started/stopped through the shared Task Kernel on a recorded SHA. APP2: War Terminal BETA, no live TED/Prozorro receipt, 5-record cross-check never done. APP3: no failing-fixture isolation receipt.",
+   "blocker": "No owner action needed for a read-only run; a pre-chosen safe scenario is missing. War Terminal :8830 is not running.",
+   "next_step": "Start war-terminal through apps control, run one read-only open-data tender query through the Task Kernel, cross-check 5 records against the source, then an APP3 failing-fixture drill; write docs/audits/<date>-apps-war-terminal/receipt.json with build_sha 500244ac."
+  },
+  {
+   "id": 4, "direction": "Models",
+   "promise": "One local-first fleet: Gemma 4 31B daily driver, Qwen/Strata chosen by measurement; routing by measured quality/latency/memory/price with no silent substitution (M1); >=2.00x end-to-end speedup measured, not assumed.",
+   "promise_source": ["AGENTS.md#0 items 1, 5, 6", "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#4. Models", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.4", "docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md"],
+   "code": ["command-center/bcc/v2/model_router.py", "command-center/bcc/v2/model_intelligence.py", "command-center/bcc/features/local_first.py", "command-center/bcc/features/model_freshness.py", "command-center/bcc/model_health.py", "command-center/bcc/health.py", "tools/eval500/runner.py"],
+   "tests": {"files": ["command-center/tests/test_model_freshness.py", "command-center/tests/test_mandatory_model_policy.py", "command-center/tests/test_feat_router.py", "command-center/tests/test_model_health.py", "command-center/tests/test_health_model_components.py", "command-center/tests/test_model_intelligence.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_model_freshness.py command-center/tests/test_mandatory_model_policy.py command-center/tests/test_feat_router.py command-center/tests/test_model_health.py command-center/tests/test_health_model_components.py command-center/tests/test_model_intelligence.py",
+             "passed": 121, "failed": 0, "skipped": 0, "errors": 0, "notes": "The two reds listed in the 2.5 architecture doc §3.4 are green now."},
+   "latest_receipt": {"path": "docs/audits/2026-10-29-eval500-baseline/receipt.json", "date": "2026-10-29", "sha": "6388493f", "verdict_in_receipt": "no overall PASS: baseline 19/500 run (481 not_run, PAUSE file); tournament 28x3: Gemma 6 categories, Strata 2, Qwen 0", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-29-eval500-registry-merge/receipt.json", "date": "2026-10-29", "sha": null, "verdict": "PASS (corpus 350 dev + 150 sealed)"},
+    {"path": "docs/owner/performance-2x/runs/cp_perf_06_ab_results.json", "date": "2026-10-22", "sha": "ca8eb1aa", "verdict": "API microbenchmarks only; no verified >=2x end-to-end"}
+   ],
+   "live_now": "GET /health: status DEGRADED, component models DEGRADED. GET /api/model-freshness (02:20 PDT): total 110, fresh_healthy 4, stale 104; skipped: not_in_use 91, paid_model_not_probed 6, key_rejected_owner_must_fix 1.",
+   "status": "FAIL",
+   "status_detail": "Live health check fails now: models component DEGRADED with 4 of 110 models fresh. Partly structural: bcc/health.py counts every registered model, while model_freshness deliberately probes only resident/in-use models (500244ac), so the component cannot reach HEALTHY as written. One provider key is rejected. eval500 baseline 19/500; no >=2x end-to-end measurement on any SHA.",
+   "blocker": "(1) Health definition vs freshness scope mismatch - needs an integrator code decision, without loosening gates. (2) One rejected provider key - owner via pult /key. (3) eval500 paused by D:\\Bossman\\eval\\PAUSE, needs ~10-12 h of free local GPU.",
+   "next_step": "Integrator: judge only the in-use/resident set in health model_components (not_in_use/paid = 'parked', not failed) + negative-control test, then GET /health on the new SHA. Owner: replace the rejected key (provider id from /api/model-freshness). Then remove the PAUSE file and resume python tools/eval500/runner.py run --run-id baseline-gemma41 --parts dev,holdout."
+  },
+  {
+   "id": 5, "direction": "Cloud",
+   "promise": "Local and free first (OpenRouter :free, NVIDIA NIM); paid only inside hard caps (GLM 5.3 Flash $2/day, Haiku $2/day, 7API $5 total); unknown price never free; budget gates fail closed before the call (C1); fallback only to permitted routes with the same privacy scope (C2); cloud agents chat-only except Kimi agent 47.",
+   "promise_source": ["AGENTS.md#1 Budget; Cloud agents are chat-only", "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#5. Cloud", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.5"],
+   "code": ["command-center/bcc/features/tools_cloud.py", "command-center/bcc/security/spend_firewall.py", "command-center/bcc/security/ai_gateway.py", "command-center/bcc/provider_governance.py", "command-center/bcc/features/free_providers.py", "command-center/bcc/fable_cap.py", "tools/check_no_direct_llm_http.py"],
+   "tests": {"files": ["command-center/tests/test_spend_firewall_free_gate.py", "command-center/tests/test_ai_gateway.py", "command-center/tests/test_tools_cloud_ask.py", "command-center/tests/test_cloud_chat_only.py", "command-center/tests/test_free_providers.py", "command-center/tests/test_provider_governance_memory.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_spend_firewall_free_gate.py command-center/tests/test_ai_gateway.py command-center/tests/test_tools_cloud_ask.py command-center/tests/test_cloud_chat_only.py command-center/tests/test_free_providers.py command-center/tests/test_provider_governance_memory.py",
+             "passed": 66, "failed": 0, "skipped": 0, "errors": 0, "notes": "Green suite misses a known defect (see status_detail)."},
+   "latest_receipt": {"path": "docs/audits/2026-10-29-outrun-deepseek/receipt.json", "date": "2026-10-31", "sha": "7ed4ec2e", "verdict_in_receipt": "PASS (Bossman $0.007061 vs provider debit $0.007052)", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "C:\\Users\\asd\\Bossman\\wt-codex-paid-reservation-20261101\\docs\\audits\\2026-11-01-codex-six-hour\\REPORT_RU.md", "date": "2026-11-01", "sha": "f39337b8 (fix e24c14f2 on unmerged branch codex/paid-reservation-20261101)", "verdict": "unit PASS 47 on the branch; live NOT_RUN; NOT in main"},
+    {"path": "docs/audits/2026-10-29-ai-gateway/receipt.json", "date": "2026-10-29", "sha": null, "verdict": "PASS"},
+    {"path": "docs/audits/2026-10-24-cloud-no-pc/receipt.json", "date": "2026-10-24", "sha": "6817b6d2", "verdict": "PASS after fix e33e1b0b"}
+   ],
+   "live_now": "GET /health: providers DEGRADED (mirrors models). GET /api/cloud/budget/unknown: 0 unresolved. GET /api/free-providers: 4. GET /api/providers: 17.",
+   "status": "FAIL",
+   "status_detail": "Defect present on 500244ac (severity LOW in money, but an invariant break of 'budget gates fail closed'): tools_cloud.estimate_cost rounds to 6 decimals, so a positive paid estimate below $0.0000005 becomes $0.0; reserve_paid_call_sync accepts quoted=0 when remaining>0 (check is `quoted > remaining`) and stores round(quoted,6)=0, so zero-quoted paid reservations never consume the budget. Reproduced by the Codex report on f39337b8 and by a sub-auditor on 500244ac with synthetic values; code read confirms (tools_cloud.py L454-491, L553-556). Fix e24c14f2 exists only on the unmerged branch. Open question: the Outrun receipt grants cloud agent 51 terminal.* tools (per-command approval) while AGENTS.md §1 allows PC access only for Kimi agent 47.",
+   "blocker": "Fix not in main; only the Claude integrator may port it into the unified line. A live paid cost check needs the owner's caps (free-provider checks need no yes).",
+   "next_step": "Integrator: port e24c14f2 (tools_cloud.py + command-center/tests/test_paid_quote_rounding.py), run the cloud suite + the new test, full CI on the new SHA, then a free-provider synthetic budget/reconcile check and GET /api/cloud/budget/unknown. Separately check agent 51's tool grant against the chat-only rule and add a test case."
+  },
+  {
+   "id": 6, "direction": "Computer",
+   "promise": "The local agent operates the owner's PC (files, processes, shell, windows/UI, browser) under L0-L3; each action is checked by an independent postcondition with window identity and before/after evidence, unknown outcome never PASS (PC1); DOM/vision cross-check (PC2); visible takeover/resume (PC3); STOP within 5 s; P0-P5 close only with live owner-PC receipts.",
+   "promise_source": ["AGENTS.md#0 item 2", "docs/owner/os-agent-20261026/MASTER_PROMPT_OS_AGENT_RU.md", "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#6. Computer", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.6"],
+   "code": ["command-center/bcc/features/pc_agent.py", "command-center/bcc/features/pc_agent_policy.py", "command-center/bcc/features/pc_agent_policy_guards.py", "command-center/bcc/features/pc_agent_policy_paths.py", "command-center/bcc/features/tools_computer.py", "command-center/bcc/features/tools_browser.py", "command-center/bcc/v2/browser_control.py", "command-center/bcc/approval_scope.py", "tools/prove_pc_control_gemma.py", "tools/prove_auto_full_owner.py"],
+   "tests": {"files": ["command-center/tests/test_computer_stop_race.py", "command-center/tests/test_computer_verify_and_approval.py", "command-center/tests/test_pc_agent_argon.py", "command-center/tests/test_pc_agent_master_p0_p5.py", "command-center/tests/test_pc_defense_two_lines.py", "command-center/tests/test_auto_full_folder_picker.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_computer_stop_race.py command-center/tests/test_computer_verify_and_approval.py command-center/tests/test_pc_agent_argon.py command-center/tests/test_pc_agent_master_p0_p5.py command-center/tests/test_pc_defense_two_lines.py command-center/tests/test_auto_full_folder_picker.py",
+             "passed": 174, "failed": 5, "skipped": 0, "errors": 0,
+             "notes": "5 P4 self-modify tests in test_pc_agent_master_p0_p5.py FAIL when the process CWD is under .claude\\worktrees (re-confirmed by the lead auditor: 5 failed / 51 passed); the same file passes 56/56 from a neutral CWD. Cause: pc_agent_policy_paths.is_t3_secret_or_protected_path resolves a relative target with Path(norm).resolve(), i.e. against the process CWD, so the verdict depends on where the process runs. Fails closed (deny), not a safety hole; production CWD is wt-bossman-20-argon."},
+   "latest_receipt": {"path": "docs/audits/2026-10-31-auto-full-owner/receipt.json", "date": "2026-10-31", "sha": null, "verdict_in_receipt": "PASS 7/7 (inside folder no approval; outside waits; revoke asks again)", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-28-freeze-candidate/pc-control/receipt_rerun_P1_P5.json", "date": "2026-10-28", "sha": "c22f4e60", "verdict": "run1 8 PASS / 2 FAIL; rerun P1+P5 PASS"},
+    {"path": "docs/audits/2026-10-27-pc-load-attack/receipt.json", "date": "2026-10-27", "sha": "412f01f7", "verdict": "4 PASS / 2 FAIL; not live-rerun after fixes"},
+    {"path": "docs/audits/2026-10-26-pc-control-gemma/receipt.json", "date": "2026-10-26", "sha": "95f29e4d", "verdict": "6 PASS / 2 NOT_PROVEN / 2 FAIL"}
+   ],
+   "live_now": "GET /api/computer/status: available true, stopped false, busy false, 3 tools. GET /api/browser/health: available true, 2 active sessions. /health component browser UNKNOWN.",
+   "status": "NOT_RUN",
+   "status_detail": "No PC-control, Auto Full, STOP or GUI receipt on 500244ac. PC1 (Notepad fixture + STOP mid-step), PC2 (DOM/vision mismatch), PC3 (takeover/resume) and P3 (10 end-to-end UI tasks) never had a live receipt on ANY SHA; Codex 01.11 also reports GUI/mouse/keyboard NOT_RUN. Latent defect: self-modify target verdict depends on process CWD (5 test FAILs in agent worktrees).",
+   "blocker": "GUI fixtures need a live owner-PC desktop session (free foreground window, owner present or L1 approvals) and a local-model run against :8801.",
+   "next_step": "On 500244ac: python tools/prove_pc_control_gemma.py --out docs/audits/<date>-pc-control and python tools/prove_auto_full_owner.py, record build_sha in both; add a PC1 Notepad fixture with an independent postcondition and STOP mid-step. Code: resolve relative self-modify targets against rt.workspace_dir / repo root, not the CWD, + regression test run under a .claude-like CWD."
+  },
+  {
+   "id": 7, "direction": "Media",
+   "promise": "A local creative studio at Higgsfield level: local character replacement in real video, Motion Studio paid pilot, earning pipelines; chat pictures reach the model through LOCAL vision and are editable via photo.edit; provenance manifest (ME1), cheap preview (ME2), STOP during load/generation with resources released (ME3).",
+   "promise_source": ["AGENTS.md#0 item 4; #3 A feature is PROVEN (chat attachments / photo edit)", "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#7. Media", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.7", "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"],
+   "code": ["command-center/bcc/direct_gen", "command-center/bcc/features/motion_studio.py", "command-center/bcc/video_studio", "command-center/bcc/art_v2", "command-center/bcc/features/chat_vision.py", "command-center/bcc/features/tools_photo_edit.py", "tools/motion_studio/local_genjutsu.py", "tools/video_gate", "tools/prove_chat_photo_edit.py", "tools/prove_chat_attachments.py"],
+   "tests": {"files": ["command-center/tests/test_direct_gen_ltx25.py", "command-center/tests/test_studio_orders.py", "command-center/tests/test_art_studio_v2_wunderkind.py", "command-center/tests/test_tools_photo_edit.py", "command-center/tests/test_chat_vision.py", "command-center/tests/test_video_section_quality_gate.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_direct_gen_ltx25.py command-center/tests/test_studio_orders.py command-center/tests/test_art_studio_v2_wunderkind.py command-center/tests/test_tools_photo_edit.py command-center/tests/test_chat_vision.py command-center/tests/test_video_section_quality_gate.py",
+             "passed": 171, "failed": 0, "skipped": 0, "errors": 0, "notes": "Serial. Prove the honesty gates (render_engine_missing 503, NOT_MEASURED critic), not render quality."},
+   "latest_receipt": {"path": "docs/audits/2026-10-31-ltx25-direct-gen/receipt.json", "date": "2026-10-31", "sha": "7f68d466 (code landed as 5f6c72b2)", "verdict_in_receipt": "NOT_PROVEN (live smoke NOT_RUN: GPU held by the owner's Wan2.2 job; owner ordered no GPU work)", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-31-15-agent-convergence/studio_revocation.md", "date": "2026-10-31", "sha": "55d4d902 (fix 7f68d466)", "verdict": "REVOKED: Studio T2 render/QC PASS claims were synthetic"},
+    {"path": "docs/audits/2026-10-31-15-agent-convergence/studio_vlm_critic.md", "date": "2026-10-31", "sha": "fix 996ee695", "verdict": "false PASS fixed; real measurement not wired"},
+    {"path": "docs/audits/2026-10-31-video-section-quality-zero-overhead/receipt.json", "date": "2026-10-31", "sha": null, "verdict": "PASS (unit + ffmpeg guard; diffusion not re-run)"},
+    {"path": "docs/audits/2026-10-26-genjutsu-local-head-compose/receipt.json", "date": "2026-10-26", "sha": null, "verdict": "below Higgsfield parity (ArcFace 0.28-0.31 vs 0.40)"},
+    {"path": "docs/audits/2026-10-23-chat-attachments/photo-edit-20261023-1049.json", "date": "2026-10-23", "sha": "8736fd51", "verdict": "PASS 7/7 chat photo edit"}
+   ],
+   "live_now": "GET /api/direct-gen/status: photo backend sd-cli available; video backend available=false (ComfyUI ConnectTimeout); resident engine not loaded.",
+   "status": "BLOCKED",
+   "status_detail": "Live: the ComfyUI video backend is unavailable now; the sd-cli video path (ltx-2.5, wan2.2-ti2v-5b) has never had a live render (ltx25 receipt NOT_PROVEN). Studio render_preset has no engine wired (503 by design) - commercial preset render NOT_PROVEN; Studio T2 PASS revoked. Chat photo edit / attachments last proven on 8736fd51 (HISTORICAL). Genjutsu below parity. ME1-ME3 no live receipt. UX/honesty defect: the 'video' indicator is ComfyUI-only and says video needs ComfyUI although LTX/Wan run via sd-cli.",
+   "blocker": "(1) Owner order 31.10: no GPU/heavy work; GPU contention. (2) ComfyUI runtime :8188 not running. (3) No Studio engine adapter for render_preset. (4) LTX-2.5 weights licence UNKNOWN. (5) Person video needs consent + frame QA.",
+   "next_step": "With the GPU idle and the owner's OK: LTX-2.5 smoke on a temp backend (free port, temp BCC_DATA_DIR), 512x288, 4 s, 8 steps, ffprobe + sha256 + wall time -> docs/audits/<date>-ltx25-live-smoke. Then re-run tools/prove_chat_photo_edit.py and tools/prove_chat_attachments.py on 500244ac. Fix the ComfyUI-only video indicator; wire Wan2.2 TI2V via sd-cli into render_preset before any Studio T2 claim."
+  },
+  {
+   "id": 8, "direction": "Memory",
+   "promise": "Retained, applicable experience: lessons carry source/scope/validity/version, unconfirmed = DRAFT (MEM1); causal transfer measured on a frozen unseen holdout with baseline, CI and negative control, after a restart (MEM2); deleting a source removes derived lessons (MEM3). A memory hit is not learning.",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#8. Memory", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.8", "AGENTS.md#Non-negotiable direction (no learning claims from memory hits)", "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 8"],
+   "code": ["command-center/bcc/v2/memory", "command-center/bcc/features/memory_lessons.py", "command-center/bcc/business_exercises.py", "command-center/bcc/business_exercise_checker.py", "bossman-core/bossman/learning_guard", "tools/eval500/m4_transfer_report.py", "tools/codex_learning_readiness.py"],
+   "tests": {"files": ["command-center/tests/test_codex_learning_readiness.py", "command-center/tests/test_mandatory_memory_poisoning.py", "command-center/tests/test_memory_recall_engine.py", "command-center/tests/test_memory_lifecycle_wiring.py", "tests/test_memory_lifecycle.py", "tests/test_eval500_harness.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_codex_learning_readiness.py command-center/tests/test_mandatory_memory_poisoning.py command-center/tests/test_memory_recall_engine.py command-center/tests/test_memory_lifecycle_wiring.py ; python -m pytest -q -p no:cacheprovider tests/test_memory_lifecycle.py tests/test_eval500_harness.py",
+             "passed": 146, "failed": 0, "skipped": 1, "errors": 0, "notes": "86 passed + 1 skipped (environment-dependent wiring skip), then 60 passed. No transfer measured."},
+   "latest_receipt": {"path": "docs/audits/2026-10-31-codex-learning-readiness/receipt.json", "date": "2026-10-31", "sha": "996ee695 (merged as 774742eb)", "verdict_in_receipt": "temp backend :8897 readiness PASS (11 PASS, 1 WARN) + write E2E PASS; recorded_lesson_is_proven_learning=false; owner :8801 not probed", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-29-m4-transfer/receipt.json", "date": "2026-10-29", "sha": null, "verdict": "NO_TRANSFER (0 of 30 paired tasks)"},
+    {"path": "docs/audits/2026-10-31-boost-autopilot-pipeline/receipt.json", "date": "2026-10-31", "sha": "55d4d902", "verdict": "PASS incl. synthetic memory isolation (0 leaks, 0 hits after revoke)"},
+    {"path": "docs/audits/2026-10-30-long-horizon-run-g/README.md", "date": "2026-10-30", "sha": "61f6b0a8", "verdict": "memory recall PARTIAL (relevance not verified)"}
+   ],
+   "live_now": "GET /api/memory/stats: 69 files, 525 chunks, dense=false (lexical only). GET /api/memory/lessons/policy: present, recorded_is_not_proven_learning=true.",
+   "status": "NOT_RUN",
+   "status_detail": "MEM1 infrastructure deployed live, but no lesson write/verify/retention check on 500244ac. MEM2 never measured (M4 NO_TRANSFER, 0 paired tasks). MEM3 only synthetic on 55d4d902. Ladder TRANSFER_MEASURED_GAIN not reached.",
+   "blocker": "No paired baseline-vs-lessons run on >=30 hidden tasks (needs the eval500 baseline first); no preregistered thresholds / cross-family verifier. Probing :8801 with the readiness tool needs the owner's OK. Dense retrieval off.",
+   "next_step": "Preregister thresholds, freeze the sealed holdout, run both arms via tools/eval500/m4_transfer_report.py with >=30 paired verdicts, McNemar + CI95, negative control, cross-family verifier and a full :8801 restart between write and recall -> docs/audits/<date>-m4-transfer-500244ac. Before that (owner OK): GET-only tools/codex_learning_readiness.py against :8801."
+  },
+  {
+   "id": 9, "direction": "Agents",
+   "promise": "One durable task lifecycle with one task ID across all interfaces; after crash/restart resume from checkpoint or RECONCILE_REQUIRED without duplicate effects (A1); resource/budget admission (A2); a separate verifier - the executor cannot self-assign VERIFIED (A3); feeds the North Star ladder (3 autonomous cycles, 24h/48h soak).",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#9. Agents", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.9", "AGENTS.md#Non-negotiable direction (North Star ladder)", "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 9"],
+   "code": ["command-center/bcc/v2/task_graph.py", "command-center/bcc/v2/agent_graph.py", "command-center/bcc/features/action_router.py", "command-center/bcc/task_admission.py", "command-center/bcc/autonomy", "command-center/bcc/finalize.py", "command-center/bcc/features/action_contract.py", "command-center/bcc/features/boost_autopilot.py", "tools/long_horizon_run.py", "tools/coding_swarm.py"],
+   "tests": {"files": ["command-center/tests/test_task_graph_v2.py", "command-center/tests/test_action_router.py", "command-center/tests/test_autonomy_policy.py", "command-center/tests/test_autonomy_workers.py", "command-center/tests/test_review_file_evidence_paths.py", "command-center/tests/test_finalize_gate.py", "command-center/tests/test_boost_autopilot.py", "tests/test_coding_swarm.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_task_graph_v2.py command-center/tests/test_action_router.py command-center/tests/test_autonomy_policy.py command-center/tests/test_autonomy_workers.py command-center/tests/test_review_file_evidence_paths.py command-center/tests/test_finalize_gate.py command-center/tests/test_boost_autopilot.py ; python -m pytest -q -p no:cacheprovider tests/test_coding_swarm.py",
+             "passed": 202, "failed": 0, "skipped": 0, "errors": 0, "notes": "Includes the c0f6d2e4 negative test (empty written file is not evidence). tools/long_horizon_run.py has no test file of its own."},
+   "latest_receipt": {"path": "C:\\Users\\asd\\Bossman\\CODEX_HANDOFF_20261031.md#Update 22:57 (no docs/audits receipt written)", "date": "2026-10-31", "sha": "f39337b8", "verdict_in_receipt": "long-horizon run 4: steps 1-3 PASS + real kill + 0 duplicates + STOP 0 new calls; step 4 false PASS in Bossman (0-byte out/verify.py) caught by the driver, fixed in c0f6d2e4", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-30-long-horizon-run-g/README.md", "date": "2026-10-30", "sha": "61f6b0a8", "verdict": "PASS 5 steps + interrupt + STOP; 41 min (2-4 h NOT MET); 24 h NOT_RUN"},
+    {"path": "docs/audits/2026-10-31-boost-autopilot-pipeline/receipt.json", "date": "2026-10-31", "sha": "55d4d902", "verdict": "PASS (13/16 verified, 2 false claims caught)"},
+    {"path": "docs/audits/2026-10-28-self-repair-d036/README_RU.md", "date": "2026-10-28", "sha": null, "verdict": "MODEL_PATCH_CREATED false - SELF_REPAIR_SINGLE_CYCLE_PASS not reached"}
+   ],
+   "live_now": "GET /api/autonomy/status: level L2, 'no apply executor exists', promotion eligible=false, clean_cycles 0 of 25, stop inactive. GET /api/autopilot/status: 21/21 verified runs (self-reported counters). GET /api/qwen-operator/status: L1 Lab, push/merge/deploy false.",
+   "status": "NOT_RUN",
+   "status_detail": "No long-horizon run, self-repair cycle or soak on 500244ac; the c0f6d2e4 fix for the run-4 false PASS is present but not re-proven live (run h NOT_RUN). A1 (one task ID through Telegram + UI + crash) and A2 (two concurrent fixture tasks under cap) have no receipt; A3 has only the run-4 negative example. Ladder: only SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT proven.",
+   "blocker": "Run h takes ~45 min and kills/restarts the live :8801 backend in step 3 - needs a quiet window and the owner's go-ahead, no collision with Codex. Self-repair needs a stronger worker than local Gemma (D-036 no_progress_loop) + cross-family verifier.",
+   "next_step": "python -X utf8 tools/long_horizon_run.py start --agent 52 from the 500244ac runtime tree; if 5/5 PASS write docs/audits/<date>-long-horizon-run-h/ (state.json, truth.json, driver.log, identity), then 2-4 h soak, then 24 h. Re-run D-036 self-repair with a stronger free worker. Add a unit test for the long_horizon_run driver."
+  },
+  {
+   "id": 10, "direction": "Skills",
+   "promise": "Every executable skill has a contract (version, allowed tools, I/O, test, rollback); an incompatible skill must not run (S1); top-k skill selection beats a no-search baseline on a frozen set (S2); candidate -> test -> independent review -> owner gate, bad version rolled back (S3); a skill Bossman created is reused on a new task.",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#10. Skills", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.10", "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 10"],
+   "code": ["command-center/bcc/v2/skill_library.py", "command-center/bcc/v2/skill_catalog.py", "command-center/bcc/skills_catalog", "command-center/bcc/features/skills.py", ".agents/skills", "tools/validate_curated_agent_skills.py", "tools/prove_tools_skills.py"],
+   "tests": {"files": ["command-center/tests/test_feat_skills.py", "command-center/tests/test_skill_manifest.py", "command-center/tests/test_skill_loading_safety.py", "command-center/tests/test_bundled_skills_valid.py", "command-center/tests/test_skills_models_ops_freeze.py", "tests/test_curated_agent_skills.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_feat_skills.py command-center/tests/test_skill_manifest.py command-center/tests/test_skill_loading_safety.py command-center/tests/test_bundled_skills_valid.py command-center/tests/test_skills_models_ops_freeze.py tests/test_curated_agent_skills.py",
+             "passed": 151, "failed": 0, "skipped": 0, "errors": 0, "notes": "No test checks S2 (selection lift) or the S3 owner-gate rollback end to end. docs/owner/SKILLS.md says skills are 'not wired' - stale (skills_for_task is wired into coding_tasks.py)."},
+   "latest_receipt": {"path": "docs/audits/2026-10-31-web-trend-teacher/receipt.json", "date": "2026-10-31", "sha": null, "verdict_in_receipt": "VERIFIED (one skill web-trend-teacher + teacher tools)", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-28-skills-models-ops-freeze/receipt.json", "date": "2026-10-28", "sha": "7d1d5481", "verdict": "PASS (17 SKILL.md files + manifest tests; not reuse on a new task)"},
+    {"path": "docs/audits/2026-10-22-tools-skills-proof/proof_matrix.json", "date": "2026-10-22", "sha": null, "verdict": "per-tool PROVEN_EXECUTED matrix"}
+   ],
+   "live_now": "GET /api/skills: 126 skills (inventory count only).",
+   "status": "NOT_RUN",
+   "status_detail": "No receipt on any SHA shows a Bossman-created skill reused on a new task, a promotion refused on a red test, or a rollback. S2 never benchmarked.",
+   "blocker": "No exact-SHA end-to-end skill loop run (create -> independent verify -> reuse) and no S2 frozen-set benchmark; CI on 500244ac incomplete.",
+   "next_step": "On 500244ac: one skill through candidate -> test -> independent review -> owner gate -> forced rollback, with a negative control (incompatible skill refused) and the reuse task id -> docs/audits/<date>-skills-s1-s3/receipt.json; record via tools/tree_apply_evidence.py."
+  },
+  {
+   "id": 11, "direction": "Plugins",
+   "promise": "Every MCP call has explicit methods, addresses, data scope, cap, approval and STOP inheritance; unknown server closed (PL1, P0); contract run against a local fixture MCP: schema, timeout, retry, STOP, no false success (PL2); plugin responses keep provenance and cannot change permissions by injection (PL3).",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#11. Plugins", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.11", "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 11"],
+   "code": ["command-center/bcc/plugin_security.py", "command-center/bcc/v2/mcp_hub.py", "command-center/bcc/v2/mcp_runtime.py", "command-center/bcc/features/mcp_catalog.py", "command-center/bcc/features/plugins.py", "command-center/bcc/features/tools_mcp.py", "command-center/bcc/features/tools_opencode.py", "tools/mcp_acceptance.py"],
+   "tests": {"files": ["command-center/tests/test_plugin_security.py", "command-center/tests/test_plugins_stub_not_success.py", "command-center/tests/test_plugin_mcp_tool_call.py", "command-center/tests/test_b11_plugin_mcp_agent_deny.py", "command-center/tests/test_b11_mcp_call_cancellation.py", "command-center/tests/test_v26_mcp_sdk_path.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_plugin_security.py command-center/tests/test_plugins_stub_not_success.py command-center/tests/test_plugin_mcp_tool_call.py command-center/tests/test_b11_plugin_mcp_agent_deny.py command-center/tests/test_b11_mcp_call_cancellation.py command-center/tests/test_v26_mcp_sdk_path.py",
+             "passed": 55, "failed": 0, "skipped": 0, "errors": 0, "notes": "Unit/fixture only. No tools/mcp_acceptance.py receipt under docs/audits."},
+   "latest_receipt": {"path": "docs/audits/2026-10-29-motion-plugins/receipt.json", "date": "2026-10-29", "sha": null, "verdict_in_receipt": "no verdict field; 7/7 motion plugins audited (Claude-side tool plugins, not Bossman MCP)", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-28-security-cloud-commerce-freeze/receipt.json", "date": "2026-10-28", "sha": null, "verdict": "mcp_hub in scope; no live MCP call evidence"}
+   ],
+   "live_now": "GET /api/mcp/runtime: sdk_available true, servers 0, registered_tools 0. GET /api/plugins: 14. GET /api/opencode/health: status unavailable.",
+   "status": "NOT_RUN",
+   "status_detail": "No MCP server is connected in the live runtime, so PL1/PL2 cannot have been exercised live; no exact-SHA MCP acceptance receipt on any SHA. OpenCode external tool unavailable right now.",
+   "blocker": "No MCP server registered live; no fixture MCP acceptance run; OpenCode down.",
+   "next_step": "On 500244ac: python tools/mcp_acceptance.py against one local fixture MCP server (schema, timeout, cancel, crash, restart, unknown tool, permission denial), then one real multi-step MCP call with a denied method, STOP mid-call and an injection fixture -> docs/audits/<date>-mcp-pl1-pl3/receipt.json. Diagnose /api/opencode/health unavailable."
+  },
+  {
+   "id": 12, "direction": "Ops",
+   "promise": "Red CI mapped to the main baseline until required CI is green on the candidate without weakened gates (O1); one receipt binds source SHA, clean state, archive hash, installed/runtime SHA, tree source, run ID - mismatch = NOT_RUN (O2); live owner acceptance phone -> pult -> action -> receipt -> STOP/restart (O3); one runtime = one tree; 24h/48h soak on the exact release SHA.",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#12. Ops", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.12 + #6", "AGENTS.md#3 One runtime = one tree", "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 12"],
+   "code": ["command-center/bcc/build_identity.py", "command-center/bcc/run_provenance.py", "tools/acceptance_registry.json", "tools/tree_registry_sync.py", "tools/tree_apply_evidence.py", "tools/ci_secret_scan.py", "tools/nightly_backup.py", "tools/owner_one_bossman.py", "tools/long_horizon_run.py", "tools/restart_backend.ps1"],
+   "tests": {"files": ["tests/test_acceptance_registry.py", "tests/test_build_source_identity.py", "tests/test_ci_secret_scan.py", "tests/test_nightly_backup.py", "tests/test_owner_one_bossman.py", "command-center/tests/test_runtime_source_identity.py"],
+             "command": "python -m pytest -q -p no:cacheprovider tests/test_acceptance_registry.py tests/test_build_source_identity.py tests/test_ci_secret_scan.py tests/test_nightly_backup.py tests/test_owner_one_bossman.py command-center/tests/test_runtime_source_identity.py",
+             "passed": 179, "failed": 0, "skipped": 0, "errors": 0, "notes": "test_ci_secret_scan fully green (the 22.10 red is closed)."},
+   "latest_receipt": {"path": "docs/audits/2026-10-31-security-autofull-long-horizon/receipt.json", "date": "2026-10-31", "sha": null, "verdict_in_receipt": "PASS (anchors repointed to wt-bossman-20-argon, identity PASS at that time)", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-30-long-horizon-run-g/README.md", "date": "2026-10-30", "sha": "61f6b0a8", "verdict": "PASS checkpoint/kill/resume/STOP; 2-4 h NOT MET; 24 h NOT_RUN"},
+    {"path": "docs/audits/2026-10-28-freeze-candidate/receipt.json", "date": "2026-10-28", "sha": "c22f4e60", "verdict": "PASS_WITH_NOTE"},
+    {"path": "docs/audits/2026-10-27-m1-runtime-identity/receipt.json", "date": "2026-10-27", "sha": "745c99e6", "verdict": "identity PASS"},
+    {"path": "C:\\Users\\asd\\Bossman\\CODEX_HANDOFF_20261031.md (statement, not a receipt)", "date": "2026-10-31", "sha": "c0f6d2e4", "verdict": "backup manual run 31.10 16:49 PASS - no receipt file"}
+   ],
+   "live_now": "GET /health/live: build_sha 500244ac, source_identity PASS, git_clean true. GET /health: DEGRADED (models, providers DEGRADED; browser UNKNOWN; db, queue, scheduler, all ticks HEALTHY). CI on 500244ac (10:25Z): 36 success, 2 in progress (pytest py3.12/3.14), 1 queued (freeze), 2 cancelled (upstream-contracts windows, coverage floor), 1 skipped, 0 failure.",
+   "narrow_live_pass": "Runtime identity = 500244ac: PASS (docs/audits/2026-11-01-15-directions/live_get_snapshot.json /health/live).",
+   "status": "NOT_RUN",
+   "status_detail": "Only the narrow identity claim is live-PASS on 500244ac. O1: CI incomplete + 2 cancelled jobs. O2: no full identity-chain receipt (archive hash, installed SHA, tree source, run ID). O3: no owner acceptance on this SHA. Long-horizon run h, 2-4 h and 24/48 h soak NOT_RUN. Backup PASS is a handoff statement without a receipt. /health DEGRADED (driven by Models).",
+   "blocker": "CI still running with 2 cancelled jobs; freeze tag sits on f39337b8 while runtime is 500244ac; owner rule: long soak only after a finished freeze.",
+   "next_step": "Re-poll check-runs for 500244ac until pytest py3.12/py3.14 and the queued freeze job finish; re-run/explain the 2 cancelled jobs. If green: long-horizon run h on 500244ac, a backup receipt (tools/nightly_backup.py, sha256 + integrity_check) under docs/audits/<date>-backup/, one O2 identity-chain receipt; then decide whether the freeze tag moves to 500244ac before the 2-4 h soak."
+  },
+  {
+   "id": 13, "direction": "OSS",
+   "promise": "Every OSS candidate records licence on an exact upstream SHA, purpose, dependencies and data egress (OSS1); adopted only after a measured win over the existing tool on one synthetic set (OSS2); pinned versions, reversible canary updates (OSS3); the stack is chosen by measurement.",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#13. OSS", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.13", "docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md", "AGENTS.md#0 item 5"],
+   "code": ["command-center/bcc/oss", "integrations", "tools/gem_search_research.py", "config/oss/searxng", ".github/workflows/oss-integrations.yml"],
+   "tests": {"files": ["command-center/tests/test_oss_integrations.py", "command-center/tests/test_oss_docling.py", "command-center/tests/test_oss_memory_refusals.py", "command-center/tests/test_oss_integrations_routes.py", "command-center/tests/test_skill_catalog_license.py", "tests/test_gem_search_research.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_oss_integrations.py command-center/tests/test_oss_docling.py command-center/tests/test_oss_memory_refusals.py command-center/tests/test_oss_integrations_routes.py command-center/tests/test_skill_catalog_license.py tests/test_gem_search_research.py",
+             "passed": 45, "failed": 0, "skipped": 5, "errors": 0, "notes": "All 5 skips: test_oss_docling.py 'No module named docling' (real-conversion path unexercised)."},
+   "latest_receipt": {"path": "docs/audits/2026-10-31-gem-search-research/README.md", "date": "2026-10-31", "sha": null, "verdict_in_receipt": "sidecar runs on Windows (PASS); real X feed / Grok reviewers / on-chain NOT_RUN; upstream a04fae4 recorded, Bossman SHA not", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-26-oss-adoption/PLAN.md", "date": "2026-10-26", "sha": null, "verdict": "read-only research, no PoC"},
+    {"path": "docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md", "date": "2026-10-22", "sha": null, "verdict": "PoC candidates; result inside Bossman NOT_RUN"}
+   ],
+   "live_now": "n/a (no OSS-specific live endpoint probed).",
+   "status": "NOT_RUN",
+   "status_detail": "No receipt on any SHA shows an applied OSS component with a measured gain over the baseline (OSS2 never run). OSS1 registry only partial (UPSTREAM.json/NOTICE files, research tables), not a blocking gate. Docling path cannot run (package missing).",
+   "blocker": "No preregistered OSS-vs-baseline PoC; installing docling needs the owner's permission (no auto-downloads).",
+   "next_step": "Isolated venv (not the runtime env): install docling, run the 5 skipped tests on synthetic PDF/DOCX; then one OSS2 contest (e.g. LangGraph resume or Browser Use DPI clicks from CHECKPOINT_02) against 500244ac with preregistered thresholds -> docs/audits/<date>-oss-contest/ (upstream URL+tag+licence, before/after, rollback)."
+  },
+  {
+   "id": 14, "direction": "Commerce",
+   "promise": "One sellable offer with client, price, cost and acceptance criterion + demo on public data (COM1); a delivery receipt offer -> consent -> result -> delivery -> acceptance -> payment with gross - fees - variable cost = net from real documents (COM2); repeat-order economics (COM3). Until a payment exists: READY_TO_SELL, revenue 0. Ladder ends at REVENUE_CAPABLE_PILOT.",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#14. Commerce", "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md#14. Commerce", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.14", "docs/owner/TRADING_LIVE_READINESS_GATE_20261011.md"],
+   "code": ["command-center/bcc/features/commerce_ledger.py", "bossman_shared/exchange_assistant", "bossman_shared/exchange_ledger.py", "apps/swapme-bot", "command-center/bcc/features/task_exchange.py", "apps/war-terminal", "command-center/bcc/features/war_terminal.py", "apps/motion-studio-landing", "command-center/bcc/features/motion_studio.py"],
+   "tests": {"files": ["command-center/tests/test_audit_upgrade_security_cloud_commerce.py", "command-center/tests/test_d1_swapme_mission_e2e.py", "command-center/tests/test_exchange_ledger.py", "command-center/tests/test_war_terminal_proxy.py", "command-center/tests/test_motion_studio_bundle.py", "tests/test_exchange_assistant.py", "tests/test_background_swap_gate.py", "apps/war-terminal/tests", "apps/bossman-mobile/tests/test_exchange.py"],
+             "command": "python -m pytest -q -p no:cacheprovider command-center/tests/test_audit_upgrade_security_cloud_commerce.py command-center/tests/test_d1_swapme_mission_e2e.py command-center/tests/test_exchange_ledger.py command-center/tests/test_war_terminal_proxy.py command-center/tests/test_motion_studio_bundle.py tests/test_exchange_assistant.py (79) ; tests/test_background_swap_gate.py (18) ; command-center/tests/test_pc_agent_argon.py::test_reports_runner_no_silent_synthetic_and_two_runs_sha256 (1) ; cd apps/war-terminal && python -m pytest -q tests (301) ; cd apps/bossman-mobile && python -m pytest -q tests/test_exchange.py (6)",
+             "passed": 405, "failed": 0, "skipped": 0, "errors": 0, "notes": "Capability and fail-closed behaviour only (strict margin, PAPER_DEMO isolation, $0 audited revenue invariant). War Terminal tests overlap with Apps."},
+   "latest_receipt": {"path": "docs/audits/2026-10-28-security-cloud-commerce-freeze/receipt.json", "date": "2026-10-28", "sha": null, "verdict_in_receipt": "84/84 tests; compute_quote_strict fails closed; audited external revenue $0.00", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-29-demo-rehearsal/receipt-20261029-0523.json", "date": "2026-10-29", "sha": "3cc6d193", "verdict": "PASS 6/6 owner-demo rehearsal (a demo, not a sale)"},
+    {"path": "docs/audits/2026-10-24-earn-tender-dossier/receipt.json", "date": "2026-10-24", "sha": null, "verdict": "PASS, CAPABILITY ONLY; revenue NOT_RUN"},
+    {"path": "docs/owner/TRADING_LIVE_READINESS_GATE_20261011.md", "date": "2026-10-11", "sha": null, "verdict": "NO_GO on G1-G11"}
+   ],
+   "live_now": "GET /api/market/status: dataset_status DATA_COLLECTION (paper/none). GET /api/jev/status: enabled false, shadow true, wired false. GET /api/economy/status: jev_wired false. War Terminal :8830 not listening.",
+   "paused_parts": ["real trading (owner decision; gate NO_GO)", "real outreach / emails (owner decision)", "Telegram Stars (owner decision)", "Jeff broadcast (owner decision)"],
+   "status": "BLOCKED",
+   "status_detail": "Revenue = 0: no real payment receipt on any SHA. COM1 has demos (tender dossier, site audit, studio orders, Motion Studio samples) not tied to a client order; COM2/COM3 never ran; SwapMe pilot not done (handoff 31.10). Real trading, outreach, Stars and Jeff broadcast are PAUSED by the owner (not FAIL); nothing was activated.",
+   "blocker": "Needs a real paying client and the owner's explicit approval of one order (cheapest: SwapMe 1000 USDT pilot; or one War Terminal dossier for a named buyer). Motion Studio pilot needs the owner's card for Higgsfield credits or a decision to deliver locally.",
+   "next_step": "Owner: approve one concrete order. Then run it through commerce_ledger.py on the exact runtime SHA (offer -> consent -> result version -> delivery -> acceptance -> payment document) -> docs/audits/<date>-commerce-pilot/receipt.json with net from real documents. Until then report READY_TO_SELL, revenue 0."
+  },
+  {
+   "id": 15, "direction": "Devices",
+   "promise": "The phone is a window onto the same task ID, permissions and STOP as the pult and CC, no second queue (D1); a second worker PC only through owner pairing, capability list, limits and revoke, no secret transfer (D2); on disconnect/revoke the device stops new actions, unknown outcomes go to reconciliation (D3). Until a real second device exists: NOT_RUN, not simulated success.",
+   "promise_source": ["docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#15. Devices", "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md#15. Devices", "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.15", "AGENTS.md#0 item 1"],
+   "code": ["apps/bossman-mobile/bossmobile", "bossman-core/bossman/remote_client", "bossman-core/scripts/bootstrap_remote_device.py", "command-center/bcc/telegram_companion/remote_access.py", "command-center/bcc/devices/worker_node.py", "bossman-core/ios"],
+   "tests": {"files": ["apps/bossman-mobile/tests/test_mobile_no_facades.py", "apps/bossman-mobile/tests/test_stop_banner.py", "apps/bossman-mobile/tests/test_mobile.py", "apps/bossman-mobile/tests/test_serve_resilience.py", "command-center/tests/test_mobile_dag_devices_upgrade.py", "command-center/tests/test_companion_remote_access.py", "bossman-core/tests/test_remote_client.py", "bossman-core/tests/test_core_auth_perimeter.py", "bossman-core/tests/test_fleet_remote_auth.py"],
+             "command": "cd apps/bossman-mobile && python -m pytest -q -p no:cacheprovider tests/test_mobile_no_facades.py tests/test_stop_banner.py tests/test_mobile.py tests/test_serve_resilience.py (85) ; python -m pytest -q -p no:cacheprovider command-center/tests/test_mobile_dag_devices_upgrade.py command-center/tests/test_companion_remote_access.py (57) ; cd bossman-core && python -m pytest -q -p no:cacheprovider tests/test_remote_client.py tests/test_core_auth_perimeter.py tests/test_fleet_remote_auth.py (84)",
+             "passed": 226, "failed": 0, "skipped": 0, "errors": 0, "notes": "Swift tests not run (no swift/xcodebuild on this Windows PC). Worker-node cascading STOP is an in-process flip, not a second machine."},
+   "latest_receipt": {"path": "docs/audits/2026-10-28-live-proofs/mobile_facades_receipt.json", "date": "2026-10-28", "sha": null, "verdict_in_receipt": "5 facade routes fixed; NOT proven on live pult :8840 (old build); tap from phone not built", "classification": "HISTORICAL"},
+   "other_receipts": [
+    {"path": "docs/audits/2026-10-28-mobile-dag-devices-freeze/REVOKED_RU.md", "date": "2026-10-28", "sha": null, "verdict": "receipt partially REVOKED (facades, camera probe, AppActionPassport)"},
+    {"path": "docs/audits/2026-10-25-mobile-every-function/receipt.json", "date": "2026-10-25", "sha": null, "verdict": "iPhone-13 Playwright profile (emulated)"},
+    {"path": "docs/audits/2026-10-24-mobile-parity/receipt.json", "date": "2026-10-24", "sha": "b37d8266", "verdict": "PARTIAL (STOP from the phone not proven live)"}
+   ],
+   "live_now": "Pult :8840 up (GET / -> 307).",
+   "sub_status": {"D1": "NOT_RUN", "D2": "BLOCKED (no second physical PC)", "D3": "BLOCKED (no second physical PC)", "native_iOS": "BLOCKED (no Mac/Xcode, no Apple Development Team)"},
+   "status": "NOT_RUN",
+   "status_detail": "D1 can run now but has no receipt (same task ID on phone and PC + STOP pressed on the phone, on 500244ac). D2/D3 BLOCKED: RemoteWorkerNode is in-process only. Native iOS: Swift foundation only, never built or installed.",
+   "blocker": "D1 needs the owner's iPhone on the pult over Tailscale. D2/D3 need a second physical PC. iOS needs a Mac with Xcode + Apple Development Team or an approved macOS CI runner.",
+   "next_step": "D1: owner opens the pult on the iPhone, starts one synthetic fixture task, confirms the same task ID in CC :8801, presses STOP on the phone, no new calls -> docs/audits/<date>-devices-d1/receipt.json (ids/statuses only, source_sha 500244ac). D2/D3 when a second PC exists: bootstrap_remote_device.py pairing, fixture task, network cut, revoke, verify no repeated effect and no secret transfer."
+  }
+ ],
+ "cross_cutting_findings": [
+  {"id": "F1", "severity": "LOW (money) / invariant break", "direction": "Cloud", "finding": "Paid estimate below $0.0000005 rounds to $0 and a $0 paid reservation is accepted; zero-quoted reservations never consume the budget. Fix e24c14f2 on unmerged codex/paid-reservation-20261101.", "evidence": ["command-center/bcc/features/tools_cloud.py", "C:\\Users\\asd\\Bossman\\wt-codex-paid-reservation-20261101\\docs\\audits\\2026-11-01-codex-six-hour\\REPORT_RU.md"]},
+  {"id": "F2", "severity": "MEDIUM (health signal)", "direction": "Models/Ops", "finding": "/health models (and providers, which mirrors it) DEGRADED: health counts all 110 registered models, freshness probes only resident/in-use ones, so the component cannot reach HEALTHY by design.", "evidence": ["command-center/bcc/health.py", "command-center/bcc/features/model_freshness.py", "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"]},
+  {"id": "F3", "severity": "LOW (fails closed)", "direction": "Computer", "finding": "Self-modify target protection resolves relative paths against the process CWD (pc_agent_policy_paths.py Path(norm).resolve()); 5 P4 tests fail when run from a .claude worktree, pass from a neutral CWD.", "evidence": ["command-center/bcc/features/pc_agent_policy_paths.py", "command-center/tests/test_pc_agent_master_p0_p5.py"]},
+  {"id": "F4", "severity": "LOW (doc contradiction)", "direction": "Jeff", "finding": "README.md says Jeff is ON (owner 28.10); AGENTS.md says paused; live heartbeats stopped since 17.10 on build 6de18f8d.", "evidence": ["README.md", "AGENTS.md", "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"]},
+  {"id": "F5", "severity": "LOW (UX honesty)", "direction": "Media", "finding": "Direct Gen 'video' indicator reflects ComfyUI only and says video needs ComfyUI, although LTX-2.5/Wan2.2 TI2V run through sd-cli.", "evidence": ["command-center/bcc/direct_gen/service.py", "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"]},
+  {"id": "F6", "severity": "LOW (stale docs)", "direction": "UX/Skills", "finding": "docs/audits/trio/COVERAGE_MATRIX.md cites apps/bossman-mobile/bossmobile/server.py (missing) and a pc_defense_two_lines.py module (only the test exists); docs/owner/SKILLS.md says skills are not wired (they are).", "evidence": ["docs/audits/trio/COVERAGE_MATRIX.md", "docs/owner/SKILLS.md"]},
+  {"id": "F7", "severity": "INFO", "direction": "Ops", "finding": "Freeze tag freeze-20261031 = f39337b8; main/runtime moved to 500244ac (2 commits). The owner rule ties the long soak to a finished freeze.", "evidence": ["C:\\Users\\asd\\Bossman\\CODEX_HANDOFF_20261031.md"]}
+ ]
+}

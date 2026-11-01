@@ -1,0 +1,3220 @@
+{
+ "schema": "bossman-15-directions-evidence/1",
+ "current_sha": "500244acda6a9d5cfff9386e63d263d51b97fd45",
+ "audited_at": "2026-11-01",
+ "rule": "Each claim -> file / test run / receipt / live GET. Receipts on another SHA are HISTORICAL.",
+ "count": 395,
+ "claims": [
+  {
+   "id": "E001",
+   "direction": "ALL",
+   "claim": "Current SHA 500244ac = origin/main = live runtime (/health/live source_identity PASS, git_clean true)",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json",
+   "endpoint": "/health/live"
+  },
+  {
+   "id": "E002",
+   "direction": "ALL",
+   "claim": "CI on the current SHA is incomplete: {\"success\": 36, \"in_progress\": 2, \"queued\": 1, \"cancelled\": 2, \"skipped\": 1, \"failure\": 0}",
+   "kind": "ci",
+   "ref": "docs/audits/2026-11-01-15-directions/ci_500244ac.json"
+  },
+  {
+   "id": "E003",
+   "direction": "01 Jeff",
+   "claim": "Promise: Jeff (Telegram participant bot) turns a request into one task ID and answers with that task's status/receipt (J1); fresh facts with source date or UNKNOWN (J2);",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#1. Jeff"
+  },
+  {
+   "id": "E004",
+   "direction": "01 Jeff",
+   "claim": "Promise: Jeff (Telegram participant bot) turns a request into one task ID and answers with that task's status/receipt (J1); fresh facts with source date or UNKNOWN (J2);",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.1"
+  },
+  {
+   "id": "E005",
+   "direction": "01 Jeff",
+   "claim": "Promise: Jeff (Telegram participant bot) turns a request into one task ID and answers with that task's status/receipt (J1); fresh facts with source date or UNKNOWN (J2);",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#1 Jeff (paused incl. Stars)"
+  },
+  {
+   "id": "E006",
+   "direction": "01 Jeff",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/telegram_companion/service.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E007",
+   "direction": "01 Jeff",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/telegram_companion/stars.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E008",
+   "direction": "01 Jeff",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/jeff_master_parser.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E009",
+   "direction": "01 Jeff",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/jeff_settings.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E010",
+   "direction": "01 Jeff",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/jeff_kb.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E011",
+   "direction": "01 Jeff",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_jeff.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E012",
+   "direction": "01 Jeff",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_jeff_2_safety.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E013",
+   "direction": "01 Jeff",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_jeff_local_only.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E014",
+   "direction": "01 Jeff",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_jeff_privacy_in_code.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E015",
+   "direction": "01 Jeff",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_jeff_outbound_guard.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E016",
+   "direction": "01 Jeff",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_jeff_ux_isolation.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E017",
+   "direction": "01 Jeff",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_mobile_dag_devices_upgrade.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E018",
+   "direction": "01 Jeff",
+   "claim": "Tests on 500244ac: 228 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "cd command-center && python -m pytest -q -p no:cacheprovider tests/test_jeff_2_safety.py tests/test_jeff_local_only.py tests/test_jeff_privacy_in_code.py tests/test_jeff_outbound_guard.py tests/test_jeff_ux_isolation.py tests/test_mobile_dag_devices_upgrade.py",
+   "notes": "Offline only; no Telegram network call."
+  },
+  {
+   "id": "E019",
+   "direction": "01 Jeff",
+   "claim": "Latest live receipt 2026-10-28 on SHA not recorded: PASS (Stars two-phase reserve/refund logic + tests; no live Telegram call) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-mobile-dag-devices-freeze/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E020",
+   "direction": "01 Jeff",
+   "claim": "Live now (GET, read-only): GET /api/jeff-settings/status: jeff_configured true; telegram and window heartbeats state=stopped; last Jeff process build_sha 6de18f8d (started 2026-10-17); replies_ok 0; isolation ok true.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E021",
+   "direction": "01 Jeff",
+   "claim": "Status on 500244ac: PAUSED - Owner paused Jeff and Telegram Stars (AGENTS.md §1). Live: both Jeff surfaces stopped. No Jeff dialog receipt on any recent SHA. Contradiction: README.md capability row says «Jeff ... ON — включён владельцем 28.10», while AGENTS.md says paused and live shows stopped since 17.10.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "Owner decision (pause). The last Jeff process ran build 6de18f8d, not 500244ac.",
+   "next_step": "Nothing until the owner writes «resume Jeff» in the pult. Then start Jeff from the 500244ac tree, confirm GET /api/jeff-settings/status heartbeat build_sha = 500244ac, run one synthetic J1 scenario and write docs/audits/<date>-jeff-j1/receipt.json. Doc fix now: README.md Jeff row -> PAUSED."
+  },
+  {
+   "id": "E022",
+   "direction": "02 UX",
+   "claim": "Promise: One task feed: pult, mobile UI and Command Center show the same task ID, step, cost, waiting state and receipt from one backend (U1, P0); preview before approva",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#2. UX"
+  },
+  {
+   "id": "E023",
+   "direction": "02 UX",
+   "claim": "Promise: One task feed: pult, mobile UI and Command Center show the same task ID, step, cost, waiting state and receipt from one backend (U1, P0); preview before approva",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.2"
+  },
+  {
+   "id": "E024",
+   "direction": "02 UX",
+   "claim": "Promise: One task feed: pult, mobile UI and Command Center show the same task ID, step, cost, waiting state and receipt from one backend (U1, P0); preview before approva",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#0 item 1; #3 One runtime = one tree"
+  },
+  {
+   "id": "E025",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/ui/app.js",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E026",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/events.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E027",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/chat_threads.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E028",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/chat_projects.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E029",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/chat_share_file.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E030",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/bossmobile/api.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E031",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/bossmobile/ui/app.js",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E032",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/prove_pult_chat_ux_owner.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E033",
+   "direction": "02 UX",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/prove_chat_files_owner.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E034",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_cc_ux_p1_findings.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E035",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_cc_ux_p2_findings.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E036",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_events_stream_keepalive.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E037",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_events_stream_last_event_id.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E038",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_events_stream_reconnect.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E039",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_chat_threads.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E040",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_chat_projects.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E041",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_chat_queue_steer.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E042",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_mobile.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E043",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_mobile_chat_parallel.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E044",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_mobile_projects.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E045",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_glass_ui.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E046",
+   "direction": "02 UX",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_stop_banner.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E047",
+   "direction": "02 UX",
+   "claim": "Tests on 500244ac: 191 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "(a) cd command-center && python -m pytest -q -p no:cacheprovider tests/test_cc_ux_p1_findings.py tests/test_cc_ux_p2_findings.py tests/test_events_stream_keepalive.py tests/test_events_stream_last_event_id.py tests/test_events_stream_reconnect.py tests/test_chat_threads.py tests/test_chat_projects.py tests/test_chat_queue_steer.py ; (b) cd apps/bossman-mobile && python -m pytest -q -p no:cacheprovider tests/test_mobile.py tests/test_mobile_chat_parallel.py tests/test_mobile_projects.py tests/test_glass_ui.py tests/test_stop_banner.py",
+   "notes": "(a) 96 passed, (b) 95 passed. API/unit only; no browser, no real iPhone."
+  },
+  {
+   "id": "E048",
+   "direction": "02 UX",
+   "claim": "Latest live receipt 2026-10-31 on SHA 10df5245: PASS 9/9 via the real pult :8840 -> :8801 (history: 75de1859 FAIL 6/9, 03b66902 FAIL 8/9) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-pult-chat-ux-owner/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E049",
+   "direction": "02 UX",
+   "claim": "Older receipt 2026-10-31 SHA not recorded: PASS 3/3 -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-chat-files-owner/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E050",
+   "direction": "02 UX",
+   "claim": "Older receipt 2026-10-31 SHA not recorded: PASS 7/7 -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-auto-full-owner/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E051",
+   "direction": "02 UX",
+   "claim": "Older receipt 2026-10-29 SHA 735f4267: PASS 38/38 -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-29-full-emulator-buttons-proof/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E052",
+   "direction": "02 UX",
+   "claim": "Older receipt 2026-10-28 SHA not recorded: BETA (emulator only) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-glass-ui/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E053",
+   "direction": "02 UX",
+   "claim": "Live now (GET, read-only): Pult :8840 answers (GET / -> 307). No UX scenario run on 500244ac.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E054",
+   "direction": "02 UX",
+   "claim": "Status on 500244ac: NOT_RUN - Newest live proof is on 10df5245; chat_threads/queue drainer (f39337b8), action_contract (c0f6d2e4) and model_freshness (500244ac) changed since, so 9/9 is not carried over. U1 (same facts in 3 surfaces) and U3 (handoff + STOP on both) never had an exact-SHA receipt. Real-iPhone Safari never checked. COVERAGE_MATRIX rows 1.1/3.3/5.2 cite apps/bossman-mobile/bossmobile/server.py, which does not exist.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "None for the pult chat proof (it is just not run). Uses local agent 41 + cloud agent 46 (GLM 5.3 Flash via 7API: small paid call inside the owner cap). Real-iPhone check needs the owner's phone.",
+   "next_step": "From the 500244ac runtime tree: python -X utf8 tools/prove_pult_chat_ux_owner.py --local 41 --cloud 46, then python -X utf8 tools/prove_chat_files_owner.py; stamp both receipts with build_sha from GET /health/live (the UX tool does not record the SHA itself)."
+  },
+  {
+   "id": "E055",
+   "direction": "03 Apps",
+   "claim": "Promise: Every app gets an action passport run through the shared Task Kernel; one app starts/stops by the shared contract (APP1). War Terminal yields a verifiable tende",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#3. Apps"
+  },
+  {
+   "id": "E056",
+   "direction": "03 Apps",
+   "claim": "Promise: Every app gets an action passport run through the shared Task Kernel; one app starts/stops by the shared contract (APP1). War Terminal yields a verifiable tende",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.3"
+  },
+  {
+   "id": "E057",
+   "direction": "03 Apps",
+   "claim": "Promise: Every app gets an action passport run through the shared Task Kernel; one app starts/stops by the shared contract (APP1). War Terminal yields a verifiable tende",
+   "kind": "repo_file",
+   "ref": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 3"
+  },
+  {
+   "id": "E058",
+   "direction": "03 Apps",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/apps.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E059",
+   "direction": "03 Apps",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/apps_control.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E060",
+   "direction": "03 Apps",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_apps.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E061",
+   "direction": "03 Apps",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/app_passport.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E062",
+   "direction": "03 Apps",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "apps/war-terminal",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E063",
+   "direction": "03 Apps",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "apps/bossblock",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E064",
+   "direction": "03 Apps",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_apps_control.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E065",
+   "direction": "03 Apps",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_apps_launchable.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E066",
+   "direction": "03 Apps",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_apps_probe_isolation.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E067",
+   "direction": "03 Apps",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_apps_release_runtime.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E068",
+   "direction": "03 Apps",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_war_terminal_proxy.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E069",
+   "direction": "03 Apps",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_cu_task_apps_binding.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E070",
+   "direction": "03 Apps",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/war-terminal/tests",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E071",
+   "direction": "03 Apps",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_bossblock.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E072",
+   "direction": "03 Apps",
+   "claim": "Tests on 500244ac: 432 passed / 0 failed / 1 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "(a) cd command-center && python -m pytest -q -p no:cacheprovider tests/test_apps_control.py tests/test_apps_launchable.py tests/test_apps_probe_isolation.py tests/test_apps_release_runtime.py tests/test_war_terminal_proxy.py tests/test_cu_task_apps_binding.py ; (b) cd apps/war-terminal && python -m pytest tests -q -p no:cacheprovider ; (c) python -m pytest -q -p no:cacheprovider tests/test_bossblock.py",
+   "notes": "(a) 126 passed, 1 skipped (solana-volume-suite quarantined); (b) 301 passed; (c) 5 passed."
+  },
+  {
+   "id": "E073",
+   "direction": "03 Apps",
+   "claim": "Latest live receipt 2026-10-31 on SHA not recorded: no verdict field (BossBlock Dnipro capture, pytest 3 passed) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-bossblock-dnipro-gamedev/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E074",
+   "direction": "03 Apps",
+   "claim": "Older receipt 2026-10-28 SHA not recorded: PASS (AppActionPassport created; tests only; partly REVOKED, see REVOKED_RU.md) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-mobile-dag-devices-freeze/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E075",
+   "direction": "03 Apps",
+   "claim": "Older receipt 2026-10-24 SHA not recorded: PASS, CAPABILITY ONLY (fixtures, network 0) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-24-earn-tender-dossier/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E076",
+   "direction": "03 Apps",
+   "claim": "Live now (GET, read-only): GET /api/apps/health-matrix: total 13, live 1, unidentified 0 (12 of 13 registered apps not running).",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E077",
+   "direction": "03 Apps",
+   "claim": "Status on 500244ac: NOT_RUN - Tests PASS; no live app receipt on 500244ac. APP1: no app started/stopped through the shared Task Kernel on a recorded SHA. APP2: War Terminal BETA, no live TED/Prozorro receipt, 5-record cross-check never done. APP3: no failing-fixture isolation receipt.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "No owner action needed for a read-only run; a pre-chosen safe scenario is missing. War Terminal :8830 is not running.",
+   "next_step": "Start war-terminal through apps control, run one read-only open-data tender query through the Task Kernel, cross-check 5 records against the source, then an APP3 failing-fixture drill; write docs/audits/<date>-apps-war-terminal/receipt.json with build_sha 500244ac."
+  },
+  {
+   "id": "E078",
+   "direction": "04 Models",
+   "claim": "Promise: One local-first fleet: Gemma 4 31B daily driver, Qwen/Strata chosen by measurement; routing by measured quality/latency/memory/price with no silent substitution",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#0 items 1, 5, 6"
+  },
+  {
+   "id": "E079",
+   "direction": "04 Models",
+   "claim": "Promise: One local-first fleet: Gemma 4 31B daily driver, Qwen/Strata chosen by measurement; routing by measured quality/latency/memory/price with no silent substitution",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#4. Models"
+  },
+  {
+   "id": "E080",
+   "direction": "04 Models",
+   "claim": "Promise: One local-first fleet: Gemma 4 31B daily driver, Qwen/Strata chosen by measurement; routing by measured quality/latency/memory/price with no silent substitution",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.4"
+  },
+  {
+   "id": "E081",
+   "direction": "04 Models",
+   "claim": "Promise: One local-first fleet: Gemma 4 31B daily driver, Qwen/Strata chosen by measurement; routing by measured quality/latency/memory/price with no silent substitution",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md"
+  },
+  {
+   "id": "E082",
+   "direction": "04 Models",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/model_router.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E083",
+   "direction": "04 Models",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/model_intelligence.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E084",
+   "direction": "04 Models",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/local_first.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E085",
+   "direction": "04 Models",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/model_freshness.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E086",
+   "direction": "04 Models",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/model_health.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E087",
+   "direction": "04 Models",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/health.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E088",
+   "direction": "04 Models",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/eval500/runner.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E089",
+   "direction": "04 Models",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_model_freshness.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E090",
+   "direction": "04 Models",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_mandatory_model_policy.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E091",
+   "direction": "04 Models",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_feat_router.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E092",
+   "direction": "04 Models",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_model_health.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E093",
+   "direction": "04 Models",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_health_model_components.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E094",
+   "direction": "04 Models",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_model_intelligence.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E095",
+   "direction": "04 Models",
+   "claim": "Tests on 500244ac: 121 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_model_freshness.py command-center/tests/test_mandatory_model_policy.py command-center/tests/test_feat_router.py command-center/tests/test_model_health.py command-center/tests/test_health_model_components.py command-center/tests/test_model_intelligence.py",
+   "notes": "The two reds listed in the 2.5 architecture doc §3.4 are green now."
+  },
+  {
+   "id": "E096",
+   "direction": "04 Models",
+   "claim": "Latest live receipt 2026-10-29 on SHA 6388493f: no overall PASS: baseline 19/500 run (481 not_run, PAUSE file); tournament 28x3: Gemma 6 categories, Strata 2, Qwen 0 -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-29-eval500-baseline/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E097",
+   "direction": "04 Models",
+   "claim": "Older receipt 2026-10-29 SHA not recorded: PASS (corpus 350 dev + 150 sealed) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-29-eval500-registry-merge/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E098",
+   "direction": "04 Models",
+   "claim": "Older receipt 2026-10-22 SHA ca8eb1aa: API microbenchmarks only; no verified >=2x end-to-end -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/owner/performance-2x/runs/cp_perf_06_ab_results.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E099",
+   "direction": "04 Models",
+   "claim": "Live now (GET, read-only): GET /health: status DEGRADED, component models DEGRADED. GET /api/model-freshness (02:20 PDT): total 110, fresh_healthy 4, stale 104; skipped: not_in_use 91, paid_model_not_probed 6, key_rejected_owner_must_fix 1.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E100",
+   "direction": "04 Models",
+   "claim": "Status on 500244ac: FAIL - Live health check fails now: models component DEGRADED with 4 of 110 models fresh. Partly structural: bcc/health.py counts every registered model, while model_freshness deliberately probes only resident/in-use models (500244ac), so the component cannot reach HEALTHY as written. One provider key is rejected. eval500 baseline 19/500; no >=2x end-to-end measurement on any SHA.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "(1) Health definition vs freshness scope mismatch - needs an integrator code decision, without loosening gates. (2) One rejected provider key - owner via pult /key. (3) eval500 paused by D:\\Bossman\\eval\\PAUSE, needs ~10-12 h of free local GPU.",
+   "next_step": "Integrator: judge only the in-use/resident set in health model_components (not_in_use/paid = 'parked', not failed) + negative-control test, then GET /health on the new SHA. Owner: replace the rejected key (provider id from /api/model-freshness). Then remove the PAUSE file and resume python tools/eval500/runner.py run --run-id baseline-gemma41 --parts dev,holdout."
+  },
+  {
+   "id": "E101",
+   "direction": "05 Cloud",
+   "claim": "Promise: Local and free first (OpenRouter :free, NVIDIA NIM); paid only inside hard caps (GLM 5.3 Flash $2/day, Haiku $2/day, 7API $5 total); unknown price never free; b",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#1 Budget; Cloud agents are chat-only"
+  },
+  {
+   "id": "E102",
+   "direction": "05 Cloud",
+   "claim": "Promise: Local and free first (OpenRouter :free, NVIDIA NIM); paid only inside hard caps (GLM 5.3 Flash $2/day, Haiku $2/day, 7API $5 total); unknown price never free; b",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#5. Cloud"
+  },
+  {
+   "id": "E103",
+   "direction": "05 Cloud",
+   "claim": "Promise: Local and free first (OpenRouter :free, NVIDIA NIM); paid only inside hard caps (GLM 5.3 Flash $2/day, Haiku $2/day, 7API $5 total); unknown price never free; b",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.5"
+  },
+  {
+   "id": "E104",
+   "direction": "05 Cloud",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_cloud.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E105",
+   "direction": "05 Cloud",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/security/spend_firewall.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E106",
+   "direction": "05 Cloud",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/security/ai_gateway.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E107",
+   "direction": "05 Cloud",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/provider_governance.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E108",
+   "direction": "05 Cloud",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/free_providers.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E109",
+   "direction": "05 Cloud",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/fable_cap.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E110",
+   "direction": "05 Cloud",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/check_no_direct_llm_http.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E111",
+   "direction": "05 Cloud",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_spend_firewall_free_gate.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E112",
+   "direction": "05 Cloud",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_ai_gateway.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E113",
+   "direction": "05 Cloud",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_tools_cloud_ask.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E114",
+   "direction": "05 Cloud",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_cloud_chat_only.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E115",
+   "direction": "05 Cloud",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_free_providers.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E116",
+   "direction": "05 Cloud",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_provider_governance_memory.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E117",
+   "direction": "05 Cloud",
+   "claim": "Tests on 500244ac: 66 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_spend_firewall_free_gate.py command-center/tests/test_ai_gateway.py command-center/tests/test_tools_cloud_ask.py command-center/tests/test_cloud_chat_only.py command-center/tests/test_free_providers.py command-center/tests/test_provider_governance_memory.py",
+   "notes": "Green suite misses a known defect (see status_detail)."
+  },
+  {
+   "id": "E118",
+   "direction": "05 Cloud",
+   "claim": "Latest live receipt 2026-10-31 on SHA 7ed4ec2e: PASS (Bossman $0.007061 vs provider debit $0.007052) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-29-outrun-deepseek/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E119",
+   "direction": "05 Cloud",
+   "claim": "Older receipt 2026-11-01 SHA f39337b8 (fix e24c14f2 on unmerged branch codex/paid-reservation-20261101): unit PASS 47 on the branch; live NOT_RUN; NOT in main -> HISTORICAL",
+   "kind": "external_receipt",
+   "ref": "C:\\Users\\asd\\Bossman\\wt-codex-paid-reservation-20261101\\docs\\audits\\2026-11-01-codex-six-hour\\REPORT_RU.md",
+   "exists_at_audited_sha": null
+  },
+  {
+   "id": "E120",
+   "direction": "05 Cloud",
+   "claim": "Older receipt 2026-10-29 SHA not recorded: PASS -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-29-ai-gateway/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E121",
+   "direction": "05 Cloud",
+   "claim": "Older receipt 2026-10-24 SHA 6817b6d2: PASS after fix e33e1b0b -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-24-cloud-no-pc/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E122",
+   "direction": "05 Cloud",
+   "claim": "Live now (GET, read-only): GET /health: providers DEGRADED (mirrors models). GET /api/cloud/budget/unknown: 0 unresolved. GET /api/free-providers: 4. GET /api/providers: 17.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E123",
+   "direction": "05 Cloud",
+   "claim": "Status on 500244ac: FAIL - Defect present on 500244ac (severity LOW in money, but an invariant break of 'budget gates fail closed'): tools_cloud.estimate_cost rounds to 6 decimals, so a positive paid estimate below $0.0000005 becomes $0.0; reserve_paid_call_sync accepts quoted=0 when remaining>0 (check is `quoted > remaining`) and stores round(quoted,6)=0, so zero-quoted paid reservations never consume the budget. Reproduced by the Codex report on f39337b8 and by a sub-auditor on 500244ac with synthetic values; code read confirms (tools_cloud.py L454-491, L553-556). Fix e24c14f2 exists only on the unmerged branch. Open question: the Outrun receipt grants cloud agent 51 terminal.* tools (per-command approval) while AGENTS.md §1 allows PC access only for Kimi agent 47.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "Fix not in main; only the Claude integrator may port it into the unified line. A live paid cost check needs the owner's caps (free-provider checks need no yes).",
+   "next_step": "Integrator: port e24c14f2 (tools_cloud.py + command-center/tests/test_paid_quote_rounding.py), run the cloud suite + the new test, full CI on the new SHA, then a free-provider synthetic budget/reconcile check and GET /api/cloud/budget/unknown. Separately check agent 51's tool grant against the chat-only rule and add a test case."
+  },
+  {
+   "id": "E124",
+   "direction": "06 Computer",
+   "claim": "Promise: The local agent operates the owner's PC (files, processes, shell, windows/UI, browser) under L0-L3; each action is checked by an independent postcondition with ",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#0 item 2"
+  },
+  {
+   "id": "E125",
+   "direction": "06 Computer",
+   "claim": "Promise: The local agent operates the owner's PC (files, processes, shell, windows/UI, browser) under L0-L3; each action is checked by an independent postcondition with ",
+   "kind": "repo_file",
+   "ref": "docs/owner/os-agent-20261026/MASTER_PROMPT_OS_AGENT_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/os-agent-20261026/MASTER_PROMPT_OS_AGENT_RU.md"
+  },
+  {
+   "id": "E126",
+   "direction": "06 Computer",
+   "claim": "Promise: The local agent operates the owner's PC (files, processes, shell, windows/UI, browser) under L0-L3; each action is checked by an independent postcondition with ",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#6. Computer"
+  },
+  {
+   "id": "E127",
+   "direction": "06 Computer",
+   "claim": "Promise: The local agent operates the owner's PC (files, processes, shell, windows/UI, browser) under L0-L3; each action is checked by an independent postcondition with ",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.6"
+  },
+  {
+   "id": "E128",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/pc_agent.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E129",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/pc_agent_policy.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E130",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/pc_agent_policy_guards.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E131",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/pc_agent_policy_paths.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E132",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_computer.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E133",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_browser.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E134",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/browser_control.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E135",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/approval_scope.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E136",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/prove_pc_control_gemma.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E137",
+   "direction": "06 Computer",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/prove_auto_full_owner.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E138",
+   "direction": "06 Computer",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_computer_stop_race.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E139",
+   "direction": "06 Computer",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_computer_verify_and_approval.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E140",
+   "direction": "06 Computer",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_pc_agent_argon.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E141",
+   "direction": "06 Computer",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_pc_agent_master_p0_p5.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E142",
+   "direction": "06 Computer",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_pc_defense_two_lines.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E143",
+   "direction": "06 Computer",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_auto_full_folder_picker.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E144",
+   "direction": "06 Computer",
+   "claim": "Tests on 500244ac: 174 passed / 5 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_computer_stop_race.py command-center/tests/test_computer_verify_and_approval.py command-center/tests/test_pc_agent_argon.py command-center/tests/test_pc_agent_master_p0_p5.py command-center/tests/test_pc_defense_two_lines.py command-center/tests/test_auto_full_folder_picker.py",
+   "notes": "5 P4 self-modify tests in test_pc_agent_master_p0_p5.py FAIL when the process CWD is under .claude\\worktrees (re-confirmed by the lead auditor: 5 failed / 51 passed); the same file passes 56/56 from a neutral CWD. Cause: pc_agent_policy_paths.is_t3_secret_or_protected_path resolves a relative target with Path(norm).resolve(), i.e. against the process CWD, so the verdict depends on where the process runs. Fails closed (deny), not a safety hole; production CWD is wt-bossman-20-argon."
+  },
+  {
+   "id": "E145",
+   "direction": "06 Computer",
+   "claim": "Latest live receipt 2026-10-31 on SHA not recorded: PASS 7/7 (inside folder no approval; outside waits; revoke asks again) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-auto-full-owner/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E146",
+   "direction": "06 Computer",
+   "claim": "Older receipt 2026-10-28 SHA c22f4e60: run1 8 PASS / 2 FAIL; rerun P1+P5 PASS -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-freeze-candidate/pc-control/receipt_rerun_P1_P5.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E147",
+   "direction": "06 Computer",
+   "claim": "Older receipt 2026-10-27 SHA 412f01f7: 4 PASS / 2 FAIL; not live-rerun after fixes -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-27-pc-load-attack/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E148",
+   "direction": "06 Computer",
+   "claim": "Older receipt 2026-10-26 SHA 95f29e4d: 6 PASS / 2 NOT_PROVEN / 2 FAIL -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-26-pc-control-gemma/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E149",
+   "direction": "06 Computer",
+   "claim": "Live now (GET, read-only): GET /api/computer/status: available true, stopped false, busy false, 3 tools. GET /api/browser/health: available true, 2 active sessions. /health component browser UNKNOWN.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E150",
+   "direction": "06 Computer",
+   "claim": "Status on 500244ac: NOT_RUN - No PC-control, Auto Full, STOP or GUI receipt on 500244ac. PC1 (Notepad fixture + STOP mid-step), PC2 (DOM/vision mismatch), PC3 (takeover/resume) and P3 (10 end-to-end UI tasks) never had a live receipt on ANY SHA; Codex 01.11 also reports GUI/mouse/keyboard NOT_RUN. Latent defect: self-modify target verdict depends on process CWD (5 test FAILs in agent worktrees).",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "GUI fixtures need a live owner-PC desktop session (free foreground window, owner present or L1 approvals) and a local-model run against :8801.",
+   "next_step": "On 500244ac: python tools/prove_pc_control_gemma.py --out docs/audits/<date>-pc-control and python tools/prove_auto_full_owner.py, record build_sha in both; add a PC1 Notepad fixture with an independent postcondition and STOP mid-step. Code: resolve relative self-modify targets against rt.workspace_dir / repo root, not the CWD, + regression test run under a .claude-like CWD."
+  },
+  {
+   "id": "E151",
+   "direction": "07 Media",
+   "claim": "Promise: A local creative studio at Higgsfield level: local character replacement in real video, Motion Studio paid pilot, earning pipelines; chat pictures reach the mod",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#0 item 4; #3 A feature is PROVEN (chat attachments / photo edit)"
+  },
+  {
+   "id": "E152",
+   "direction": "07 Media",
+   "claim": "Promise: A local creative studio at Higgsfield level: local character replacement in real video, Motion Studio paid pilot, earning pipelines; chat pictures reach the mod",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#7. Media"
+  },
+  {
+   "id": "E153",
+   "direction": "07 Media",
+   "claim": "Promise: A local creative studio at Higgsfield level: local character replacement in real video, Motion Studio paid pilot, earning pipelines; chat pictures reach the mod",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.7"
+  },
+  {
+   "id": "E154",
+   "direction": "07 Media",
+   "claim": "Promise: A local creative studio at Higgsfield level: local character replacement in real video, Motion Studio paid pilot, earning pipelines; chat pictures reach the mod",
+   "kind": "repo_file",
+   "ref": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+  },
+  {
+   "id": "E155",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/direct_gen",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E156",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/motion_studio.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E157",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/video_studio",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E158",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/art_v2",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E159",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/chat_vision.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E160",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_photo_edit.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E161",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/motion_studio/local_genjutsu.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E162",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/video_gate",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E163",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/prove_chat_photo_edit.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E164",
+   "direction": "07 Media",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/prove_chat_attachments.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E165",
+   "direction": "07 Media",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_direct_gen_ltx25.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E166",
+   "direction": "07 Media",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_studio_orders.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E167",
+   "direction": "07 Media",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_art_studio_v2_wunderkind.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E168",
+   "direction": "07 Media",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_tools_photo_edit.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E169",
+   "direction": "07 Media",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_chat_vision.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E170",
+   "direction": "07 Media",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_video_section_quality_gate.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E171",
+   "direction": "07 Media",
+   "claim": "Tests on 500244ac: 171 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_direct_gen_ltx25.py command-center/tests/test_studio_orders.py command-center/tests/test_art_studio_v2_wunderkind.py command-center/tests/test_tools_photo_edit.py command-center/tests/test_chat_vision.py command-center/tests/test_video_section_quality_gate.py",
+   "notes": "Serial. Prove the honesty gates (render_engine_missing 503, NOT_MEASURED critic), not render quality."
+  },
+  {
+   "id": "E172",
+   "direction": "07 Media",
+   "claim": "Latest live receipt 2026-10-31 on SHA 7f68d466 (code landed as 5f6c72b2): NOT_PROVEN (live smoke NOT_RUN: GPU held by the owner's Wan2.2 job; owner ordered no GPU work) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-ltx25-direct-gen/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E173",
+   "direction": "07 Media",
+   "claim": "Older receipt 2026-10-31 SHA 55d4d902 (fix 7f68d466): REVOKED: Studio T2 render/QC PASS claims were synthetic -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-15-agent-convergence/studio_revocation.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E174",
+   "direction": "07 Media",
+   "claim": "Older receipt 2026-10-31 SHA fix 996ee695: false PASS fixed; real measurement not wired -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-15-agent-convergence/studio_vlm_critic.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E175",
+   "direction": "07 Media",
+   "claim": "Older receipt 2026-10-31 SHA not recorded: PASS (unit + ffmpeg guard; diffusion not re-run) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-video-section-quality-zero-overhead/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E176",
+   "direction": "07 Media",
+   "claim": "Older receipt 2026-10-26 SHA not recorded: below Higgsfield parity (ArcFace 0.28-0.31 vs 0.40) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-26-genjutsu-local-head-compose/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E177",
+   "direction": "07 Media",
+   "claim": "Older receipt 2026-10-23 SHA 8736fd51: PASS 7/7 chat photo edit -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-23-chat-attachments/photo-edit-20261023-1049.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E178",
+   "direction": "07 Media",
+   "claim": "Live now (GET, read-only): GET /api/direct-gen/status: photo backend sd-cli available; video backend available=false (ComfyUI ConnectTimeout); resident engine not loaded.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E179",
+   "direction": "07 Media",
+   "claim": "Status on 500244ac: BLOCKED - Live: the ComfyUI video backend is unavailable now; the sd-cli video path (ltx-2.5, wan2.2-ti2v-5b) has never had a live render (ltx25 receipt NOT_PROVEN). Studio render_preset has no engine wired (503 by design) - commercial preset render NOT_PROVEN; Studio T2 PASS revoked. Chat photo edit / attachments last proven on 8736fd51 (HISTORICAL). Genjutsu below parity. ME1-ME3 no live receipt. UX/honesty defect: the 'video' indicator is ComfyUI-only and says video needs ComfyUI although LTX/Wan run via sd-cli.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "(1) Owner order 31.10: no GPU/heavy work; GPU contention. (2) ComfyUI runtime :8188 not running. (3) No Studio engine adapter for render_preset. (4) LTX-2.5 weights licence UNKNOWN. (5) Person video needs consent + frame QA.",
+   "next_step": "With the GPU idle and the owner's OK: LTX-2.5 smoke on a temp backend (free port, temp BCC_DATA_DIR), 512x288, 4 s, 8 steps, ffprobe + sha256 + wall time -> docs/audits/<date>-ltx25-live-smoke. Then re-run tools/prove_chat_photo_edit.py and tools/prove_chat_attachments.py on 500244ac. Fix the ComfyUI-only video indicator; wire Wan2.2 TI2V via sd-cli into render_preset before any Studio T2 claim."
+  },
+  {
+   "id": "E180",
+   "direction": "08 Memory",
+   "claim": "Promise: Retained, applicable experience: lessons carry source/scope/validity/version, unconfirmed = DRAFT (MEM1); causal transfer measured on a frozen unseen holdout wi",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#8. Memory"
+  },
+  {
+   "id": "E181",
+   "direction": "08 Memory",
+   "claim": "Promise: Retained, applicable experience: lessons carry source/scope/validity/version, unconfirmed = DRAFT (MEM1); causal transfer measured on a frozen unseen holdout wi",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.8"
+  },
+  {
+   "id": "E182",
+   "direction": "08 Memory",
+   "claim": "Promise: Retained, applicable experience: lessons carry source/scope/validity/version, unconfirmed = DRAFT (MEM1); causal transfer measured on a frozen unseen holdout wi",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#Non-negotiable direction (no learning claims from memory hits)"
+  },
+  {
+   "id": "E183",
+   "direction": "08 Memory",
+   "claim": "Promise: Retained, applicable experience: lessons carry source/scope/validity/version, unconfirmed = DRAFT (MEM1); causal transfer measured on a frozen unseen holdout wi",
+   "kind": "repo_file",
+   "ref": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 8"
+  },
+  {
+   "id": "E184",
+   "direction": "08 Memory",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/memory",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E185",
+   "direction": "08 Memory",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/memory_lessons.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E186",
+   "direction": "08 Memory",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/business_exercises.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E187",
+   "direction": "08 Memory",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/business_exercise_checker.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E188",
+   "direction": "08 Memory",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "bossman-core/bossman/learning_guard",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E189",
+   "direction": "08 Memory",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/eval500/m4_transfer_report.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E190",
+   "direction": "08 Memory",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/codex_learning_readiness.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E191",
+   "direction": "08 Memory",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_codex_learning_readiness.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E192",
+   "direction": "08 Memory",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_mandatory_memory_poisoning.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E193",
+   "direction": "08 Memory",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_memory_recall_engine.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E194",
+   "direction": "08 Memory",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_memory_lifecycle_wiring.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E195",
+   "direction": "08 Memory",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_memory_lifecycle.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E196",
+   "direction": "08 Memory",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_eval500_harness.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E197",
+   "direction": "08 Memory",
+   "claim": "Tests on 500244ac: 146 passed / 0 failed / 1 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_codex_learning_readiness.py command-center/tests/test_mandatory_memory_poisoning.py command-center/tests/test_memory_recall_engine.py command-center/tests/test_memory_lifecycle_wiring.py ; python -m pytest -q -p no:cacheprovider tests/test_memory_lifecycle.py tests/test_eval500_harness.py",
+   "notes": "86 passed + 1 skipped (environment-dependent wiring skip), then 60 passed. No transfer measured."
+  },
+  {
+   "id": "E198",
+   "direction": "08 Memory",
+   "claim": "Latest live receipt 2026-10-31 on SHA 996ee695 (merged as 774742eb): temp backend :8897 readiness PASS (11 PASS, 1 WARN) + write E2E PASS; recorded_lesson_is_proven_learning=false; owner :8801 not probed -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-codex-learning-readiness/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E199",
+   "direction": "08 Memory",
+   "claim": "Older receipt 2026-10-29 SHA not recorded: NO_TRANSFER (0 of 30 paired tasks) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-29-m4-transfer/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E200",
+   "direction": "08 Memory",
+   "claim": "Older receipt 2026-10-31 SHA 55d4d902: PASS incl. synthetic memory isolation (0 leaks, 0 hits after revoke) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-boost-autopilot-pipeline/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E201",
+   "direction": "08 Memory",
+   "claim": "Older receipt 2026-10-30 SHA 61f6b0a8: memory recall PARTIAL (relevance not verified) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-30-long-horizon-run-g/README.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E202",
+   "direction": "08 Memory",
+   "claim": "Live now (GET, read-only): GET /api/memory/stats: 69 files, 525 chunks, dense=false (lexical only). GET /api/memory/lessons/policy: present, recorded_is_not_proven_learning=true.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E203",
+   "direction": "08 Memory",
+   "claim": "Status on 500244ac: NOT_RUN - MEM1 infrastructure deployed live, but no lesson write/verify/retention check on 500244ac. MEM2 never measured (M4 NO_TRANSFER, 0 paired tasks). MEM3 only synthetic on 55d4d902. Ladder TRANSFER_MEASURED_GAIN not reached.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "No paired baseline-vs-lessons run on >=30 hidden tasks (needs the eval500 baseline first); no preregistered thresholds / cross-family verifier. Probing :8801 with the readiness tool needs the owner's OK. Dense retrieval off.",
+   "next_step": "Preregister thresholds, freeze the sealed holdout, run both arms via tools/eval500/m4_transfer_report.py with >=30 paired verdicts, McNemar + CI95, negative control, cross-family verifier and a full :8801 restart between write and recall -> docs/audits/<date>-m4-transfer-500244ac. Before that (owner OK): GET-only tools/codex_learning_readiness.py against :8801."
+  },
+  {
+   "id": "E204",
+   "direction": "09 Agents",
+   "claim": "Promise: One durable task lifecycle with one task ID across all interfaces; after crash/restart resume from checkpoint or RECONCILE_REQUIRED without duplicate effects (A",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#9. Agents"
+  },
+  {
+   "id": "E205",
+   "direction": "09 Agents",
+   "claim": "Promise: One durable task lifecycle with one task ID across all interfaces; after crash/restart resume from checkpoint or RECONCILE_REQUIRED without duplicate effects (A",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.9"
+  },
+  {
+   "id": "E206",
+   "direction": "09 Agents",
+   "claim": "Promise: One durable task lifecycle with one task ID across all interfaces; after crash/restart resume from checkpoint or RECONCILE_REQUIRED without duplicate effects (A",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#Non-negotiable direction (North Star ladder)"
+  },
+  {
+   "id": "E207",
+   "direction": "09 Agents",
+   "claim": "Promise: One durable task lifecycle with one task ID across all interfaces; after crash/restart resume from checkpoint or RECONCILE_REQUIRED without duplicate effects (A",
+   "kind": "repo_file",
+   "ref": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 9"
+  },
+  {
+   "id": "E208",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/task_graph.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E209",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/agent_graph.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E210",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/action_router.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E211",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/task_admission.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E212",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/autonomy",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E213",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/finalize.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E214",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/action_contract.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E215",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/boost_autopilot.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E216",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/long_horizon_run.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E217",
+   "direction": "09 Agents",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/coding_swarm.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E218",
+   "direction": "09 Agents",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_task_graph_v2.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E219",
+   "direction": "09 Agents",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_action_router.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E220",
+   "direction": "09 Agents",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_autonomy_policy.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E221",
+   "direction": "09 Agents",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_autonomy_workers.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E222",
+   "direction": "09 Agents",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_review_file_evidence_paths.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E223",
+   "direction": "09 Agents",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_finalize_gate.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E224",
+   "direction": "09 Agents",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_boost_autopilot.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E225",
+   "direction": "09 Agents",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_coding_swarm.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E226",
+   "direction": "09 Agents",
+   "claim": "Tests on 500244ac: 202 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_task_graph_v2.py command-center/tests/test_action_router.py command-center/tests/test_autonomy_policy.py command-center/tests/test_autonomy_workers.py command-center/tests/test_review_file_evidence_paths.py command-center/tests/test_finalize_gate.py command-center/tests/test_boost_autopilot.py ; python -m pytest -q -p no:cacheprovider tests/test_coding_swarm.py",
+   "notes": "Includes the c0f6d2e4 negative test (empty written file is not evidence). tools/long_horizon_run.py has no test file of its own."
+  },
+  {
+   "id": "E227",
+   "direction": "09 Agents",
+   "claim": "Latest live receipt 2026-10-31 on SHA f39337b8: long-horizon run 4: steps 1-3 PASS + real kill + 0 duplicates + STOP 0 new calls; step 4 false PASS in Bossman (0-byte out/verify.py) caught by the driver, fixed in c0f6d2e4 -> HISTORICAL (not carried to 500244ac)",
+   "kind": "external_receipt",
+   "ref": "C:\\Users\\asd\\Bossman\\CODEX_HANDOFF_20261031.md",
+   "exists_at_audited_sha": null
+  },
+  {
+   "id": "E228",
+   "direction": "09 Agents",
+   "claim": "Older receipt 2026-10-30 SHA 61f6b0a8: PASS 5 steps + interrupt + STOP; 41 min (2-4 h NOT MET); 24 h NOT_RUN -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-30-long-horizon-run-g/README.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E229",
+   "direction": "09 Agents",
+   "claim": "Older receipt 2026-10-31 SHA 55d4d902: PASS (13/16 verified, 2 false claims caught) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-boost-autopilot-pipeline/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E230",
+   "direction": "09 Agents",
+   "claim": "Older receipt 2026-10-28 SHA not recorded: MODEL_PATCH_CREATED false - SELF_REPAIR_SINGLE_CYCLE_PASS not reached -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-self-repair-d036/README_RU.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E231",
+   "direction": "09 Agents",
+   "claim": "Live now (GET, read-only): GET /api/autonomy/status: level L2, 'no apply executor exists', promotion eligible=false, clean_cycles 0 of 25, stop inactive. GET /api/autopilot/status: 21/21 verified runs (self-reported counters). GET /api/qwen-operator/status: L1 Lab, push/merge/deploy false.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E232",
+   "direction": "09 Agents",
+   "claim": "Status on 500244ac: NOT_RUN - No long-horizon run, self-repair cycle or soak on 500244ac; the c0f6d2e4 fix for the run-4 false PASS is present but not re-proven live (run h NOT_RUN). A1 (one task ID through Telegram + UI + crash) and A2 (two concurrent fixture tasks under cap) have no receipt; A3 has only the run-4 negative example. Ladder: only SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT proven.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "Run h takes ~45 min and kills/restarts the live :8801 backend in step 3 - needs a quiet window and the owner's go-ahead, no collision with Codex. Self-repair needs a stronger worker than local Gemma (D-036 no_progress_loop) + cross-family verifier.",
+   "next_step": "python -X utf8 tools/long_horizon_run.py start --agent 52 from the 500244ac runtime tree; if 5/5 PASS write docs/audits/<date>-long-horizon-run-h/ (state.json, truth.json, driver.log, identity), then 2-4 h soak, then 24 h. Re-run D-036 self-repair with a stronger free worker. Add a unit test for the long_horizon_run driver."
+  },
+  {
+   "id": "E233",
+   "direction": "10 Skills",
+   "claim": "Promise: Every executable skill has a contract (version, allowed tools, I/O, test, rollback); an incompatible skill must not run (S1); top-k skill selection beats a no-s",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#10. Skills"
+  },
+  {
+   "id": "E234",
+   "direction": "10 Skills",
+   "claim": "Promise: Every executable skill has a contract (version, allowed tools, I/O, test, rollback); an incompatible skill must not run (S1); top-k skill selection beats a no-s",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.10"
+  },
+  {
+   "id": "E235",
+   "direction": "10 Skills",
+   "claim": "Promise: Every executable skill has a contract (version, allowed tools, I/O, test, rollback); an incompatible skill must not run (S1); top-k skill selection beats a no-s",
+   "kind": "repo_file",
+   "ref": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 10"
+  },
+  {
+   "id": "E236",
+   "direction": "10 Skills",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/skill_library.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E237",
+   "direction": "10 Skills",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/skill_catalog.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E238",
+   "direction": "10 Skills",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/skills_catalog",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E239",
+   "direction": "10 Skills",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/skills.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E240",
+   "direction": "10 Skills",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": ".agents/skills",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E241",
+   "direction": "10 Skills",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/validate_curated_agent_skills.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E242",
+   "direction": "10 Skills",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/prove_tools_skills.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E243",
+   "direction": "10 Skills",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_feat_skills.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E244",
+   "direction": "10 Skills",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_skill_manifest.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E245",
+   "direction": "10 Skills",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_skill_loading_safety.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E246",
+   "direction": "10 Skills",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_bundled_skills_valid.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E247",
+   "direction": "10 Skills",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_skills_models_ops_freeze.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E248",
+   "direction": "10 Skills",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_curated_agent_skills.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E249",
+   "direction": "10 Skills",
+   "claim": "Tests on 500244ac: 151 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_feat_skills.py command-center/tests/test_skill_manifest.py command-center/tests/test_skill_loading_safety.py command-center/tests/test_bundled_skills_valid.py command-center/tests/test_skills_models_ops_freeze.py tests/test_curated_agent_skills.py",
+   "notes": "No test checks S2 (selection lift) or the S3 owner-gate rollback end to end. docs/owner/SKILLS.md says skills are 'not wired' - stale (skills_for_task is wired into coding_tasks.py)."
+  },
+  {
+   "id": "E250",
+   "direction": "10 Skills",
+   "claim": "Latest live receipt 2026-10-31 on SHA not recorded: VERIFIED (one skill web-trend-teacher + teacher tools) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-web-trend-teacher/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E251",
+   "direction": "10 Skills",
+   "claim": "Older receipt 2026-10-28 SHA 7d1d5481: PASS (17 SKILL.md files + manifest tests; not reuse on a new task) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-skills-models-ops-freeze/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E252",
+   "direction": "10 Skills",
+   "claim": "Older receipt 2026-10-22 SHA not recorded: per-tool PROVEN_EXECUTED matrix -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-22-tools-skills-proof/proof_matrix.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E253",
+   "direction": "10 Skills",
+   "claim": "Live now (GET, read-only): GET /api/skills: 126 skills (inventory count only).",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E254",
+   "direction": "10 Skills",
+   "claim": "Status on 500244ac: NOT_RUN - No receipt on any SHA shows a Bossman-created skill reused on a new task, a promotion refused on a red test, or a rollback. S2 never benchmarked.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "No exact-SHA end-to-end skill loop run (create -> independent verify -> reuse) and no S2 frozen-set benchmark; CI on 500244ac incomplete.",
+   "next_step": "On 500244ac: one skill through candidate -> test -> independent review -> owner gate -> forced rollback, with a negative control (incompatible skill refused) and the reuse task id -> docs/audits/<date>-skills-s1-s3/receipt.json; record via tools/tree_apply_evidence.py."
+  },
+  {
+   "id": "E255",
+   "direction": "11 Plugins",
+   "claim": "Promise: Every MCP call has explicit methods, addresses, data scope, cap, approval and STOP inheritance; unknown server closed (PL1, P0); contract run against a local fi",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#11. Plugins"
+  },
+  {
+   "id": "E256",
+   "direction": "11 Plugins",
+   "claim": "Promise: Every MCP call has explicit methods, addresses, data scope, cap, approval and STOP inheritance; unknown server closed (PL1, P0); contract run against a local fi",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.11"
+  },
+  {
+   "id": "E257",
+   "direction": "11 Plugins",
+   "claim": "Promise: Every MCP call has explicit methods, addresses, data scope, cap, approval and STOP inheritance; unknown server closed (PL1, P0); contract run against a local fi",
+   "kind": "repo_file",
+   "ref": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 11"
+  },
+  {
+   "id": "E258",
+   "direction": "11 Plugins",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/plugin_security.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E259",
+   "direction": "11 Plugins",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/mcp_hub.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E260",
+   "direction": "11 Plugins",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/v2/mcp_runtime.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E261",
+   "direction": "11 Plugins",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/mcp_catalog.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E262",
+   "direction": "11 Plugins",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/plugins.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E263",
+   "direction": "11 Plugins",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_mcp.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E264",
+   "direction": "11 Plugins",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_opencode.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E265",
+   "direction": "11 Plugins",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/mcp_acceptance.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E266",
+   "direction": "11 Plugins",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_plugin_security.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E267",
+   "direction": "11 Plugins",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_plugins_stub_not_success.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E268",
+   "direction": "11 Plugins",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_plugin_mcp_tool_call.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E269",
+   "direction": "11 Plugins",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_b11_plugin_mcp_agent_deny.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E270",
+   "direction": "11 Plugins",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_b11_mcp_call_cancellation.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E271",
+   "direction": "11 Plugins",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_v26_mcp_sdk_path.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E272",
+   "direction": "11 Plugins",
+   "claim": "Tests on 500244ac: 55 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_plugin_security.py command-center/tests/test_plugins_stub_not_success.py command-center/tests/test_plugin_mcp_tool_call.py command-center/tests/test_b11_plugin_mcp_agent_deny.py command-center/tests/test_b11_mcp_call_cancellation.py command-center/tests/test_v26_mcp_sdk_path.py",
+   "notes": "Unit/fixture only. No tools/mcp_acceptance.py receipt under docs/audits."
+  },
+  {
+   "id": "E273",
+   "direction": "11 Plugins",
+   "claim": "Latest live receipt 2026-10-29 on SHA not recorded: no verdict field; 7/7 motion plugins audited (Claude-side tool plugins, not Bossman MCP) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-29-motion-plugins/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E274",
+   "direction": "11 Plugins",
+   "claim": "Older receipt 2026-10-28 SHA not recorded: mcp_hub in scope; no live MCP call evidence -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-security-cloud-commerce-freeze/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E275",
+   "direction": "11 Plugins",
+   "claim": "Live now (GET, read-only): GET /api/mcp/runtime: sdk_available true, servers 0, registered_tools 0. GET /api/plugins: 14. GET /api/opencode/health: status unavailable.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E276",
+   "direction": "11 Plugins",
+   "claim": "Status on 500244ac: NOT_RUN - No MCP server is connected in the live runtime, so PL1/PL2 cannot have been exercised live; no exact-SHA MCP acceptance receipt on any SHA. OpenCode external tool unavailable right now.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "No MCP server registered live; no fixture MCP acceptance run; OpenCode down.",
+   "next_step": "On 500244ac: python tools/mcp_acceptance.py against one local fixture MCP server (schema, timeout, cancel, crash, restart, unknown tool, permission denial), then one real multi-step MCP call with a denied method, STOP mid-call and an injection fixture -> docs/audits/<date>-mcp-pl1-pl3/receipt.json. Diagnose /api/opencode/health unavailable."
+  },
+  {
+   "id": "E277",
+   "direction": "12 Ops",
+   "claim": "Promise: Red CI mapped to the main baseline until required CI is green on the candidate without weakened gates (O1); one receipt binds source SHA, clean state, archive h",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#12. Ops"
+  },
+  {
+   "id": "E278",
+   "direction": "12 Ops",
+   "claim": "Promise: Red CI mapped to the main baseline until required CI is green on the candidate without weakened gates (O1); one receipt binds source SHA, clean state, archive h",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.12 + #6"
+  },
+  {
+   "id": "E279",
+   "direction": "12 Ops",
+   "claim": "Promise: Red CI mapped to the main baseline until required CI is green on the candidate without weakened gates (O1); one receipt binds source SHA, clean state, archive h",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#3 One runtime = one tree"
+  },
+  {
+   "id": "E280",
+   "direction": "12 Ops",
+   "claim": "Promise: Red CI mapped to the main baseline until required CI is green on the candidate without weakened gates (O1); one receipt binds source SHA, clean state, archive h",
+   "kind": "repo_file",
+   "ref": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md row 12"
+  },
+  {
+   "id": "E281",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/build_identity.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E282",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/run_provenance.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E283",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/acceptance_registry.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E284",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/tree_registry_sync.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E285",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/tree_apply_evidence.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E286",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/ci_secret_scan.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E287",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/nightly_backup.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E288",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/owner_one_bossman.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E289",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/long_horizon_run.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E290",
+   "direction": "12 Ops",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/restart_backend.ps1",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E291",
+   "direction": "12 Ops",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_acceptance_registry.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E292",
+   "direction": "12 Ops",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_build_source_identity.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E293",
+   "direction": "12 Ops",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_ci_secret_scan.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E294",
+   "direction": "12 Ops",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_nightly_backup.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E295",
+   "direction": "12 Ops",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_owner_one_bossman.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E296",
+   "direction": "12 Ops",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_runtime_source_identity.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E297",
+   "direction": "12 Ops",
+   "claim": "Tests on 500244ac: 179 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider tests/test_acceptance_registry.py tests/test_build_source_identity.py tests/test_ci_secret_scan.py tests/test_nightly_backup.py tests/test_owner_one_bossman.py command-center/tests/test_runtime_source_identity.py",
+   "notes": "test_ci_secret_scan fully green (the 22.10 red is closed)."
+  },
+  {
+   "id": "E298",
+   "direction": "12 Ops",
+   "claim": "Latest live receipt 2026-10-31 on SHA not recorded: PASS (anchors repointed to wt-bossman-20-argon, identity PASS at that time) -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-security-autofull-long-horizon/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E299",
+   "direction": "12 Ops",
+   "claim": "Older receipt 2026-10-30 SHA 61f6b0a8: PASS checkpoint/kill/resume/STOP; 2-4 h NOT MET; 24 h NOT_RUN -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-30-long-horizon-run-g/README.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E300",
+   "direction": "12 Ops",
+   "claim": "Older receipt 2026-10-28 SHA c22f4e60: PASS_WITH_NOTE -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-freeze-candidate/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E301",
+   "direction": "12 Ops",
+   "claim": "Older receipt 2026-10-27 SHA 745c99e6: identity PASS -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-27-m1-runtime-identity/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E302",
+   "direction": "12 Ops",
+   "claim": "Older receipt 2026-10-31 SHA c0f6d2e4: backup manual run 31.10 16:49 PASS - no receipt file -> HISTORICAL",
+   "kind": "external_receipt",
+   "ref": "C:\\Users\\asd\\Bossman\\CODEX_HANDOFF_20261031.md",
+   "exists_at_audited_sha": null
+  },
+  {
+   "id": "E303",
+   "direction": "12 Ops",
+   "claim": "Live now (GET, read-only): GET /health/live: build_sha 500244ac, source_identity PASS, git_clean true. GET /health: DEGRADED (models, providers DEGRADED; browser UNKNOWN; db, queue, scheduler, all ticks HEALTHY). CI on 500244ac (10:25Z): 36 success, 2 in progress (pytest py3.12/3.14), 1 queued (freeze), 2 cancelled (upstream-contracts windows, coverage floor), 1 skipped, 0 failure.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E304",
+   "direction": "12 Ops",
+   "claim": "Status on 500244ac: NOT_RUN - Only the narrow identity claim is live-PASS on 500244ac. O1: CI incomplete + 2 cancelled jobs. O2: no full identity-chain receipt (archive hash, installed SHA, tree source, run ID). O3: no owner acceptance on this SHA. Long-horizon run h, 2-4 h and 24/48 h soak NOT_RUN. Backup PASS is a handoff statement without a receipt. /health DEGRADED (driven by Models).",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "CI still running with 2 cancelled jobs; freeze tag sits on f39337b8 while runtime is 500244ac; owner rule: long soak only after a finished freeze.",
+   "next_step": "Re-poll check-runs for 500244ac until pytest py3.12/py3.14 and the queued freeze job finish; re-run/explain the 2 cancelled jobs. If green: long-horizon run h on 500244ac, a backup receipt (tools/nightly_backup.py, sha256 + integrity_check) under docs/audits/<date>-backup/, one O2 identity-chain receipt; then decide whether the freeze tag moves to 500244ac before the 2-4 h soak."
+  },
+  {
+   "id": "E305",
+   "direction": "13 OSS",
+   "claim": "Promise: Every OSS candidate records licence on an exact upstream SHA, purpose, dependencies and data egress (OSS1); adopted only after a measured win over the existing ",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#13. OSS"
+  },
+  {
+   "id": "E306",
+   "direction": "13 OSS",
+   "claim": "Promise: Every OSS candidate records licence on an exact upstream SHA, purpose, dependencies and data egress (OSS1); adopted only after a measured win over the existing ",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.13"
+  },
+  {
+   "id": "E307",
+   "direction": "13 OSS",
+   "claim": "Promise: Every OSS candidate records licence on an exact upstream SHA, purpose, dependencies and data egress (OSS1); adopted only after a measured win over the existing ",
+   "kind": "repo_file",
+   "ref": "docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md"
+  },
+  {
+   "id": "E308",
+   "direction": "13 OSS",
+   "claim": "Promise: Every OSS candidate records licence on an exact upstream SHA, purpose, dependencies and data egress (OSS1); adopted only after a measured win over the existing ",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#0 item 5"
+  },
+  {
+   "id": "E309",
+   "direction": "13 OSS",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/oss",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E310",
+   "direction": "13 OSS",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "integrations",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E311",
+   "direction": "13 OSS",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "tools/gem_search_research.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E312",
+   "direction": "13 OSS",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "config/oss/searxng",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E313",
+   "direction": "13 OSS",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": ".github/workflows/oss-integrations.yml",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E314",
+   "direction": "13 OSS",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_oss_integrations.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E315",
+   "direction": "13 OSS",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_oss_docling.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E316",
+   "direction": "13 OSS",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_oss_memory_refusals.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E317",
+   "direction": "13 OSS",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_oss_integrations_routes.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E318",
+   "direction": "13 OSS",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_skill_catalog_license.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E319",
+   "direction": "13 OSS",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_gem_search_research.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E320",
+   "direction": "13 OSS",
+   "claim": "Tests on 500244ac: 45 passed / 0 failed / 5 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_oss_integrations.py command-center/tests/test_oss_docling.py command-center/tests/test_oss_memory_refusals.py command-center/tests/test_oss_integrations_routes.py command-center/tests/test_skill_catalog_license.py tests/test_gem_search_research.py",
+   "notes": "All 5 skips: test_oss_docling.py 'No module named docling' (real-conversion path unexercised)."
+  },
+  {
+   "id": "E321",
+   "direction": "13 OSS",
+   "claim": "Latest live receipt 2026-10-31 on SHA not recorded: sidecar runs on Windows (PASS); real X feed / Grok reviewers / on-chain NOT_RUN; upstream a04fae4 recorded, Bossman SHA not -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-31-gem-search-research/README.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E322",
+   "direction": "13 OSS",
+   "claim": "Older receipt 2026-10-26 SHA not recorded: read-only research, no PoC -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-26-oss-adoption/PLAN.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E323",
+   "direction": "13 OSS",
+   "claim": "Older receipt 2026-10-22 SHA not recorded: PoC candidates; result inside Bossman NOT_RUN -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E324",
+   "direction": "13 OSS",
+   "claim": "Live now (GET, read-only): n/a (no OSS-specific live endpoint probed).",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E325",
+   "direction": "13 OSS",
+   "claim": "Status on 500244ac: NOT_RUN - No receipt on any SHA shows an applied OSS component with a measured gain over the baseline (OSS2 never run). OSS1 registry only partial (UPSTREAM.json/NOTICE files, research tables), not a blocking gate. Docling path cannot run (package missing).",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "No preregistered OSS-vs-baseline PoC; installing docling needs the owner's permission (no auto-downloads).",
+   "next_step": "Isolated venv (not the runtime env): install docling, run the 5 skipped tests on synthetic PDF/DOCX; then one OSS2 contest (e.g. LangGraph resume or Browser Use DPI clicks from CHECKPOINT_02) against 500244ac with preregistered thresholds -> docs/audits/<date>-oss-contest/ (upstream URL+tag+licence, before/after, rollback)."
+  },
+  {
+   "id": "E326",
+   "direction": "14 Commerce",
+   "claim": "Promise: One sellable offer with client, price, cost and acceptance criterion + demo on public data (COM1); a delivery receipt offer -> consent -> result -> delivery -> ",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#14. Commerce"
+  },
+  {
+   "id": "E327",
+   "direction": "14 Commerce",
+   "claim": "Promise: One sellable offer with client, price, cost and acceptance criterion + demo on public data (COM1); a delivery receipt offer -> consent -> result -> delivery -> ",
+   "kind": "repo_file",
+   "ref": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md#14. Commerce"
+  },
+  {
+   "id": "E328",
+   "direction": "14 Commerce",
+   "claim": "Promise: One sellable offer with client, price, cost and acceptance criterion + demo on public data (COM1); a delivery receipt offer -> consent -> result -> delivery -> ",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.14"
+  },
+  {
+   "id": "E329",
+   "direction": "14 Commerce",
+   "claim": "Promise: One sellable offer with client, price, cost and acceptance criterion + demo on public data (COM1); a delivery receipt offer -> consent -> result -> delivery -> ",
+   "kind": "repo_file",
+   "ref": "docs/owner/TRADING_LIVE_READINESS_GATE_20261011.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/TRADING_LIVE_READINESS_GATE_20261011.md"
+  },
+  {
+   "id": "E330",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/commerce_ledger.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E331",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "bossman_shared/exchange_assistant",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E332",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "bossman_shared/exchange_ledger.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E333",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "apps/swapme-bot",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E334",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/task_exchange.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E335",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "apps/war-terminal",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E336",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/war_terminal.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E337",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "apps/motion-studio-landing",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E338",
+   "direction": "14 Commerce",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/motion_studio.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E339",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_audit_upgrade_security_cloud_commerce.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E340",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_d1_swapme_mission_e2e.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E341",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_exchange_ledger.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E342",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_war_terminal_proxy.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E343",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_motion_studio_bundle.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E344",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_exchange_assistant.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E345",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "tests/test_background_swap_gate.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E346",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/war-terminal/tests",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E347",
+   "direction": "14 Commerce",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_exchange.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E348",
+   "direction": "14 Commerce",
+   "claim": "Tests on 500244ac: 405 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "python -m pytest -q -p no:cacheprovider command-center/tests/test_audit_upgrade_security_cloud_commerce.py command-center/tests/test_d1_swapme_mission_e2e.py command-center/tests/test_exchange_ledger.py command-center/tests/test_war_terminal_proxy.py command-center/tests/test_motion_studio_bundle.py tests/test_exchange_assistant.py (79) ; tests/test_background_swap_gate.py (18) ; command-center/tests/test_pc_agent_argon.py::test_reports_runner_no_silent_synthetic_and_two_runs_sha256 (1) ; cd apps/war-terminal && python -m pytest -q tests (301) ; cd apps/bossman-mobile && python -m pytest -q tests/test_exchange.py (6)",
+   "notes": "Capability and fail-closed behaviour only (strict margin, PAPER_DEMO isolation, $0 audited revenue invariant). War Terminal tests overlap with Apps."
+  },
+  {
+   "id": "E349",
+   "direction": "14 Commerce",
+   "claim": "Latest live receipt 2026-10-28 on SHA not recorded: 84/84 tests; compute_quote_strict fails closed; audited external revenue $0.00 -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-security-cloud-commerce-freeze/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E350",
+   "direction": "14 Commerce",
+   "claim": "Older receipt 2026-10-29 SHA 3cc6d193: PASS 6/6 owner-demo rehearsal (a demo, not a sale) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-29-demo-rehearsal/receipt-20261029-0523.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E351",
+   "direction": "14 Commerce",
+   "claim": "Older receipt 2026-10-24 SHA not recorded: PASS, CAPABILITY ONLY; revenue NOT_RUN -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-24-earn-tender-dossier/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E352",
+   "direction": "14 Commerce",
+   "claim": "Older receipt 2026-10-11 SHA not recorded: NO_GO on G1-G11 -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/owner/TRADING_LIVE_READINESS_GATE_20261011.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E353",
+   "direction": "14 Commerce",
+   "claim": "Live now (GET, read-only): GET /api/market/status: dataset_status DATA_COLLECTION (paper/none). GET /api/jev/status: enabled false, shadow true, wired false. GET /api/economy/status: jev_wired false. War Terminal :8830 not listening.",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E354",
+   "direction": "14 Commerce",
+   "claim": "Status on 500244ac: BLOCKED - Revenue = 0: no real payment receipt on any SHA. COM1 has demos (tender dossier, site audit, studio orders, Motion Studio samples) not tied to a client order; COM2/COM3 never ran; SwapMe pilot not done (handoff 31.10). Real trading, outreach, Stars and Jeff broadcast are PAUSED by the owner (not FAIL); nothing was activated.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "Needs a real paying client and the owner's explicit approval of one order (cheapest: SwapMe 1000 USDT pilot; or one War Terminal dossier for a named buyer). Motion Studio pilot needs the owner's card for Higgsfield credits or a decision to deliver locally.",
+   "next_step": "Owner: approve one concrete order. Then run it through commerce_ledger.py on the exact runtime SHA (offer -> consent -> result version -> delivery -> acceptance -> payment document) -> docs/audits/<date>-commerce-pilot/receipt.json with net from real documents. Until then report READY_TO_SELL, revenue 0."
+  },
+  {
+   "id": "E355",
+   "direction": "15 Devices",
+   "claim": "Promise: The phone is a window onto the same task ID, permissions and STOP as the pult and CC, no second queue (D1); a second worker PC only through owner pairing, capab",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md#15. Devices"
+  },
+  {
+   "id": "E356",
+   "direction": "15 Devices",
+   "claim": "Promise: The phone is a window onto the same task ID, permissions and STOP as the pult and CC, no second queue (D1); a second worker PC only through owner pairing, capab",
+   "kind": "repo_file",
+   "ref": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md#15. Devices"
+  },
+  {
+   "id": "E357",
+   "direction": "15 Devices",
+   "claim": "Promise: The phone is a window onto the same task ID, permissions and STOP as the pult and CC, no second queue (D1); a second worker PC only through owner pairing, capab",
+   "kind": "repo_file",
+   "ref": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md",
+   "exists_at_audited_sha": true,
+   "anchor": "docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md#3.15"
+  },
+  {
+   "id": "E358",
+   "direction": "15 Devices",
+   "claim": "Promise: The phone is a window onto the same task ID, permissions and STOP as the pult and CC, no second queue (D1); a second worker PC only through owner pairing, capab",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true,
+   "anchor": "AGENTS.md#0 item 1"
+  },
+  {
+   "id": "E359",
+   "direction": "15 Devices",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/bossmobile",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E360",
+   "direction": "15 Devices",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "bossman-core/bossman/remote_client",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E361",
+   "direction": "15 Devices",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "bossman-core/scripts/bootstrap_remote_device.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E362",
+   "direction": "15 Devices",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/telegram_companion/remote_access.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E363",
+   "direction": "15 Devices",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/devices/worker_node.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E364",
+   "direction": "15 Devices",
+   "claim": "Code exists",
+   "kind": "repo_file",
+   "ref": "bossman-core/ios",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E365",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_mobile_no_facades.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E366",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_stop_banner.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E367",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_mobile.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E368",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "apps/bossman-mobile/tests/test_serve_resilience.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E369",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_mobile_dag_devices_upgrade.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E370",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_companion_remote_access.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E371",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "bossman-core/tests/test_remote_client.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E372",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "bossman-core/tests/test_core_auth_perimeter.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E373",
+   "direction": "15 Devices",
+   "claim": "Relevant test file exists",
+   "kind": "repo_file",
+   "ref": "bossman-core/tests/test_fleet_remote_auth.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E374",
+   "direction": "15 Devices",
+   "claim": "Tests on 500244ac: 226 passed / 0 failed / 0 skipped / 0 errors (tests are not live proof)",
+   "kind": "test_run",
+   "ref": "cd apps/bossman-mobile && python -m pytest -q -p no:cacheprovider tests/test_mobile_no_facades.py tests/test_stop_banner.py tests/test_mobile.py tests/test_serve_resilience.py (85) ; python -m pytest -q -p no:cacheprovider command-center/tests/test_mobile_dag_devices_upgrade.py command-center/tests/test_companion_remote_access.py (57) ; cd bossman-core && python -m pytest -q -p no:cacheprovider tests/test_remote_client.py tests/test_core_auth_perimeter.py tests/test_fleet_remote_auth.py (84)",
+   "notes": "Swift tests not run (no swift/xcodebuild on this Windows PC). Worker-node cascading STOP is an in-process flip, not a second machine."
+  },
+  {
+   "id": "E375",
+   "direction": "15 Devices",
+   "claim": "Latest live receipt 2026-10-28 on SHA not recorded: 5 facade routes fixed; NOT proven on live pult :8840 (old build); tap from phone not built -> HISTORICAL (not carried to 500244ac)",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-live-proofs/mobile_facades_receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E376",
+   "direction": "15 Devices",
+   "claim": "Older receipt 2026-10-28 SHA not recorded: receipt partially REVOKED (facades, camera probe, AppActionPassport) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-28-mobile-dag-devices-freeze/REVOKED_RU.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E377",
+   "direction": "15 Devices",
+   "claim": "Older receipt 2026-10-25 SHA not recorded: iPhone-13 Playwright profile (emulated) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-25-mobile-every-function/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E378",
+   "direction": "15 Devices",
+   "claim": "Older receipt 2026-10-24 SHA b37d8266: PARTIAL (STOP from the phone not proven live) -> HISTORICAL",
+   "kind": "receipt",
+   "ref": "docs/audits/2026-10-24-mobile-parity/receipt.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E379",
+   "direction": "15 Devices",
+   "claim": "Live now (GET, read-only): Pult :8840 up (GET / -> 307).",
+   "kind": "live_get",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json"
+  },
+  {
+   "id": "E380",
+   "direction": "15 Devices",
+   "claim": "Status on 500244ac: NOT_RUN - D1 can run now but has no receipt (same task ID on phone and PC + STOP pressed on the phone, on 500244ac). D2/D3 BLOCKED: RemoteWorkerNode is in-process only. Native iOS: Swift foundation only, never built or installed.",
+   "kind": "derived",
+   "ref": "matrix.json",
+   "blocker": "D1 needs the owner's iPhone on the pult over Tailscale. D2/D3 need a second physical PC. iOS needs a Mac with Xcode + Apple Development Team or an approved macOS CI runner.",
+   "next_step": "D1: owner opens the pult on the iPhone, starts one synthetic fixture task, confirms the same task ID in CC :8801, presses STOP on the phone, no new calls -> docs/audits/<date>-devices-d1/receipt.json (ids/statuses only, source_sha 500244ac). D2/D3 when a second PC exists: bootstrap_remote_device.py pairing, fixture task, network cut, revoke, verify no repeated effect and no secret transfer."
+  },
+  {
+   "id": "E381",
+   "direction": "Cloud",
+   "claim": "F1 [LOW (money) / invariant break] Paid estimate below $0.0000005 rounds to $0 and a $0 paid reservation is accepted; zero-quoted reservations never consume the budget. Fix e24c14f2 on unmerged codex/paid-reservation-20261101.",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/tools_cloud.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E382",
+   "direction": "Cloud",
+   "claim": "F1 [LOW (money) / invariant break] Paid estimate below $0.0000005 rounds to $0 and a $0 paid reservation is accepted; zero-quoted reservations never consume the budget. Fix e24c14f2 on unmerged codex/paid-reservation-20261101.",
+   "kind": "external",
+   "ref": "C:\\Users\\asd\\Bossman\\wt-codex-paid-reservation-20261101\\docs\\audits\\2026-11-01-codex-six-hour\\REPORT_RU.md"
+  },
+  {
+   "id": "E383",
+   "direction": "Models/Ops",
+   "claim": "F2 [MEDIUM (health signal)] /health models (and providers, which mirrors it) DEGRADED: health counts all 110 registered models, freshness probes only resident/in-use ones, so the component cannot reach HEALTHY by design.",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/health.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E384",
+   "direction": "Models/Ops",
+   "claim": "F2 [MEDIUM (health signal)] /health models (and providers, which mirrors it) DEGRADED: health counts all 110 registered models, freshness probes only resident/in-use ones, so the component cannot reach HEALTHY by design.",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/model_freshness.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E385",
+   "direction": "Models/Ops",
+   "claim": "F2 [MEDIUM (health signal)] /health models (and providers, which mirrors it) DEGRADED: health counts all 110 registered models, freshness probes only resident/in-use ones, so the component cannot reach HEALTHY by design.",
+   "kind": "repo_file",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E386",
+   "direction": "Computer",
+   "claim": "F3 [LOW (fails closed)] Self-modify target protection resolves relative paths against the process CWD (pc_agent_policy_paths.py Path(norm).resolve()); 5 P4 tests fail when run from a .claude worktree, pass from a neutral CWD.",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/features/pc_agent_policy_paths.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E387",
+   "direction": "Computer",
+   "claim": "F3 [LOW (fails closed)] Self-modify target protection resolves relative paths against the process CWD (pc_agent_policy_paths.py Path(norm).resolve()); 5 P4 tests fail when run from a .claude worktree, pass from a neutral CWD.",
+   "kind": "repo_file",
+   "ref": "command-center/tests/test_pc_agent_master_p0_p5.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E388",
+   "direction": "Jeff",
+   "claim": "F4 [LOW (doc contradiction)] README.md says Jeff is ON (owner 28.10); AGENTS.md says paused; live heartbeats stopped since 17.10 on build 6de18f8d.",
+   "kind": "repo_file",
+   "ref": "README.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E389",
+   "direction": "Jeff",
+   "claim": "F4 [LOW (doc contradiction)] README.md says Jeff is ON (owner 28.10); AGENTS.md says paused; live heartbeats stopped since 17.10 on build 6de18f8d.",
+   "kind": "repo_file",
+   "ref": "AGENTS.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E390",
+   "direction": "Jeff",
+   "claim": "F4 [LOW (doc contradiction)] README.md says Jeff is ON (owner 28.10); AGENTS.md says paused; live heartbeats stopped since 17.10 on build 6de18f8d.",
+   "kind": "repo_file",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E391",
+   "direction": "Media",
+   "claim": "F5 [LOW (UX honesty)] Direct Gen 'video' indicator reflects ComfyUI only and says video needs ComfyUI, although LTX-2.5/Wan2.2 TI2V run through sd-cli.",
+   "kind": "repo_file",
+   "ref": "command-center/bcc/direct_gen/service.py",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E392",
+   "direction": "Media",
+   "claim": "F5 [LOW (UX honesty)] Direct Gen 'video' indicator reflects ComfyUI only and says video needs ComfyUI, although LTX-2.5/Wan2.2 TI2V run through sd-cli.",
+   "kind": "repo_file",
+   "ref": "docs/audits/2026-11-01-15-directions/live_get_snapshot.json",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E393",
+   "direction": "UX/Skills",
+   "claim": "F6 [LOW (stale docs)] docs/audits/trio/COVERAGE_MATRIX.md cites apps/bossman-mobile/bossmobile/server.py (missing) and a pc_defense_two_lines.py module (only the test exists); docs/owner/SKILLS.md says skills are not wired (they are).",
+   "kind": "repo_file",
+   "ref": "docs/audits/trio/COVERAGE_MATRIX.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E394",
+   "direction": "UX/Skills",
+   "claim": "F6 [LOW (stale docs)] docs/audits/trio/COVERAGE_MATRIX.md cites apps/bossman-mobile/bossmobile/server.py (missing) and a pc_defense_two_lines.py module (only the test exists); docs/owner/SKILLS.md says skills are not wired (they are).",
+   "kind": "repo_file",
+   "ref": "docs/owner/SKILLS.md",
+   "exists_at_audited_sha": true
+  },
+  {
+   "id": "E395",
+   "direction": "Ops",
+   "claim": "F7 [INFO] Freeze tag freeze-20261031 = f39337b8; main/runtime moved to 500244ac (2 commits). The owner rule ties the long soak to a finished freeze.",
+   "kind": "external",
+   "ref": "C:\\Users\\asd\\Bossman\\CODEX_HANDOFF_20261031.md"
+  }
+ ]
+}

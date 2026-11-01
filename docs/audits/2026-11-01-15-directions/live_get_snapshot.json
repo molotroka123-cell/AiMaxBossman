@@ -1,0 +1,720 @@
+{
+ "at": "2026-11-01T02:20:16-08:00",
+ "base": "http://127.0.0.1:8801",
+ "results": {
+  "/health/live": {
+   "http": 200,
+   "summary": {
+    "app": "str",
+    "version": "2.6.0",
+    "alive": true,
+    "liveness": true,
+    "status": "ALIVE",
+    "build_sha": "500244acda6a9d5cfff9386e63d263d51b97fd45",
+    "build_sha_short": "500244acda6a",
+    "release_version": "str",
+    "source_identity": "PASS",
+    "git_clean": true,
+    "source": "str",
+    "detail": "str"
+   }
+  },
+  "/health": {
+   "http": 200,
+   "summary": {
+    "app": "str",
+    "version": "2.6.0",
+    "liveness": true,
+    "build_sha": "500244acda6a9d5cfff9386e63d263d51b97fd45",
+    "build_sha_short": "500244acda6a",
+    "release_version": "str",
+    "source_identity": "PASS",
+    "git_clean": true,
+    "source": "str",
+    "detail": "str",
+    "alive": true,
+    "ready": true,
+    "status": "DEGRADED",
+    "components": {
+     "db": {
+      "status": "HEALTHY"
+     },
+     "queue_worker": {
+      "status": "HEALTHY"
+     },
+     "scheduler": {
+      "status": "HEALTHY"
+     },
+     "metrics": {
+      "status": "HEALTHY"
+     },
+     "tick:apps_control": {
+      "status": "HEALTHY"
+     },
+     "tick:boost_autopilot": {
+      "status": "HEALTHY"
+     },
+     "tick:capability_tree": {
+      "status": "HEALTHY"
+     },
+     "tick:control_plane": {
+      "status": "HEALTHY"
+     },
+     "tick:governor": {
+      "status": "HEALTHY"
+     },
+     "tick:healing": {
+      "status": "HEALTHY"
+     },
+     "tick:images": {
+      "status": "HEALTHY"
+     },
+     "tick:missions": {
+      "status": "HEALTHY"
+     },
+     "tick:model_freshness": {
+      "status": "HEALTHY"
+     },
+     "tick:organization": {
+      "status": "HEALTHY"
+     },
+     "tick:reality": {
+      "status": "HEALTHY"
+     },
+     "tick:resources": {
+      "status": "HEALTHY"
+     },
+     "tick:review_gate": {
+      "status": "HEALTHY"
+     },
+     "tick:task_exchange": {
+      "status": "HEALTHY"
+     },
+     "tick:terminal": {
+      "status": "HEALTHY"
+     },
+     "tick:tools_browser": {
+      "status": "HEALTHY"
+     },
+     "tick:tools_mcp": {
+      "status": "HEALTHY"
+     },
+     "tick:v15_self_repair": {
+      "status": "HEALTHY"
+     },
+     "tick:vibe": {
+      "status": "HEALTHY"
+     },
+     "tick:watchdog": {
+      "status": "HEALTHY"
+     },
+     "tick:web_research": {
+      "status": "HEALTHY"
+     },
+     "browser": {
+      "status": "UNKNOWN"
+     },
+     "models": {
+      "status": "DEGRADED"
+     },
+     "providers": {
+      "status": "DEGRADED"
+     },
+     "process": {
+      "status": "ALIVE"
+     },
+     "startup": {
+      "status": "HEALTHY"
+     },
+     "ui": {
+      "status": "HEALTHY"
+     }
+    }
+   }
+  },
+  "/api/direct-gen/status": {
+   "http": 200,
+   "summary": {
+    "runtime": {
+     "name": "str",
+     "reachable": false,
+     "reason": "ConnectTimeout: no answer"
+    },
+    "backends": {
+     "photo": {
+      "active": "sd-cli",
+      "available": true,
+      "resident_mode": "str",
+      "reason": ""
+     },
+     "video": {
+      "active": null,
+      "available": false,
+      "reason": "ConnectTimeout: no answer",
+      "note": "str"
+     }
+    },
+    "sd_cli": {
+     "present": true
+    },
+    "resident": {
+     "loaded": false,
+     "tag": "str",
+     "starts": 0,
+     "idle_s": 600.0,
+     "busy": false,
+     "binary": "str",
+     "binary_present": true,
+     "keep_warm_left_s": 0.0,
+     "keep_warm_released": "str",
+     "mode": "auto",
+     "proven_models": "list[1]",
+     "keep_warm_s": 1800.0,
+     "keep_warm_models": "list[2]"
+    },
+    "memory": {
+     "measured": true,
+     "total_mb": 122518.8,
+     "used_mb": 87350.2,
+     "free_mb": 35168.600000000006
+    },
+    "queue": {
+     "running": null,
+     "waiting": 0
+    },
+    "assist": {
+     "available": true,
+     "model": "str",
+     "reason": ""
+    }
+   }
+  },
+  "/api/apps/health-matrix": {
+   "http": 200,
+   "summary": {
+    "matrix": "list[13]",
+    "total": 13,
+    "live": 1,
+    "unidentified": 0
+   }
+  },
+  "/api/plugins": {
+   "http": 200,
+   "summary": {
+    "plugins": "list[14]",
+    "count": 14
+   }
+  },
+  "/api/skills": {
+   "http": 200,
+   "summary": "list[126]"
+  },
+  "/api/mcp/runtime": {
+   "http": 200,
+   "summary": {
+    "sdk": "str",
+    "sdk_available": true,
+    "sdk_version": "str",
+    "servers": "list[0]",
+    "registered_tools": "list[0]"
+   }
+  },
+  "/api/model-freshness": {
+   "http": 200,
+   "summary": {
+    "enabled": true,
+    "tick_seconds": 600.0,
+    "stale_after_seconds": 1800,
+    "limits": {
+     "max_per_cycle": 3,
+     "probe_timeout_s": 40.0,
+     "cycle_budget_s": 100.0,
+     "refresh_after_s": 900.0,
+     "paid_models": "str"
+    },
+    "cycles": 4,
+    "last_cycle_at": "2026-11-01T10:17:06.700856+00:00",
+    "last_probed": "list[1]",
+    "last_error": null,
+    "models": {
+     "total": 110,
+     "fresh_healthy": 4,
+     "stale": 104,
+     "due_for_probe": 7
+    },
+    "skipped_reasons": {
+     "not_in_use": 91,
+     "key_rejected_owner_must_fix": 2,
+     "fresh": 4,
+     "paid_model_not_probed": 6
+    }
+   }
+  },
+  "/api/free-providers": {
+   "http": 200,
+   "summary": {
+    "providers": "list[4]"
+   }
+  },
+  "/api/providers": {
+   "http": 200,
+   "summary": "list[17]"
+  },
+  "/api/models": {
+   "http": 200,
+   "summary": "list[110]"
+  },
+  "/api/autonomy/status": {
+   "http": 200,
+   "summary": {
+    "loop": "str",
+    "reason": "",
+    "constitution": {
+     "status": "OK",
+     "ok": true,
+     "sha": "str",
+     "pinned_sha": "7d845db367b3acfb58418ee9d844a4c887c512e4804e91fd708034667d768970",
+     "reason": "pinned by the user",
+     "path": "str",
+     "pin_path": "str"
+    },
+    "level": "L2",
+    "lease": null,
+    "goals": {},
+    "goals_total": 0,
+    "journal": {
+     "ok": true,
+     "entries": 6,
+     "head": "str",
+     "reason": ""
+    },
+    "stop": {
+     "active": false,
+     "sources": {},
+     "reason": ""
+    },
+    "mode": {
+     "autonomous_apply": "str",
+     "level": "L2",
+     "max_level": "str",
+     "reason": "level capped at L2 (hands.MAX_LEVEL), no apply executor exists, a release is pre",
+     "release": "str",
+     "weights": "str",
+     "learning_kind": "str"
+    },
+    "promotion": {
+     "eligible": false,
+     "clean_cycles": 0,
+     "required": 25,
+     "rolled_back": "list[0]",
+     "policy_refusals": 0,
+     "reasons": "list[1]",
+     "level": "L2",
+     "note": "str"
+    },
+    "budget": {
+     "day": "str",
+     "limits": {
+      "cycles_per_day": 3,
+      "turns_per_day": 30,
+      "usd_per_day": 2.0
+     },
+     "used": {
+      "cycles": 0,
+      "turns": 0,
+      "usd": 0.0
+     },
+     "remaining": {
+      "cycles": 3,
+      "turns": 30,
+      "usd": 2.0
+     }
+    },
+    "heartbeat": null,
+    "weights": "str",
+    "learning_kind": "str"
+   }
+  },
+  "/api/autopilot/status": {
+   "http": 200,
+   "summary": {
+    "ok": true,
+    "rule_version": "str",
+    "available_pipelines": "list[3]",
+    "config": {
+     "enabled": true,
+     "interval_minutes": 60,
+     "default_pipeline": "str",
+     "auto_repair": true,
+     "scope": "str"
+    },
+    "metrics": {
+     "total_runs": 21,
+     "verified_runs": 21,
+     "false_claims_caught": 0,
+     "cua_recoveries_triggered": 0,
+     "cua_halts_before_irreversible": 0,
+     "memory_facts_recorded": 21,
+     "secrets_redacted_count": 0
+    },
+    "recent_runs": "list[10]"
+   }
+  },
+  "/api/computer/status": {
+   "http": 200,
+   "summary": {
+    "available": true,
+    "detail": "str",
+    "stopped": false,
+    "generation": 0,
+    "session": null,
+    "busy": false,
+    "stop_epoch": 0,
+    "outcome_unknown": null,
+    "tools": "list[3]"
+   }
+  },
+  "/api/browser/health": {
+   "http": 200,
+   "summary": {
+    "available": true,
+    "detail": "str",
+    "active_sessions": 0
+   }
+  },
+  "/api/opencode/health": {
+   "http": 200,
+   "summary": {
+    "status": "unavailable",
+    "detail": "str",
+    "hint": "str",
+    "base_url": "str"
+   }
+  },
+  "/api/jev/status": {
+   "http": 200,
+   "summary": {
+    "decision": {
+     "enabled": false,
+     "shadow": true,
+     "endpoint": "str",
+     "model": "str",
+     "timeout_ms": 2500,
+     "max_retries": 1,
+     "breaker_failures": 3,
+     "breaker_cooldown_s": 60,
+     "min_confidence": 0.6,
+     "price_per_call_usd": null,
+     "price_per_1k_input_usd": null,
+     "price_per_1k_output_usd": null,
+     "killed": false,
+     "key_present": false,
+     "zero_cost_confirmed": false
+    },
+    "browser": {
+     "enabled": false,
+     "shadow": true,
+     "max_steps": 25,
+     "timeout_ms": 30000,
+     "verify_done": true,
+     "fallback": true,
+     "killed": false,
+     "text_key_present": false,
+     "may_execute": false
+    },
+    "phase": "shadow",
+    "authoritative": false,
+    "wired": false,
+    "upstream": {
+     "repo": "str",
+     "commit": "str",
+     "license": "str"
+    },
+    "contract": "str"
+   }
+  },
+  "/api/economy/status": {
+   "http": 200,
+   "summary": {
+    "workflow": "str",
+    "policy": "str",
+    "models": {
+     "nemotron_workers": "list[3]",
+     "ling": "str",
+     "glm_finalizer": "str",
+     "aster": "str"
+    },
+    "hard_limits": {
+     "glm_calls": 1,
+     "default_glm_budget_usd": 0.25
+    },
+    "jev_wired": false,
+    "jev": {
+     "enabled": false,
+     "shadow": true,
+     "endpoint": "str",
+     "model": "str",
+     "timeout_ms": 2500,
+     "max_retries": 1,
+     "breaker_failures": 3,
+     "breaker_cooldown_s": 60,
+     "min_confidence": 0.6,
+     "price_per_call_usd": null,
+     "price_per_1k_input_usd": null,
+     "price_per_1k_output_usd": null,
+     "killed": false,
+     "key_present": false,
+     "zero_cost_confirmed": false
+    }
+   }
+  },
+  "/api/market/status": {
+   "http": 200,
+   "summary": {
+    "channel": "str",
+    "root": "str",
+    "capabilities": "list[7]",
+    "trading": "str",
+    "dataset_status": "DATA_COLLECTION",
+    "collector": {
+     "pid": 15328,
+     "state": "finished",
+     "started": "str",
+     "updated": "str",
+     "attempts_this_run": 272,
+     "cadence_s": 15.0,
+     "last": {
+      "at": "str",
+      "status": "VERIFIED",
+      "stream_state": "str",
+      "oi": "list[2]",
+      "cvd": "list[2]",
+      "price": 83950.0
+     },
+     "ledger": {
+      "attempted": 294,
+      "by_status": "dict",
+      "live_attempts": 292,
+      "verified_rate": 0.915,
+      "oi_coverage_live": 0.9212,
+      "cvd_coverage_live": 0.9178,
+      "first": "str",
+      "last": "str"
+     },
+     "trading": "str",
+     "dataset_status": "DATA_COLLECTION"
+    },
+    "ledger": {
+     "attempted": 294,
+     "by_status": {
+      "LOW_CONFIDENCE": 23,
+      "PLAYER_ERROR": 2,
+      "VERIFIED": 269
+     },
+     "live_attempts": 292,
+     "verified_rate": 0.915,
+     "oi_coverage_live": 0.9212,
+     "cvd_coverage_live": 0.9178,
+     "first": "str",
+     "last": "str"
+    }
+   }
+  },
+  "/api/memory/stats": {
+   "http": 200,
+   "summary": {
+    "stats": {
+     "backend": "str",
+     "files": 69,
+     "chunks": 525,
+     "terms": 7446,
+     "dense": false,
+     "index_path": "str",
+     "size_bytes": 5779456,
+     "schema_version": 1
+    }
+   }
+  },
+  "/api/memory/lessons/policy": {
+   "http": 200,
+   "summary": {
+    "schema": "str",
+    "authors": "list[4]",
+    "remote_authors": "list[2]",
+    "statuses": "list[3]",
+    "work_categories": "list[9]",
+    "owner_private_categories": "list[8]",
+    "required_fields": "list[5]",
+    "max_body_chars": 4000,
+    "max_request_bytes": 16384,
+    "rate_limit": {
+     "per_minute": 30,
+     "per_hour": 300
+    },
+    "eval_kinds": "list[2]",
+    "secrets_redacted": true,
+    "idempotent_by": "str",
+    "store": "str",
+    "recorded_is_not_proven_learning": true
+   }
+  },
+  "/api/qwen-operator/status": {
+   "http": 200,
+   "summary": {
+    "operator_role": "str",
+    "level": "L1 Lab",
+    "roles": {
+     "planner": {
+      "model": "str",
+      "num_ctx": 65536
+     },
+     "coder": {
+      "model": "str",
+      "num_ctx": 65536
+     },
+     "diagnostician": {
+      "model": "str",
+      "num_ctx": 65536
+     },
+     "verifier": {
+      "prefer": "list[2]",
+      "avoid_family": "str"
+     }
+    },
+    "stop": null,
+    "constitution": {
+     "autonomy_loop": "str",
+     "reason": "pinned by the user"
+    },
+    "authority": {
+     "push": false,
+     "merge": false,
+     "deploy": false
+    },
+    "busy": false,
+    "queue": "list[0]",
+    "max_attempts": 3,
+    "default_num_ctx": 65536,
+    "ctx_ladder": "list[3]"
+   }
+  },
+  "/api/jeff-settings/status": {
+   "http": 200,
+   "summary": {
+    "readiness": {
+     "jeff_configured": true,
+     "settings_valid": true,
+     "telegram_token_set": true,
+     "web_only": false,
+     "window_accounts": 1,
+     "participants": 18,
+     "revoked": 0,
+     "voice_asr": {
+      "available": true,
+      "engine": "str",
+      "reason_code": null
+     },
+     "voice_tts": {
+      "available": false,
+      "engine": "str",
+      "reason_code": "str",
+      "backend": "str",
+      "candidate": "dict"
+     },
+     "cloud_budget": {
+      "date": "str",
+      "used_today": 0,
+      "budget": 200,
+      "cooldown_active": false,
+      "cooldown_until": null,
+      "models_cooling": "list[0]",
+      "last_stop_reason": "str",
+      "usd_caps": "dict"
+     },
+     "ready": true
+    },
+    "isolation": {
+     "policy": "str",
+     "locked": true,
+     "namespaces": 18,
+     "ok": true,
+     "problems": "list[0]",
+     "statement": "str"
+    },
+    "heartbeat": {
+     "telegram": {
+      "at": "str",
+      "at_epoch": 1793314779,
+      "avg_latency_ms": null,
+      "build_sha": null,
+      "jeff_version": "str",
+      "last_error": "dict",
+      "last_reply_at": null,
+      "last_reply_latency_ms": null,
+      "llm": "dict",
+      "pid": 32040,
+      "queue": 0,
+      "replies_failed": 0,
+      "replies_ok": 0,
+      "schema": "str",
+      "started_at": "2026-10-29T13:08:06Z",
+      "state": "stopped",
+      "stt": "dict",
+      "surface": "str",
+      "telegram": "dict",
+      "tts": "dict",
+      "uptime_s": 35492,
+      "age_s": 213632,
+      "availability": "str"
+     },
+     "window": {
+      "at": "str",
+      "at_epoch": 1792236032,
+      "avg_latency_ms": null,
+      "build_sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+      "jeff_version": "str",
+      "last_error": null,
+      "last_reply_at": null,
+      "last_reply_latency_ms": null,
+      "llm": "dict",
+      "pid": 16708,
+      "queue": 0,
+      "replies_failed": 0,
+      "replies_ok": 0,
+      "schema": "str",
+      "started_at": "2026-10-17T11:20:18Z",
+      "state": "stopped",
+      "stt": "dict",
+      "surface": "str",
+      "telegram": "dict",
+      "tts": "dict",
+      "uptime_s": 13,
+      "age_s": 1292379,
+      "availability": "str"
+     },
+     "poller_processes": 0,
+     "queue": 0
+    },
+    "errors": "list[5]",
+    "events": {
+     "owner": "list[0]",
+     "replies": "list[10]"
+    }
+   }
+  },
+  "/api/cloud/budget/unknown": {
+   "http": 200,
+   "summary": {
+    "unresolved": "list[0]"
+   }
+  },
+  "/api/governor/rules": {
+   "http": 200,
+   "summary": {
+    "repeated_error_limit": 3,
+    "no_progress_steps": 6,
+    "max_retries": 5
+   }
+  }
+ }
+}
