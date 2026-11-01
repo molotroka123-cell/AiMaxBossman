@@ -35,3 +35,12 @@ def test_service_worker_ships_the_new_shell():
 
 def test_accessibility_fallbacks_exist():
     assert "prefers-reduced-transparency: reduce" in CSS and "prefers-reduced-motion: reduce" in CSS
+
+
+def test_calm_typography_and_buttons_no_undefined_fg_or_acid_lime():
+    assert "var(--fg)" not in CSS, "app.css must use defined --text token, never undefined --fg"
+    assert "#d4ff33" not in CSS.lower(), "Studio Apps card must use calm theme-aware tokens, not acid lime"
+    assert "text-wrap: pretty" in CSS and "text-wrap: balance" in CSS
+    assert "text-decoration: none" in CSS
+    ver = int(re.search(r"bossman-shell-v(\d+)", SW).group(1))
+    assert ver >= 41
