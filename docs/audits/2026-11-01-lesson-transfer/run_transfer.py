@@ -198,6 +198,9 @@ def main() -> None:
     ap.add_argument("--data-dir", required=True, type=Path)
     ap.add_argument("--work", required=True, type=Path)
     a = ap.parse_args()
+    # Deviation 1 (01.11, after the first baseline row): a cp1251 console crashed the progress print on '×'.
+    # Logging only; the row had already been written, the phase resumes from the next (task, rep).
+    sys.stdout.reconfigure(errors="backslashreplace")
     a.work.mkdir(parents=True, exist_ok=True)
     c = client(a.url, a.data_dir)
     if a.cmd == "setup":

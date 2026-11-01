@@ -54,6 +54,11 @@ class Handler(BaseHTTPRequestHandler):
                 if "reasoning_effort" not in payload:
                     payload["reasoning_effort"] = "none"
                     injected.append("reasoning_effort")
+                # Deviation 2 (01.11, integrator request): the server default keep_alive is -1 (forever), which
+                # starved a concurrent live run on the same Ollama. Not a sampling field; output is unaffected.
+                if "keep_alive" not in payload:
+                    payload["keep_alive"] = "5m"
+                    injected.append("keep_alive")
                 msgs = payload.get("messages") or []
                 _log({"t": time.time(), "path": self.path, "model": payload.get("model"),
                       "stream": bool(payload.get("stream")), "injected": injected,
