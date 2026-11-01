@@ -152,6 +152,14 @@ async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> P
     if ctx is not None and project_sandboxed(getattr(ctx, "task", None)):
         from .chat_projects import workspace_grant
         project = await workspace_grant(ctx)
+        # live cloud matrix 01.11 (task 959): GLM sent root="." - in a sandbox a RELATIVE root means the project folder,
+        # not the backend's working directory. Absolute paths are still checked as given.
+        raw_s = str(raw or "").strip()
+        if project is not None and raw_s and not Path(raw_s).expanduser().is_absolute():
+            try:
+                candidate = (project / raw_s).resolve()
+            except OSError as exc:
+                raise PermissionError(f"code root недоступен: {raw_s}: {exc}") from exc
         if project is None or not _within(candidate, [project]):
             raise PermissionError("песочница проекта: доступна только папка проекта этого чата"
                                   + (f" ({project})" if project is not None else ""))

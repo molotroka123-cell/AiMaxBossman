@@ -140,3 +140,19 @@ async def test_cloud_agent_outside_a_project_gets_no_tools_at_all(env):
     # in a project the sandbox rule applies, not this one
     p = await _project(env, "With project")
     assert await cp.restrict_cloud_without_project(env.svc, ids["cloud"][0], rich["id"], Path(p["path"])) is False
+
+
+async def test_a_relative_root_in_the_sandbox_is_the_project_folder(env):
+    """Live cloud matrix 01.11 (task 959): GLM passed root="." and the sandbox refused - «.» was the backend's cwd."""
+    cloud = (await _local_stack(env.client, base_url=CLOUD, name="glm"))["agent"]
+    p = await _project(env, "Rel")
+    folder = Path(p["path"]).resolve()
+    ctx = await _ctx(env, cloud, folder, sandbox=True)
+    ok = await tools_code.tool_code_write({"path": "a.txt", "content": "x", "root": "."}, ctx)
+    assert not ok.error, ok.content
+    assert (folder / "a.txt").read_text(encoding="utf-8") == "x"
+    (folder / "sub").mkdir()
+    assert await tools_code.resolve_root(env.svc, "sub", str(folder), ctx) == folder / "sub"
+    for bad in ("..", "../..", "sub/../.."):                       # negatives: relative escapes stay refused
+        with pytest.raises(PermissionError, match="песочница проекта"):
+            await tools_code.resolve_root(env.svc, bad, str(folder), ctx)
