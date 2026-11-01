@@ -134,7 +134,7 @@ async def test_web_trend_teacher_timl_memory_supersede_scope_and_tools(env):
             "domains": ["generative_video_and_cinema"],
             "allow_live_network": False,
             "scope": "work",
-            "note": "Token sk-secret-abc12345678901234567890 in note",
+            "note": "Token sk-secret-abc12345678901234567890 in note",  # synthetic key; ci-secret-scan: allow
         },
     )
     res1 = r1.json()["result"]
