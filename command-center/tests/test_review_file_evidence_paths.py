@@ -294,3 +294,21 @@ def test_a_declared_file_modified_during_the_run_is_an_output_not_an_input(tmp_p
     run, rows, expected = _lh876(tmp_path, write_at=60.5)
     os.utime(run / "orders.csv", (T0 + 15, T0 + 15))
     assert _effect_problem(rows, expected, None, [run]) == REFUSED
+
+
+def test_a_file_the_task_writes_must_not_be_empty(tmp_path):
+    """Long-horizon 31.10 (task 892): «ПЕРВЫМ вызовом запиши скрипт -> out/verify.py» left a 0-byte verify.py and
+    «exists» passed review. A produced file now needs content; an input that is only mentioned keeps «exists»."""
+    from bcc.v2.verification import _compare
+    exp = _terminal_evidence("Сначала ПЕРВЫМ вызовом запиши скрипт -> `out/verify.py`, который пересчитывает числа.")
+    assert exp is not None and exp.target == "out/verify.py" and exp.expect.get("min_bytes") == 1
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "verify.py").write_bytes(b"")
+    obs, _ = asyncio.run(_observe_file(exp, roots=[tmp_path]))
+    assert _compare(exp, obs)[0] == "FAILED"                       # empty script is not evidence (was VERIFIED)
+    (out / "verify.py").write_text("print(1)\n", encoding="utf-8")
+    obs, _ = asyncio.run(_observe_file(exp, roots=[tmp_path]))
+    assert _compare(exp, obs)[0] == "VERIFIED"
+    mentioned = _terminal_evidence("Проверь, что в orders.csv нет пустых строк")
+    assert mentioned is not None and "min_bytes" not in mentioned.expect

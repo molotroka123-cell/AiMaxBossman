@@ -387,7 +387,11 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
         # The task named the full path (`C:\work\run\orders.csv`): the regex only sees the tail after the last
         # backslash, and a bare name was then looked up in the wrong folder (long-horizon run 30.10). Keep the path.
         full = _absolute_path_ending_at(text, start, end)
-        return ExpectedState(kind="file", target=full or target, expect={"exists": True})
+        # Long-horizon 31.10 (task 892): the task asked to WRITE out/verify.py; the agent left it EMPTY (0 bytes, the
+        # numbers came from an inline `python -c`) and «exists» passed review. A file the task asks to produce must
+        # have content; a merely mentioned (input) file keeps the plain existence check.
+        expect = {"exists": True, "min_bytes": 1} if match in produced else {"exists": True}
+        return ExpectedState(kind="file", target=full or target, expect=expect)
     return None
 
 
