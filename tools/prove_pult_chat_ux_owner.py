@@ -34,6 +34,8 @@ def turns(h, tid):
 
 
 def wait_turn(h, tid, task_id, minutes=12):
+    if not task_id:                         # the send was refused: report it, do not wait for a task that does not exist
+        return {"status": "not_sent", "task_id": None}
     end = time.time() + minutes * 60
     while time.time() < end:
         for t in turns(h, tid):
@@ -54,7 +56,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--local", type=int, default=41)
     ap.add_argument("--cloud", type=int, default=46)
+    ap.add_argument("--receipt", default=str(RECEIPT))
     a = ap.parse_args()
+    receipt = Path(a.receipt)
     h = owner.login()
     word = "ФИАЛКА-" + str(secrets.randbelow(900) + 100)
     checks: dict[str, dict] = {}
@@ -129,10 +133,12 @@ def main() -> int:
                                   "compact_code": ccode, "listed": listed, "import_code": icode, "status": r5.get("status")}
 
     ok = all(v["ok"] for v in checks.values())
-    RECEIPT.parent.mkdir(parents=True, exist_ok=True)
+    receipt.parent.mkdir(parents=True, exist_ok=True)
     out = {"verdict": "PASS" if ok else "FAIL", "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
            "local_agent": a.local, "cloud_agent": a.cloud, "checks": checks}
-    RECEIPT.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    out["runtime_sha"] = (json.loads(__import__("urllib.request").request.urlopen(
+        "http://127.0.0.1:8801/health/live", timeout=10).read()) or {}).get("build_sha")
+    receipt.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     for k, v in checks.items():
         print(("PASS " if v["ok"] else "FAIL ") + k, {x: y for x, y in v.items() if x != "ok"})
     print("VERDICT", out["verdict"])
