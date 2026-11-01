@@ -40,6 +40,7 @@ class Rate:
     kind: str                # "official" | "manual" | "licensed_api"
     expires_at: datetime | None = None
     raw_receipt: str = ""    # immutable provenance digest or feed receipt ID
+    rate_date: str | None = None  # the date the source publishes the rate for (CNB/ECB fixing date), ISO YYYY-MM-DD
 
     def label(self) -> str:
         t = self.as_of.astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
@@ -60,6 +61,7 @@ class Rate:
             "timestamp_utc": self.as_of.astimezone(timezone.utc).isoformat(),
             "expires_at_utc": self.expires_at.astimezone(timezone.utc).isoformat() if self.expires_at else None,
             "raw_receipt": self.raw_receipt or f"{self.source}:{self.pair}:{self.as_of.astimezone(timezone.utc).isoformat()}",
+            "rate_date": self.rate_date,
         }
 
 
@@ -161,8 +163,10 @@ def load_official(fx_db: str | Path) -> list[Rate]:
     p = Path(key_path)
     con = sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True)
     try:
+        # rate_date (the source's own fixing date) is read when the log has it; older/minimal logs answer NULL
+        has_rate_date = any(r[1] == "rate_date" for r in con.execute("PRAGMA table_info(fx_obs)"))
         rows = con.execute(
-            "SELECT observed_at, pair, rate, source, flags FROM fx_obs "
+            "SELECT observed_at, pair, rate, source, flags, " + ("rate_date" if has_rate_date else "NULL") + " FROM fx_obs "
             "WHERE parser='regex' AND source IN ('cnb', 'ecb') "
             "AND pair IN ('USDCZK', 'EURCZK', 'EURUSD') "
             "ORDER BY observed_at, id"
@@ -170,11 +174,11 @@ def load_official(fx_db: str | Path) -> list[Rate]:
     finally:
         con.close()
     latest: dict[tuple[str, str], Rate] = {}
-    for observed_at, pair, rate, source, flags in rows:
+    for observed_at, pair, rate, source, flags, rate_date in rows:
         if (source, pair) not in OFFICIAL_PAIRS or "disagreement" in (flags or "").split(","):
             continue
         latest[(source, pair)] = Rate(pair, Decimal(rate), "ЧНБ" if source == "cnb" else "ЕЦБ",
-                                      _parse_ts(observed_at), "official")
+                                      _parse_ts(observed_at), "official", rate_date=rate_date or None)
     result = list(latest.values())
     if len(_OFFICIAL_RATES_CACHE) >= 64:
         _OFFICIAL_RATES_CACHE.clear()
