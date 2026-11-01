@@ -1,0 +1,114 @@
+{
+  "dataset_id": "Vyber07/cyber-security",
+  "gated": "auto",
+  "private": false,
+  "access_check": {
+    "ok": false,
+    "status_code": 401,
+    "token_present": false,
+    "reason": "HF_TOKEN отсутствует. Датасет Vyber07/cyber-security имеет статус gated: auto и без токена возвращает HTTP 401 Unauthorized."
+  },
+  "manifest_audit": {
+    "dataset_id": "Vyber07/cyber-security",
+    "total_files_raw": 6178,
+    "total_mb_raw": 90636.25,
+    "archive_bloat_mb": 74314.24,
+    "duplicate_bloat_mb": 12374.27,
+    "clean_unique_files_count": 199,
+    "clean_unique_mb": 3901.26,
+    "size_reduction_x": 23.23,
+    "top_clean_files": [
+      {
+        "rfilename": "vulnerability-intelligence/cybersec_master.jsonl",
+        "size_bytes": 2680132507,
+        "size_mb": 2555.97,
+        "sha256_oid": "a6872eaf4c850aa2be25f389a8447c58ea18152f"
+      },
+      {
+        "rfilename": "aws_pdf_chunks.json",
+        "size_bytes": 660002049,
+        "size_mb": 629.43,
+        "sha256_oid": "4565b4cc67fe359f4d568a99f97af78846acacfc"
+      },
+      {
+        "rfilename": "220426-CyberSec-Dataset_escaped.jsonl",
+        "size_bytes": 431319841,
+        "size_mb": 411.34,
+        "sha256_oid": "658e21ca8d4378f93801e0427deb5c452e5aa962"
+      },
+      {
+        "rfilename": "CyberSec-Dataset_escaped.jsonl",
+        "size_bytes": 195078189,
+        "size_mb": 186.04,
+        "sha256_oid": "94bd263fd060203cde8be4ac962b010e973ec0b4"
+      },
+      {
+        "rfilename": "vulnerability-intelligence/Cybersecurity-ShareGPT.jsonl",
+        "size_bytes": 98684711,
+        "size_mb": 94.11,
+        "sha256_oid": "d8b2939be9cfc1ab74233773fa2c4b2a56934060"
+      },
+      {
+        "rfilename": "code_train.jsonl",
+        "size_bytes": 12454927,
+        "size_mb": 11.88,
+        "sha256_oid": "cbc1be9dd8e0ccde283ebe5ed361405dd5e21420"
+      },
+      {
+        "rfilename": "code_train_no_reasoning.jsonl",
+        "size_bytes": 8228646,
+        "size_mb": 7.85,
+        "sha256_oid": "ddd58de4ec060a353024b09283a1389249b8d7e1"
+      },
+      {
+        "rfilename": "vulnerability-intelligence/cve-instruction-dataset-2.json",
+        "size_bytes": 508015,
+        "size_mb": 0.48,
+        "sha256_oid": "2a562fb7ffb97f09f5aa46a1eea5f68cfc99bf26"
+      },
+      {
+        "rfilename": "vulnerability-intelligence/mitre-attack-techniques.json",
+        "size_bytes": 496736,
+        "size_mb": 0.47,
+        "sha256_oid": "1bf5f80e5f40a6ecb9835d4e4b85670ceeecaeb9"
+      },
+      {
+        "rfilename": "vulnerability-intelligence/cve-instruction-dataset.json",
+        "size_bytes": 483724,
+        "size_mb": 0.46,
+        "sha256_oid": "2fd19079f10f279f5e5dcca67ec6f6b306e55610"
+      },
+      {
+        "rfilename": "vulnerability-intelligence/mitre-attack-instruction-dataset.json",
+        "size_bytes": 394811,
+        "size_mb": 0.38,
+        "sha256_oid": "af0fcc55a4a420c2cd60b081e71815ae57c8d78d"
+      },
+      {
+        "rfilename": "real_cybersecurity_master_expansion.jsonl",
+        "size_bytes": 382898,
+        "size_mb": 0.37,
+        "sha256_oid": "0f273bf0cfa020eeab22da2516d310f6479bbbc9"
+      },
+      {
+        "rfilename": "mitre-attack-malware.json",
+        "size_bytes": 303891,
+        "size_mb": 0.29,
+        "sha256_oid": "e6ab1d2bfa25e539735a05f65f65efc2f4b62fa1"
+      },
+      {
+        "rfilename": "malware-instruction-dataset.json",
+        "size_bytes": 211717,
+        "size_mb": 0.2,
+        "sha256_oid": "956817568c8a9f1a0a9d45135fd11fc8a6cdf7fe"
+      },
+      {
+        "rfilename": "red-team-tools-instruction-dataset.json",
+        "size_bytes": 105104,
+        "size_mb": 0.1,
+        "sha256_oid": "ef049616268d589a2e578f4ee901cd85cb4a01b3"
+      }
+    ]
+  },
+  "ready_to_spend_gpu": false
+}

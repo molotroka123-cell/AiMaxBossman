@@ -894,6 +894,11 @@
     notice.setAttribute('role', 'alert');
     b.m.insertBefore(notice, b.meta); b.actionFailure = notice;
   }
+  function actionNotExecutedNotice(b) {
+    if (b.actionNotExecuted) return;
+    const note = el('div', 'turn-note', 'ℹ️ Ответ текстом: действие инструментом не выполнялось');
+    b.m.insertBefore(note, b.meta); b.actionNotExecuted = note;
+  }
   function typing(b, on, label) {
     const old = b.ans.querySelector('.typing');
     if (on && !b.text) {
@@ -1178,6 +1183,7 @@
         const shownResult = turn.result || (actionFailed ? partialUnverifiedAnswer(turn.failure_summary) : '');
         if (shownResult) { b.text = shownResult; rich(b.ans, shownResult); } else if (!actionFailed && (turn.failure_summary || turn.error)) { b.ans.classList.add('error'); b.ans.textContent = turn.failure_summary || turn.error; }
         if (actionFailed) actionFailureNotice(b);
+        if (turn.status === 'completed' && turn.action_not_executed && turn.action_not_executed.length) actionNotExecutedNotice(b);
         b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
         showAgentFiles(b, turn.files);
         if (shownResult) msgActions(b);
@@ -1585,6 +1591,7 @@
     const rawErr = actionFailed ? UNVERIFIED_ACTION : t.failure_summary || lastRunRes || t.error || `задача: ${stRu(t.status)}`;
     const partialResult = actionFailed ? (lastRunRes || partialUnverifiedAnswer(t.failure_summary)) : null;
     finish(b, t.result || partialResult, t.status === 'completed' ? null : rawErr, t.status, taskId);
+    if (t.status === 'completed' && t.action_not_executed && t.action_not_executed.length) actionNotExecutedNotice(b);
   }
   function finish(b, result, error, status, taskId) {
     if (!b.threadId || b.threadId === S.threadId) busy(false);
@@ -3133,10 +3140,13 @@
     const btnOff = $('btn-af-disable');
     const btnMini = $('btn-oc-autofull');
     try {
-      const [rootsRes, af] = await Promise.all([
+      const [rootsRes, af, foldersRes] = await Promise.all([
         api('GET', '/terminal/roots').catch(() => ({ roots: [] })),
         api('GET', '/auto-full'),
+        api('GET', '/auto-full/folders').catch(() => ({ folders: [] })),
       ]);
+      // Owner 01.11 «тут все главные папки компа должны выпадать»: Bossman's pre-validated main folders, grouped.
+      const choices = (foldersRes && foldersRes.folders) || [];
       // Owner 31.10: «по умолчанию там выбор папок должен быть» — a list of the allowed work folders, never a free
       // default like C:\Users. Installed programs / Python / Bossman's own data are not offered (the server refuses them too).
       const roots = (rootsRes.roots || []).filter((r) => !/[\\/](Programs|Python\d*|Program Files[^\\/]*)([\\/]|$)|[\\/]Bossman[\\/]+CommandCenter/i.test(r));
@@ -3144,8 +3154,16 @@
       const preferred = (af.current && af.current.folder) || (af.last_lease && af.last_lease.folder)
         || roots.find((r) => /agent-proof/i.test(r)) || roots[0] || '';
       if (sel && !sel.options.length) {
-        const opts = [...new Set([preferred, ...roots].filter(Boolean))];
-        opts.forEach((r) => { const o = el('option', '', r.split(/[\\/]/).slice(-2).join('\\') + '  —  ' + r); o.value = r; sel.appendChild(o); });
+        const known = new Set(choices.map((c) => c.path));
+        const groups = new Map();
+        choices.forEach((c) => { if (!groups.has(c.group)) groups.set(c.group, []); groups.get(c.group).push(c); });
+        const extra = [...new Set([preferred, ...roots].filter((r) => r && !known.has(r)))];
+        if (extra.length) groups.set('Ещё', extra.map((r) => ({ path: r, label: r.split(/[\\/]/).slice(-2).join('\\') })));
+        groups.forEach((items, name) => {
+          const og = document.createElement('optgroup'); og.label = name;
+          items.forEach((c) => { const o = el('option', '', `${c.label}  —  ${c.path}`); o.value = c.path; og.appendChild(o); });
+          sel.appendChild(og);
+        });
         const other = el('option', '', 'Другая папка…'); other.value = '__other__'; sel.appendChild(other);
         sel.value = preferred || '__other__';
         sel.addEventListener('change', () => { tap(); if (inp) { inp.hidden = sel.value !== '__other__'; if (!inp.hidden) inp.focus(); } });

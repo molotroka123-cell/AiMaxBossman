@@ -1,0 +1,367 @@
+{
+ "schema": "lesson-transfer-prereg.v1",
+ "date": "2026-11-01",
+ "question": "Does a lesson written into Bossman's EXISTING memory (POST /api/memory/lessons -> facts) and recalled automatically at TASK_START change a LOCAL model's answers on NEW held-out tasks of the lesson's class, without regressing unrelated tasks? Memory record != weight training != proven transfer.",
+ "what_is_measured": "Transfer of a CONVENTION the model cannot derive from the task text (SwapMe desk margin 3 % and desk-favour rounding direction). Held-out prompts name the desk rule but never state it. This measures whether recall injects the lesson and whether the model applies it; it does NOT measure reasoning improvement and NEVER weight training.",
+ "path": "POST /api/tasks (run_now, explicit agent) -> Engine -> TASK_START recall -> model via OpenAI-compat provider -> GET /api/tasks/{id}",
+ "backend": {
+  "port": 8897,
+  "data_dir": "temp (throw-away BCC_DATA_DIR)",
+  "localappdata": "temp",
+  "exercise_keys_dir": "temp, outside data dir and repo",
+  "owner_backend_8801": "never touched"
+ },
+ "model": {
+  "ollama_name": "qwen3-coder-30b-ctx32k:latest",
+  "family": "qwen3moe 30.5B Q4_K_M (A3B MoE)",
+  "ollama": "0.40.13 at 127.0.0.1:11434 (owner's, read-only use)",
+  "proxy_base_url": "http://127.0.0.1:11536/v1",
+  "why_this_model": "local Bossman agent model (pult AGENT mode qwen3-coder); fast A3B MoE so 2 x 3 x 38 runs fit; Gemma 4 31B is loaded by another session and is not disturbed",
+  "sampling": {
+   "temperature": 0,
+   "seed": 42,
+   "reasoning_effort": "none",
+   "how": "sampling_proxy.py injects temperature/seed (Bossman's engine sends none; the Modelfile default is 0.7). Messages/tools/response pass through unchanged."
+  },
+  "unload_after": "keep_alive 0 for this model only, if it was not loaded before the run"
+ },
+ "agent": {
+  "name": "Bossman lesson-transfer probe (local)",
+  "max_steps": 2,
+  "max_tokens": 1024,
+  "tools": [],
+  "system_prompt": "Ты — Bossman, деловой ассистент. Считай аккуратно, покажи короткий расчёт и дай ответ в требуемом формате."
+ },
+ "lesson": {
+  "payload": {
+   "title": "SwapMe: котировка стола — наценка 3 %, округление в пользу стола",
+   "body": "Правило обменного стола SwapMe (код: bossman_shared/exchange_assistant/quote.py, build_quote; наценка по умолчанию DEFAULT_MARGIN = 0.03). Считать только в Decimal, никогда во float.\n1) Клиент ПОКУПАЕТ валюту X за CZK (называет, сколько X хочет получить): платит = сумма × mid (CZK за 1 X) × 1.03, округление ВВЕРХ (ROUND_UP) до 0.01 CZK.\n2) Клиент ПРОДАЁТ валюту X за CZK (называет, сколько X отдаёт): получает = сумма × mid × 0.97, округление ВНИЗ (ROUND_DOWN) до 0.01 CZK.\nОкругление всегда в пользу стола, а не «половина вверх».\nПример: покупка 1000 USDT при mid 25 → 1000 × 25 × 1.03 = 25750.00 CZK; продажа 1000 USDT при mid 25 → 24250.00 CZK.\nПример округления: покупка 360 EUR при mid 24.417 → 8790.12 × 1.03 = 9053.8236 → 9053.83 CZK (вверх); продажа 1310 USD при mid 23.581 → 30891.11 × 0.97 = 29964.3767 → 29964.37 CZK (вниз).\nНе применять, если в задаче явно задана другая комиссия, наценка или правило округления: тогда действует правило задачи.",
+   "category": "business",
+   "author": "claude",
+   "source": "file:bossman_shared/exchange_assistant/quote.py",
+   "observed_at": "2026-11-01",
+   "valid_from": "2026-10-19",
+   "tags": [
+    "swapme",
+    "fx",
+    "decimal",
+    "rounding"
+   ],
+   "limitations": [
+    "Только наценка по умолчанию 3 %: если менеджер задал свою ставку или включён строгий режим compute_quote_strict (COM-UP-1), коэффициенты 1.03/0.97 не действуют.",
+    "mid в задачах берётся из условия; настоящий стол берёт курсы ЧНБ/ЕЦБ/ручные с TTL, USDT через USDT/USD.",
+    "Проверено на синтетических котировках и упражнении swap_desk_quote_v1; на реальных сделках не проверялось.",
+    "Запись урока — не обучение весов модели; применение урока доказывается отдельным экспериментом."
+   ]
+  }
+ },
+ "exercise": {
+  "exercise_id": "swap_desk_quote_v1",
+  "use": "AFTER phase: the model solves it through the task path; ITS answer goes to /verify (server runs the checker)"
+ },
+ "sets": {
+  "heldout": "20 NEW SwapMe desk quotes (H01-H20), rule not stated; 12/20 also discriminate desk rounding vs half-up",
+  "independent": "6 tasks the lesson was not written for (I01-I06): same rule, other framing, no 'SwapMe'/'стол', composites",
+  "control": "12 tasks (C01-C12): 4 near-miss money tasks with an EXPLICIT different rule + 8 unrelated"
+ },
+ "tasks": [
+  {
+   "id": "H01",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 1200 USDT, платит он в CZK. Mid-курс 1 USDT = 23.947 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H02",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 850 EUR и получает кроны. Mid: 1 EUR = 24.318 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H03",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 640 EUR, платит он в CZK. Mid-курс 1 EUR = 24.385 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H04",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 2300 USDT и получает кроны. Mid: 1 USDT = 23.873 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H05",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 3150 USD, платит он в CZK. Mid-курс 1 USD = 23.612 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H06",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 475 USD и получает кроны. Mid: 1 USD = 23.509 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H07",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 980 EUR, платит он в CZK. Mid-курс 1 EUR = 24.457 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H08",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 1640 EUR и получает кроны. Mid: 1 EUR = 24.296 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H09",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 2750 USDT, платит он в CZK. Mid-курс 1 USDT = 23.981 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H10",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 720 USDT и получает кроны. Mid: 1 USDT = 24.033 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H11",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 515 USD, платит он в CZK. Mid-курс 1 USD = 23.477 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H12",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 3900 USD и получает кроны. Mid: 1 USD = 23.555 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H13",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 1875 EUR, платит он в CZK. Mid-курс 1 EUR = 24.409 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H14",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 1125 EUR и получает кроны. Mid: 1 EUR = 24.367 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H15",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 430 USDT, платит он в CZK. Mid-курс 1 USDT = 23.903 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H16",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 5200 USDT и получает кроны. Mid: 1 USDT = 23.919 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H17",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 2025 USD, платит он в CZK. Mid-курс 1 USD = 23.533 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H18",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 690 EUR и получает кроны. Mid: 1 EUR = 24.471 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H19",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "SwapMe: клиенту нужно получить ровно 1500 EUR, платит он в CZK. Mid-курс 1 EUR = 24.400 CZK. Какую сумму в CZK назовёт стол SwapMe по своим правилам котировки?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "H20",
+   "set": "heldout",
+   "kind": "money",
+   "prompt": "Клиент обменного стола SwapMe продаёт 2000 USD и получает кроны. Mid: 1 USD = 23.500 CZK. Сколько CZK стол SwapMe выплатит клиенту по своим правилам?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "I01",
+   "set": "independent",
+   "kind": "money",
+   "prompt": "Менеджер нашего обменника (вкладка «Обмен» в Bossman) готовит котировку: клиент приносит 640 USD наличными и хочет кроны. Mid USD/CZK = 23.187. Сколько крон выдать клиенту по стандартной политике нашего обменника?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "I02",
+   "set": "independent",
+   "kind": "money",
+   "prompt": "Покупатель хочет получить ровно 2500 EUR; средний курс 24.351 CZK за 1 EUR. Сколько крон взять с него по стандартной политике нашего обменного сервиса?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "I03",
+   "set": "independent",
+   "kind": "money",
+   "prompt": "Два клиента обменного сервиса в один день: A покупает 300 USDT, B продаёт 300 USDT, mid в обоих случаях 23.951 CZK за 1 USDT. На сколько CZK сумма, которую заплатит A, больше суммы, которую получит B? Считай каждую котировку по стандартной политике сервиса.\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "I04",
+   "set": "independent",
+   "kind": "money",
+   "prompt": "Для отчёта: клиент купил у нашего обменника 1500 EUR при mid 24.402 CZK/EUR. На сколько CZK котировка по стандартной политике обменника больше, чем 1500 × 24.402?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "I05",
+   "set": "independent",
+   "kind": "money",
+   "prompt": "Клиентка продаёт обменнику 1 USDT по mid 23.987 CZK. Сколько крон она получит по стандартной политике нашего обменного сервиса?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "I06",
+   "set": "independent",
+   "kind": "money",
+   "prompt": "Вкладка «Обмен»: клиент хочет купить 12.5 EUR, mid 24.433 CZK/EUR. Сумма к оплате в кронах по стандартной политике?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "C01",
+   "set": "control",
+   "kind": "money",
+   "prompt": "Банк конвертирует 800 EUR клиента в CZK по курсу 24.37 с комиссией банка 1.5 % (комиссия уменьшает сумму). Округление ROUND_HALF_UP до 0.01. Сколько CZK получит клиент?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "C02",
+   "set": "control",
+   "kind": "money",
+   "prompt": "Счёт поставщика: 1250 USD по курсу 23.4163 CZK/USD, без комиссии и наценки. Округли ROUND_HALF_UP до 0.01. Сумма в CZK?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "C03",
+   "set": "control",
+   "kind": "money",
+   "prompt": "Сумма без НДС 4380.50 CZK, ставка НДС 21 %. Округление ROUND_HALF_UP до 0.01. Сумма с НДС в CZK?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "C04",
+   "set": "control",
+   "kind": "money",
+   "prompt": "Курсовая разница: 2000 EUR × (24.512 − 24.388) CZK/EUR. Сколько это CZK?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <число> CZK"
+  },
+  {
+   "id": "C05",
+   "set": "control",
+   "kind": "number",
+   "prompt": "Сколько дней между 2026-03-14 и 2026-11-01 (разность дат в днях)?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <ответ>"
+  },
+  {
+   "id": "C06",
+   "set": "control",
+   "kind": "number",
+   "prompt": "Сколько слов во фразе «быстрая бурая лиса прыгает через ленивую собаку»?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <ответ>"
+  },
+  {
+   "id": "C07",
+   "set": "control",
+   "kind": "number",
+   "prompt": "Отсортируй числа по возрастанию и назови третье по счёту: 42, 7, 19, 88, 3, 56.\n\nВ последней строке ответа напиши строго: ОТВЕТ: <ответ>"
+  },
+  {
+   "id": "C08",
+   "set": "control",
+   "kind": "number",
+   "prompt": "Сколько будет 17 × 23?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <ответ>"
+  },
+  {
+   "id": "C09",
+   "set": "control",
+   "kind": "number",
+   "prompt": "Сколько минут в 3.5 часах?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <ответ>"
+  },
+  {
+   "id": "C10",
+   "set": "control",
+   "kind": "number",
+   "prompt": "Сколько будет 15 % от 2400?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <ответ>"
+  },
+  {
+   "id": "C11",
+   "set": "control",
+   "kind": "number",
+   "prompt": "Какой остаток от деления 1000 на 7?\n\nВ последней строке ответа напиши строго: ОТВЕТ: <ответ>"
+  },
+  {
+   "id": "C12",
+   "set": "control",
+   "kind": "text",
+   "prompt": "Если 2026-11-01 — воскресенье, какой день недели будет 2026-11-08? Ответь одним словом.\n\nВ последней строке ответа напиши строго: ОТВЕТ: <ответ>"
+  }
+ ],
+ "run_order": [
+  "H10",
+  "C05",
+  "I03",
+  "I02",
+  "H14",
+  "H07",
+  "C01",
+  "H17",
+  "C10",
+  "C12",
+  "H02",
+  "C04",
+  "I04",
+  "H19",
+  "C11",
+  "C07",
+  "H13",
+  "I05",
+  "I01",
+  "H12",
+  "H01",
+  "H20",
+  "C02",
+  "C08",
+  "H16",
+  "H18",
+  "C06",
+  "C03",
+  "H05",
+  "H11",
+  "H09",
+  "H15",
+  "C09",
+  "H03",
+  "H04",
+  "I06",
+  "H08",
+  "H06"
+ ],
+ "repetitions": 3,
+ "phases": [
+  "baseline (fresh temp DB, no lesson)",
+  "lesson write + provenance + restart survival",
+  "after (same backend data dir after restart, lesson in memory, recall on)"
+ ],
+ "ground_truth": {
+  "location": "outside the repo and outside the temp data dir (session scratchpad keys/)",
+  "truth_json_sha256": "41a77862e34e7e152a8e41ef9e4151df932f567158e164c418a68df1a9ebd743",
+  "builder_sha256": "4392deadcf44d29cece793ad5db67b5c2b57699be7bed78e6a7997ae62fc8462",
+  "published": "with results.json after the runs (post-hoc disclosure)"
+ },
+ "scorer": {
+  "file": "scorer.py",
+  "type": "code, not an LLM",
+  "parse": "take the value after the LAST 'ОТВЕТ:'; if absent, the last number in the answer (flagged format_fallback). Numbers: drop spaces/nbsp, ',' is a decimal point unless '.' also present (then ',' is a thousands separator). Correct iff Decimal(parsed) == Decimal(truth) exactly (money truth has 2 dp, so 18828.1425 != 18828.15). Text: casefold, strip punctuation, equal.",
+  "unit": "task passes in a phase iff >= 2 of 3 repetitions are correct (majority)",
+  "infra_failure": "a run whose task status != completed counts as incorrect and is reported"
+ },
+ "decision_rule": {
+  "headroom_gate": "baseline heldout passes >= 17/20 -> INCONCLUSIVE ('no headroom - transfer not demonstrable')",
+  "recall_gate": "AFTER: the lesson's fact id appears in memory.recalled sources in >= 95 % of heldout runs, and in 0 baseline runs; otherwise FAIL (memory did not inject the lesson)",
+  "infra_gate": "> 10 % of runs in either phase not completed -> INCONCLUSIVE",
+  "PASS": "delta = heldout_after - heldout_baseline >= 8 tasks AND one-sided exact sign test on discordant heldout tasks p <= 0.01 AND control regressions == 0 (a control task majority-pass at baseline and majority-fail after)",
+  "FAIL": "delta <= 3 OR control regressions >= 2 OR recall gate fails",
+  "INCONCLUSIVE": "anything else",
+  "independent_set": "secondary, descriptive: 'generalises' only if independent_after - independent_baseline >= 3 of 6"
+ },
+ "deviations_policy": "any deviation from this file is listed in README_RU.md with the reason; nothing is re-run selectively",
+ "pipeline_smoke_before_prereg": "one non-experimental prompt ('2 + 3') through the same path, to check the plumbing only; it is not part of any set"
+}

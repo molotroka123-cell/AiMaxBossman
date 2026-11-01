@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 537. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 539. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -123,6 +123,8 @@
 | `command-center/tests/test_leaf_plugins_real_handlers.py:214` | skip | `—` | no OpenRouter key available | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_leaf_plugins_real_handlers.py:219` | skip | `—` | f"free model throttled: {r.content[:80]}" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_leaf_slash_commands.py:13` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_lesson_transfer_proof.py:224` | skipif | `not available()` | bossman-shared without learning.lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_lesson_transfer_proof.py:236` | skipif | `not available()` | bossman-shared without learning.lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_live_openrouter_dry_run.py:40` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_mcp_catalog.py:11` | skipif | `not (shutil.which("npx") and shutil.which("uvx"))` | npx и uvx нужны для проверки allowlist по реальным бинарникам | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_mcp_catalog.py:43` | skip | `—` | uvx отсутствует в allowlist этой машины | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

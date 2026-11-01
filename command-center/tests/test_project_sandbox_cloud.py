@@ -121,3 +121,38 @@ async def test_set_task_workspace_marks_only_cloud_project_tasks(env):
         ids.append(t["id"])
     assert (await _task(env, ids[0]))["meta"].get("project_sandbox") is True
     assert not ((await _task(env, ids[1]))["meta"] or {}).get("project_sandbox")
+
+
+async def test_cloud_agent_outside_a_project_gets_no_tools_at_all(env):
+    """Live cloud matrix 01.11: Kimi/DeepSeek (cloud_pc_access True) asked the owner to approve a terminal in a chat
+    WITHOUT a project. Outside a project a cloud agent gets no tools; a local agent is untouched (negative control)."""
+    rich = (await _local_stack(env.client, tools=["terminal.run", "code.search"], base_url=CLOUD, name="kimi"))["agent"]
+    local = (await _local_stack(env.client, tools=["terminal.run"], name="loc"))["agent"]
+    ids = {}
+    for name, agent in (("cloud", rich), ("local", local)):
+        t = (await env.client.post("/api/tasks", json={"prompt": "x", "title": "x", "agent_id": agent["id"],
+                                                       "run_now": False})).json()["task"]
+        ids[name] = (t["id"], await cp.restrict_cloud_without_project(env.svc, t["id"], agent["id"], None))
+    assert ids["cloud"][1] is True and ids["local"][1] is False
+    cloud_task = await _task(env, ids["cloud"][0])
+    assert cloud_task["meta"]["allowed_tools"] == []
+    assert tools_mod.allowed_tools_for(cloud_task, {"tools": ["terminal.run"], "permissions": {"cloud_pc_access": True}}) == []
+    # in a project the sandbox rule applies, not this one
+    p = await _project(env, "With project")
+    assert await cp.restrict_cloud_without_project(env.svc, ids["cloud"][0], rich["id"], Path(p["path"])) is False
+
+
+async def test_a_relative_root_in_the_sandbox_is_the_project_folder(env):
+    """Live cloud matrix 01.11 (task 959): GLM passed root="." and the sandbox refused - «.» was the backend's cwd."""
+    cloud = (await _local_stack(env.client, base_url=CLOUD, name="glm"))["agent"]
+    p = await _project(env, "Rel")
+    folder = Path(p["path"]).resolve()
+    ctx = await _ctx(env, cloud, folder, sandbox=True)
+    ok = await tools_code.tool_code_write({"path": "a.txt", "content": "x", "root": "."}, ctx)
+    assert not ok.error, ok.content
+    assert (folder / "a.txt").read_text(encoding="utf-8") == "x"
+    (folder / "sub").mkdir()
+    assert await tools_code.resolve_root(env.svc, "sub", str(folder), ctx) == folder / "sub"
+    for bad in ("..", "../..", "sub/../.."):                       # negatives: relative escapes stay refused
+        with pytest.raises(PermissionError, match="песочница проекта"):
+            await tools_code.resolve_root(env.svc, bad, str(folder), ctx)

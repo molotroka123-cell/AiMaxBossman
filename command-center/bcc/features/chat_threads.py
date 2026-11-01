@@ -719,6 +719,8 @@ async def _task_views(svc: Any, ids: list[Any]) -> dict[int, dict]:
                      "pricing_known": pricing.get(last["model_alias"]) if last["model_alias"] else None}
                     if last else None),
             "runs": len(task_runs),
+            # owner 01.11: a chat answer the model gave in TEXT where an action was asked - shown, never a claimed action
+            "action_not_executed": list(meta.get("action_not_executed") or []) or None,
         }
     return out
 
@@ -1361,7 +1363,8 @@ async def get_thread(thread_id: str, request: Request):
                 "at": turn.get("at"), "status": view["status"] if view else "missing",
                 "result": view["result"] if view else None, "error": view["error"] if view else None,
                 "failure_summary": view.get("failure_summary") if view else None,
-                "run": view["run"] if view else None}
+                "run": view["run"] if view else None,
+                "action_not_executed": view.get("action_not_executed") if view else None}
         if isinstance(turn.get("attachments"), list):
             item["attachments"] = [a for a in turn["attachments"] if isinstance(a, dict)]
         files = await asyncio.to_thread(_agent_files, svc, int(turn["task_id"]))
@@ -1640,6 +1643,8 @@ async def _send_core(request: Any, thread_id: str, body: SendIn) -> dict:
     if created.get("replayed"):
         return await _replay(request, svc, thread_id, task, text, body.attachments)
     await set_task_workspace(svc, int(task["id"]), workspace)
+    from .chat_projects import restrict_cloud_without_project
+    await restrict_cloud_without_project(svc, int(task["id"]), agent["id"], workspace)
 
     # 3. Ход в файл сессии (его увидит и `bossman chat`), затем запуск.
     turn = _new_turn(int(task["id"]), text, attachments)

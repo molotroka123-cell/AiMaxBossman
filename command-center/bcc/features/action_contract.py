@@ -468,6 +468,9 @@ _READONLY_HEADS = frozenset({
     "get-process", "gps", "get-service", "gsv", "get-ciminstance", "gcim", "get-wmiobject", "gwmi",
     "select-string", "sls", "select-object", "select", "where-object", "measure-object", "measure",
     "test-path", "resolve-path", "format-table", "ft", "format-list", "fl", "out-string", "write-output",
+    # owner task #982 (01.11): `cd <dir> && git log` was a «mutation» because `cd` was unknown, so its exit 128 failed a
+    # 200 s AUTO run. Changing the shell's directory changes nothing on disk; every OTHER segment is still classified.
+    "cd", "chdir", "pushd", "popd", "set-location", "sl", "push-location", "pop-location",
 })
 _PWSH_MUTATION_RE = re.compile(
     r"\b(?:set-content|add-content|out-file|clear-content|new-item|remove-item|copy-item|move-item|rename-item|"
@@ -1263,7 +1266,9 @@ async def _before_run(svc):
             new_meta[ROUTED_TOOLS_EXTEND_AGENT] = True
             changed = True
 
-        if "review" not in meta:
+        # Owner 01.11: a pult CHAT turn is a conversation - no file/effect obligation is derived for it, so a text
+        # answer is not escalated by the review (the gate below marks it `action_not_executed` instead).
+        if "review" not in meta and not await _is_chat_turn(svc, int(task["id"])):
             evidence_list = []
             for cap in caps:
                 if cap.evidence is None:
@@ -1417,6 +1422,21 @@ async def _gate(svc):
         if not missing:
             return _verdict("NOT_APPLICABLE")
 
+        # Owner 01.11 «пульт лагает … исправь фильтры, чтобы работало даже на облачных моделях»: in a pult CHAT a
+        # text answer to «напиши/создай …» failed the turn (cloud chat-only GLM at once; local Demon after a full
+        # second run, 5.5 min). A chat turn is a conversation: the answer is delivered, nothing is claimed as done -
+        # the turn is marked `action_not_executed` and the pult shows it. AGENT/AUTO/CODE tasks keep the strict rule.
+        if await _is_chat_turn(svc, int(task["id"])):
+            names = [cap.name for cap in missing]
+            meta = dict(await _meta(svc, task["id"]))
+            meta["action_not_executed"] = names
+            # Existing review evidence may have been supplied by the owner or
+            # another verifier. Keep it for review_gate/finalize to evaluate.
+            await _set_meta(svc, task["id"], meta)
+            await svc.bus.emit("action_contract.chat_reply_without_action", task_id=task["id"], run_id=run_id,
+                               capabilities=names)
+            return _verdict("NOT_APPLICABLE")
+
         unavailable = [cap for cap in missing if not _family_tool_names(cap.tool_sources)]
         if unavailable:
             # Хотя бы для одной затронутой стороны исполнителя в реестре нет
@@ -1444,13 +1464,6 @@ async def _gate(svc):
                          f"пересказывай шаги владельцу. Текстовая инструкция не завершает задачу."))
 
         names = [cap.name for cap in missing]
-        # Live owner run 31.10 (task 866): «Запомни кодовое слово X. Ответь: ок» in a pult CHAT, to an agent without
-        # any memory tool, failed the turn. In a chat the turn itself is kept in the chat history (that is what the next
-        # turn and a model switch read), so the request is honoured without a memory tool — not a false claim.
-        # Only MEMORY_ACTION, only without memory tools, only for a turn of a pult chat; everything else is unchanged.
-        if not has_tools and names == ["MEMORY_ACTION"] * len(names) and await _is_chat_turn(svc, int(task["id"])):
-            await svc.bus.emit("action_contract.memory_kept_in_chat", task_id=task["id"], run_id=run_id)
-            return _verdict("NOT_APPLICABLE")
         await svc.bus.emit("action_contract.blocked", task_id=task["id"], run_id=run_id,
                            capabilities=names, has_tools=has_tools)
         return _verdict("FAIL", rule=RULE, requeue=False, status="failed")

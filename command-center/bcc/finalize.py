@@ -196,12 +196,18 @@ def _superseded(failed_index: int, rows: list[dict], expected: list, roots: list
     return False
 
 
+_BENIGN_REDIRECT_RE = re.compile(r"(?i)(?<![\w>])(?:[0-9]?>&[0-9]|[0-9]?>{1,2}\s*(?:/dev/null|nul|\$null)(?![\w./\\]))")
+
+
 def _effectful(row: dict) -> bool:
     """Use the executor capability, not model wording, as the safety backstop."""
     from .tools import REGISTRY
     if row.get("tool") == "terminal.run":
         from .features.action_contract import _looks_like_mutation
         command = str((row.get("args") or {}).get("command") or "")
+        # Owner task #982 (01.11): `git status --short 2>&1` counted as a write because of the bare `>`. Stream merges
+        # and discards (`2>&1`, `>&2`, `2>/dev/null`, `>nul`, `2>$null`) write no file; a real `> file` still counts.
+        command = _BENIGN_REDIRECT_RE.sub(" ", command)
         # Shell expansions and write-capable git subcommands must not inherit
         # the action classifier's deliberately permissive "read" heuristic.
         if re.search(r"[>$`]|\bgit\s+(?:config|branch|tag|remote|fetch)\b|--output(?:=|\s)"
@@ -225,6 +231,20 @@ def _effectful(row: dict) -> bool:
 # With a declared contract, only a fresh observation of the world may settle them;
 # without one they remain "did not succeed": an unobserved effect is not success.
 _WORLD_DECIDES = ("denied", "rejected", "interrupted", "reconciled")
+
+
+#: File tools name their target explicitly, so «the same action» is the same tool on the same file - whatever root or
+#: content the model passed. Live cloud matrix 01.11 (task 988): GLM's code.write with a foreign root was refused by
+#: the project sandbox (nothing written), the next code.write of the SAME path succeeded, and the task still failed.
+_FILE_TARGET_TOOLS = ("code.write", "code.patch")
+
+
+def _attempt_key(row: dict) -> tuple:
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    if row.get("tool") in _FILE_TARGET_TOOLS and str(args.get("path") or "").strip():
+        target = re.sub(r"^(?:\./)+", "", str(args.get("path")).strip().replace("\\", "/")).lower()
+        return (row.get("tool"), "path", target)
+    return (row.get("tool"), row.get("args_hash") or repr(row.get("args")))
 
 
 def _effect_problem(rows: list[dict], expected: list, task: dict | None = None,
@@ -264,7 +284,7 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None,
     latest: dict = {}
     for index, row in enumerate(rows):
         if _effectful(row) and not (expected and row.get("status") in _WORLD_DECIDES):
-            latest[(row.get("tool"), row.get("args_hash") or repr(row.get("args")))] = (index, row)
+            latest[_attempt_key(row)] = (index, row)
     for index, row in latest.values():
         if row.get("status") != "executed" or row.get("error"):
             return "effectful tool did not succeed: " + str(row.get("tool"))

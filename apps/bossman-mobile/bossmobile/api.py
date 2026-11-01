@@ -1012,8 +1012,13 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         runs = body.get("runs") if isinstance(body.get("runs"), list) else []
         model_alias = str(t.get("model_alias") or (runs[-1].get("model_alias") if runs and isinstance(runs[-1], dict) else "") or "main")
         eta = calibrate_task_eta(runs, model_alias=model_alias)
+        meta = t.get("meta") if isinstance(t.get("meta"), dict) else {}
+        action_not_executed = meta.get("action_not_executed")
+        if not isinstance(action_not_executed, list):
+            action_not_executed = []
         return {"id": t.get("id"), "status": t.get("status"), "result": body.get("result"), "error": body.get("error"),
                 "failure_summary": body.get("failure_summary"),
+                "action_not_executed": action_not_executed,
                 "agent_id": t.get("agent_id"), "eta": eta}
 
     @app.get("/m/api/tasks/{task_id}/history")
@@ -1088,6 +1093,11 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if task_id is not None:
             params["task_id"] = int(task_id)
         return await call("GET", "/api/approvals/auto-full", params=params)
+
+    @app.get("/m/api/auto-full/folders")
+    async def auto_full_folders(_=Depends(session)):
+        """Main PC folders for the Auto Full picker (owner 01.11); each one is pre-validated by Bossman."""
+        return await call("GET", "/api/approvals/auto-full/folders")
 
     @app.post("/m/api/auto-full")
     async def enable_auto_full(body: AutoFullMobileIn, _=Depends(session)):

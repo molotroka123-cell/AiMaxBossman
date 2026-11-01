@@ -416,6 +416,49 @@ async def consume(svc, scope: Scope, *, args: dict | None = None,
     return lease
 
 
+#: Personal media folders are never offered (owner rule: no reading of personal photos/videos).
+_PERSONAL_MEDIA = ("Pictures", "Videos", "Music", "Изображения", "Видео", "Музыка")
+
+
+async def auto_full_folder_choices(svc) -> list[dict]:
+    """Owner 01.11 «тут все главные папки компа должны выпадать»: the PC's main work folders for the Auto Full picker.
+
+    Every entry passes validate_auto_full_folder (the same check as enabling), so nothing offered here is refused later;
+    drive roots, the home folder itself, system/program folders and personal media folders are never listed."""
+    home = Path.home()
+    groups: list[tuple[str, list[Path]]] = []
+    main = [home / n for n in ("Desktop", "Documents", "Downloads")]
+    main += [home / "OneDrive" / n for n in ("Desktop", "Documents")]
+    main += [home / "Bossman", Path("D:/Bossman"), Path("D:/Projects")]
+    groups.append(("Главные папки", main))
+    projects_root = Path(os.environ.get("BCC_PROJECTS_ROOT") or (home / "Bossman" / "Projects"))
+    proj = [projects_root] + (sorted(p for p in projects_root.iterdir() if p.is_dir() and not p.name.startswith("."))
+                              if projects_root.is_dir() else [])
+    groups.append(("Проекты", proj))
+    try:
+        from .features.tools_terminal import _roots
+        work = [Path(r) for r in await _roots(svc)]
+    except Exception:  # noqa: BLE001 - the picker still works without the terminal roots
+        work = []
+    groups.append(("Рабочие папки агентов", work))
+    out: list[dict] = []
+    seen: set[str] = set()
+    for group, paths in groups:
+        for p in paths:
+            if any(part in _PERSONAL_MEDIA for part in Path(p).parts):
+                continue
+            try:
+                resolved = validate_auto_full_folder(p)
+            except (ValueError, PermissionError, OSError):
+                continue
+            key = os.path.normcase(str(resolved))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({"path": str(resolved), "label": resolved.name or str(resolved), "group": group})
+    return out
+
+
 async def active_auto_full_folders(svc) -> list[Path]:
     """Currently active Auto Full folders so `tools_terminal._roots` permits execution inside them
     only while the lease is active and unrevoked."""
