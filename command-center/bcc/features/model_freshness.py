@@ -30,7 +30,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, Request
 
 from .. import model_health as mh
-from ..db import agents as agents_t, models as models_t
+from ..db import agents as agents_t, models as models_t, providers as providers_t
 from ..providers import ProviderError
 from . import Feature
 
@@ -71,6 +71,40 @@ def _gpu_job_active(svc) -> bool:
         return getattr(dg, "_running", None) is not None or bool(getattr(dg, "_waiting", None))
     except Exception:  # noqa: BLE001 - an unreadable signal must not stop the freshness tick
         return False
+
+
+def _is_ollama(provider: dict | None) -> bool:
+    if not isinstance(provider, dict):
+        return False
+    url = str(provider.get("base_url") or "").lower()
+    return "ollama" in str(provider.get("kind") or "").lower() or ":11434" in url
+
+
+def _ollama_root(base_url: str) -> str:
+    root = str(base_url or "").rstrip("/")
+    return root[:-3] if root.endswith("/v1") else root
+
+
+async def _resident_names(base_url: str) -> set[str] | None:
+    """Model names Ollama holds in memory right now (GET /api/ps); None when it cannot be read.
+
+    Owner audit 01.11 (/health 503): the tick had been switched off by hand (BOSSMAN_MODEL_FRESHNESS=0) because a
+    probe of a COLD local model made Ollama load tens of GB. A probe now never loads anything: only resident models."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=3.0, trust_env=False) as c:
+            r = await c.get(_ollama_root(base_url) + "/api/ps")
+            r.raise_for_status()
+            names: set[str] = set()
+            for m in (r.json().get("models") or []):
+                for key in ("name", "model"):
+                    n = str(m.get(key) or "")
+                    if n:
+                        names.add(n)
+                        names.add(n.removesuffix(":latest"))
+            return names
+    except Exception:  # noqa: BLE001 - unreadable = unknown = do not probe (never load a model to find out)
+        return None
 
 
 def _aware(value: datetime | None) -> datetime | None:
@@ -133,6 +167,23 @@ async def run_cycle(svc, *, now: datetime | None = None) -> dict[str, Any]:
         if len(kept) != len(picked):
             skipped["gpu_job_active_local_not_probed"] = len(picked) - len(kept)
         picked = kept
+    async with svc.db.session() as s:
+        provs = {int(r._mapping["id"]): dict(r._mapping) for r in (await s.execute(sa.select(providers_t))).fetchall()}
+    resident_cache: dict[str, set[str] | None] = {}
+    kept = []
+    for row, rec in picked:
+        prov = provs.get(int(row.get("provider_id") or -1))
+        if (row.get("kind") or "local") == "local" and _is_ollama(prov):
+            base = str(prov.get("base_url") or "")
+            if base not in resident_cache:
+                resident_cache[base] = await _resident_names(base)
+            names = resident_cache[base]
+            name = str(row.get("name") or "")
+            if names is None or (name not in names and name.removesuffix(":latest") not in names):
+                skipped["local_not_resident_not_loaded"] = skipped.get("local_not_resident_not_loaded", 0) + 1
+                continue
+        kept.append((row, rec))
+    picked = kept
     for row, _record in picked[:MAX_PER_CYCLE]:
         remaining = CYCLE_BUDGET_S - (time.monotonic() - started)
         if remaining <= 1.0:

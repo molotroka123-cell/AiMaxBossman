@@ -202,3 +202,38 @@ async def test_local_model_is_not_probed_while_a_direct_gen_job_holds_the_gpu(en
     env.svc.direct_gen = None                      # negative control: with no GPU job the same model IS probed
     idle = await mf.run_cycle(env.svc)
     assert len(idle["probed"]) == 1 and adapter.calls == 1
+
+
+async def test_a_cold_ollama_model_is_never_loaded_by_a_probe(env, monkeypatch):
+    """Owner audit 01.11: /health 503 because the tick was switched off by hand - its probes loaded cold Ollama models
+    (tens of GB). Now only a RESIDENT Ollama model is probed; a cold one is skipped, an unreadable /api/ps too."""
+    stack = await make_stack(env.client)
+    mid = stack["model"]["id"]
+    async with env.svc.db.session() as s:
+        from bcc.db import providers as providers_t
+        await s.execute(sa.update(providers_t).where(providers_t.c.id == stack["provider"]["id"])
+                        .values(base_url="http://127.0.0.1:11434/v1"))
+        await s.execute(sa.update(models_t).where(models_t.c.id == mid).values(name="gemma-test:latest"))
+        await s.commit()
+    await _set_health(env, mid, mh.HEALTHY, minutes_ago=40)
+    adapter = FakeAdapter("готово")
+    env.svc.registry.adapter_factory = lambda m, p: adapter
+
+    async def cold(_base):
+        return {"some-other-model:latest", "some-other-model"}
+    monkeypatch.setattr(mf, "_resident_names", cold)
+    result = await mf.run_cycle(env.svc)
+    assert result["probed"] == [] and adapter.calls == 0
+    assert result["skipped"]["local_not_resident_not_loaded"] == 1
+
+    async def unreadable(_base):
+        return None
+    monkeypatch.setattr(mf, "_resident_names", unreadable)
+    assert (await mf.run_cycle(env.svc))["probed"] == [] and adapter.calls == 0
+
+    async def resident(_base):                    # positive control: the model is in memory -> probed, readiness back
+        return {"gemma-test:latest", "gemma-test"}
+    monkeypatch.setattr(mf, "_resident_names", resident)
+    result = await mf.run_cycle(env.svc)
+    assert [p["outcome"] for p in result["probed"]] == [mh.HEALTHY] and adapter.calls == 1
+    assert (await health_mod.model_components(env.svc))["models"]["status"] == "ok"
