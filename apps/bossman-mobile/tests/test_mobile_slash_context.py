@@ -38,6 +38,7 @@ PALETTE = {
 }
 CONTEXT = {
     "session_id": "S1", "turns_total": 12, "turns_in_context": 9, "compacted": True, "compacted_at_turn": 3,
+    "turns_dropped": 0, "compact_suggested": False,
     "summary_chars": 1800, "used_tokens": 6400, "context_window": 8192, "used_pct": 78.1, "left_tokens": 1792,
     "left_pct": 21.9, "level": "warn", "source": "provider_usage",
     "compact": {"state": "idle", "task_id": None, "finished_at": None, "error": None},
@@ -140,6 +141,15 @@ def test_context_maps_path_and_keeps_numbers(authed):
     assert r.json() == CONTEXT
     call = next(c for c in authed.fake.calls if c["path"] == "/api/agent/sessions/S1/context")
     assert call["method"] == "GET" and call["body"] == ""
+
+
+def test_context_counts_the_model_picked_for_the_next_turn(authed):
+    """owner 31.10: after a model switch the gauge counts the NEW model's window (agent_id goes upstream)."""
+    r = authed.c.get("/m/api/agent/sessions/S1/context", params={"agent_id": 46})
+    assert r.status_code == 200
+    calls = [c for c in authed.fake.calls if c["path"] == "/api/agent/sessions/S1/context"]
+    assert calls[-1]["query"] == {"agent_id": "46"}
+    assert authed.c.get("/m/api/agent/sessions/S1/context", params={"agent_id": 0}).status_code == 422
 
 
 def test_compact_posts_instruction_and_answers_202(authed):

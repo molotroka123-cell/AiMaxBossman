@@ -105,6 +105,7 @@ def context_view(raw: Any) -> dict:
     return {
         "session_id": _s(src.get("session_id"), 64),
         "turns_total": _i(src.get("turns_total")), "turns_in_context": _i(src.get("turns_in_context")),
+        "turns_dropped": _i(src.get("turns_dropped")), "compact_suggested": src.get("compact_suggested") is True,
         "compacted": src.get("compacted") is True, "compacted_at_turn": _i(src.get("compacted_at_turn")),
         "summary_chars": _i(src.get("summary_chars")),
         "used_tokens": _i(src.get("used_tokens")), "context_window": _i(src.get("context_window")),

@@ -132,6 +132,8 @@ class _State:
         #: owner chat tasks still running -> monotonic time they were sent (owner_activity keeper)
         self.owner_tasks: dict[int, float] = {}
         self.owner_keeper: asyncio.Task | None = None
+        #: thread id -> the task that drains that thread's message queue (owner 31.10)
+        self.queue_jobs: dict[str, asyncio.Task] = {}
 
 
 def _state(svc: Any) -> _State:
@@ -574,7 +576,8 @@ async def _touch_meta(svc: Any, thread_id: str) -> None:
 #: Служебная заметка в треде (не задача): `{"task_id": <отрицательный>, "kind": "note", "note": {...}}`. Так в тред
 #: приходит то, что случилось ПОСЛЕ ответа агента, — например готовая правка фото (features/photo_edit_delivery).
 #: Это ход с отрицательным task_id, как у служебных ходов /improve и CODE: терминал при перезаписи файла его
-#: сохраняет (сливает ходы по task_id), в контекст модели он не идёт (задачи с таким id нет).
+#: сохраняет (сливает ходы по task_id), в контекст модели он не идёт (задачи с таким id нет). Исключение — заметка
+#: `note.kind == "context_import"` (резюме, перенесённое владельцем из другого чата): её резюме идёт в контекст.
 NOTE_KIND = "note"
 
 
@@ -1054,17 +1057,94 @@ def _resolve_attachments(svc: Any, ids: list[str], thread_id: str) -> list[dict]
     return out
 
 
-def _dropped_note(dropped: int, max_prompt: int) -> list[str]:
-    """Честная пометка в контексте: сколько ранних частей беседы не поместилось."""
+# ======================================================================
+# Бюджет контекста по окну модели (владелец 31.10)
+# ======================================================================
+
+#: Владелец 31.10: «модель при загрузке новая может читать весь контекст текущего чата; если контекст не влазит —
+#: сама его скомпоновывать предлагает». Раньше чат брал последние 3 хода по 1500 символов на сторону (константы
+#: `bossman chat`) для ЛЮБОЙ модели: замер на живой базе 31.10 — 3 из 19 чатов длиннее 3 ходов, 47 ходов молча не
+#: доходили до модели (чат на 28 ходов со сменой моделей: новая модель видела 3). Теперь объём истории решает
+#: окно модели, которой уходит ход; что не влезло — названо в контексте и в ответе (`context`), с предложением /compact.
+HISTORY_TOKENS_CAP = int(os.environ.get("BCC_CHAT_HISTORY_MAX_TOKENS") or 96_000)
+DEFAULT_WINDOW = 32_768            # окно не известно (Auto, агент без модели): как у локальной модели по умолчанию
+DEFAULT_OVERHEAD_TOKENS = 6_000    # системный промпт + схемы инструментов, когда агент не известен
+RECALL_RESERVE_TOKENS = 1_500      # проверенная память, которую engine добавит к задаче
+WINDOW_SAFETY = 0.10               # оценка токенов приблизительна
+TOOL_LOOP_RESERVE = 0.15           # у агента с инструментами окно дальше заполнят их результаты
+MIN_PROMPT_TOKENS = 2_000
+TURN_SIDE_MAX_CHARS = 16_000       # один длинный ответ не съедает всю историю
+TURN_SIDE_MIN_CHARS = 1_500        # прежний CONTEXT_CHARS: меньше не бывает
+COMPACT_SUGGEST_SHARE = 0.85       # история заняла больше этой доли бюджета — /compact предлагается заранее
+IMPORT_MAX_SHARE = 0.5             # перенесённое из другого чата резюме — не больше половины бюджета промпта
+#: Служебная заметка «контекст из другого чата»: ИДЁТ в контекст модели (в отличие от прочих заметок).
+IMPORT_NOTE_KIND = "context_import"
+IMPORT_LABEL = "Контекст, перенесённый владельцем из чата «{title}» (резюме /compact):\n"
+
+
+def _estimate_tokens(text: str) -> int:
+    # та же оценка, что у датчика контекста (agent_extras.estimate_tokens): кириллица ~2.2 знака на токен
+    from .agent_extras import estimate_tokens
+    return estimate_tokens(text)
+
+
+async def _context_budget(svc: Any, agent_id: int | None) -> dict:
+    """Сколько токенов может занять промпт хода (история + вложения + текст) у модели этого агента.
+
+    Окно — из реестра моделей (то же поле, что показывает датчик); из него вычитаются ответ модели (max_tokens),
+    системный промпт и схемы РЕАЛЬНО выданных агенту инструментов, память, запас на погрешность оценки и, если
+    у агента есть инструменты, место под их результаты. Сверху — потолок HISTORY_TOKENS_CAP: облачной модели с
+    окном 1 млн не отправляется вся жизнь чата за каждый ход (цена и задержка)."""
+    window: int | None = None
+    alias = locality = None
+    max_tokens: int | None = None
+    overhead: int | None = None
+    tools = 0
+    if agent_id is not None:
+        with contextlib.suppress(Exception):
+            async with svc.db.session() as s:
+                row = (await s.execute(sa.select(agents_t.c.max_tokens)
+                                       .where(agents_t.c.id == int(agent_id)))).first()
+            if row is not None:
+                max_tokens = int(row[0]) if isinstance(row[0], int) and row[0] > 0 else None
+                view = await _model_of_agent(svc, int(agent_id)) or {}
+                window = view.get("context_window") if isinstance(view.get("context_window"), int) else None
+                alias, locality = view.get("alias"), view.get("locality")
+                from .agent_extras import _fixed_overhead
+                overhead, tools = await _fixed_overhead(svc, int(agent_id))
+    known = bool(window)
+    window = int(window or DEFAULT_WINDOW)
+    out_reserve = min(int(max_tokens or 2048), window // 4)
+    reserve = (out_reserve + (DEFAULT_OVERHEAD_TOKENS if overhead is None else int(overhead))
+               + RECALL_RESERVE_TOKENS + int(window * WINDOW_SAFETY)
+               + (int(window * TOOL_LOOP_RESERVE) if tools else 0))
+    prompt_tokens = max(MIN_PROMPT_TOKENS, min(window - reserve, HISTORY_TOKENS_CAP))
+    side = max(TURN_SIDE_MIN_CHARS, min(TURN_SIDE_MAX_CHARS, prompt_tokens * 2 // 4))
+    return {"agent_id": agent_id, "model": alias, "locality": locality, "window": window, "window_known": known,
+            "prompt_tokens": prompt_tokens, "turn_chars": side}
+
+
+def _window_note(dropped: int, total: int, budget: dict) -> list[str]:
+    """Честная пометка в контексте: сколько ранних ходов не поместилось в окно модели."""
     if not dropped:
         return []
-    return [f"(Опущено ранних частей беседы: {dropped} — с ними запрос был бы длиннее "
-            f"{max_prompt} символов.)"]
+    return [f"(Опущено ранних ходов: {dropped} из {total} — не помещаются в окно модели. "
+            f"Нужны для ответа — скажи владельцу: /compact.)"]
 
 
-async def _compose_prompt(svc: Any, raw: dict, text: str, attachments: list[dict]) -> str:
-    """Как `bossman chat`: резюме /compact первым, затем последние CONTEXT_TURNS
-    ходов после точки сжатия, ответы — из базы; каждая сторона ≤ CONTEXT_CHARS.
+def _import_part(turn: dict) -> str | None:
+    note = turn.get("note") if isinstance(turn.get("note"), dict) else {}
+    if note.get("kind") != IMPORT_NOTE_KIND or not str(note.get("summary") or "").strip():
+        return None
+    title = _sanitize(note.get("source_title") or "без названия")[:TITLE_MAX_CHARS]
+    return IMPORT_LABEL.format(title=title) + _sanitize(note.get("summary"))
+
+
+async def _compose_prompt(svc: Any, raw: dict, text: str, attachments: list[dict], *,
+                          agent_id: int | None = None, info: dict | None = None) -> str:
+    """Промпт хода в формате `bossman chat`: резюме /compact первым, затем ходы после точки сжатия (ответы — из
+    базы), сколько их помещается в окно модели агента `agent_id` (см. _context_budget), самые новые — в
+    приоритете; каждая сторона хода ≤ turn_chars (по окну, не меньше прежних 1500).
 
     Вложения — ДАННЫЕ, а не просьба: их блок — последняя часть контекста, ДО
     conversation_context.MARKER. После маркера — только набранный владельцем
@@ -1072,49 +1152,85 @@ async def _compose_prompt(svc: Any, raw: dict, text: str, attachments: list[dict
     а не содержимое файлов. Поэтому и у первого сообщения с вложением есть
     преамбула HEADER…MARKER; без истории и без вложений промпт — сам текст.
 
-    Не влезает в MAX_PROMPT_CHARS — первыми уходят самые старые ходы (резюме —
-    последним, блок вложений не трогается), и в контексте сказано, сколько частей
-    опущено. Не влезает и без них — 413, ничего не создано."""
+    Что не поместилось в окно — уходит самое старое (резюме и вложения не трогаются), в контексте сказано,
+    сколько ходов опущено, а `info` (если передан) получает числа для владельца: окно, бюджет, ходов всего/в
+    промпте/опущено и `compact_suggested`. Сверх жёсткого предела символов (MAX_PROMPT_CHARS `bossman chat`, но не
+    меньше окна) — тоже первыми уходят старые ходы; не влезает и без них — 413, ничего не создано."""
     from ..terminal_cli.chat import SUMMARY_LABEL
-    turns_n, chars, max_prompt = _cli_limits()
+    _turns_n, _chars, max_prompt = _cli_limits()
+    budget = await _context_budget(svc, agent_id)
+    side = int(budget["turn_chars"])
+    hard_chars = max(int(max_prompt), int(budget["prompt_tokens"]) * 4) if budget["window_known"] else int(max_prompt)
     summary = str(raw.get("summary") or "")
-    live = _live_turns(raw)[-turns_n:] if turns_n > 0 else []
-    views = await _task_views(svc, [turn["task_id"] for _, turn in live]) if live else {}
-    parts = [SUMMARY_LABEL + summary] if summary else []
+    live = _live_turns(raw)
+    task_ids = [turn["task_id"] for _, turn in live if not _is_note(turn)]
+    views = await _task_views(svc, task_ids) if task_ids else {}
+    head = [SUMMARY_LABEL + summary] if summary else []
+    history: list[tuple[str, bool]] = []            # (часть, ответ обрезан), от старых к новым
     for _, turn in live:
+        if _is_note(turn):
+            part = _import_part(turn)
+            if part:
+                history.append((part, False))
+            continue
         view = views.get(int(turn["task_id"]))
         if view is None:
             continue                      # как CLI: задача не читается — ход пропускается
-        answer = _sanitize(view["result"] or view["error"] or "")[:chars]
+        full = _sanitize(view["result"] or view["error"] or "")
+        answer = full[:side]
+        cut = len(full) > side
+        if cut:
+            answer += f"\n…[дальше ответ обрезан для контекста: ещё {len(full) - side} симв.]"
         if not answer and view.get("status") == "stopped":
             answer = (
                 "[STOP: задача прервана сигналом STOP владельца; status=stopped, "
                 "исход=UNKNOWN_OUTCOME (exit code неизвестен; тихий авто-перезапуск запрещён)]"
             )
-        parts.append(f"Владелец: {_sanitize(turn.get('text'))[:chars]}\nBossman: {answer or '—'}")
+        history.append((f"Владелец: {_sanitize(turn.get('text'))[:side]}\nBossman: {answer or '—'}", cut))
     skill_block = await asyncio.to_thread(_skill_block_for_text, svc, text)
     block = (await asyncio.to_thread(_attachment_block_sync, attachments)) if attachments else ""
     from .action_contract import check_kernel_turn_policy
-    kernel_pol = check_kernel_turn_policy("\n".join(parts + [text]))
+    kernel_pol = check_kernel_turn_policy("\n".join(head + [p for p, _ in history] + [text]))
     pol_block = str(kernel_pol.get("directive") or "") if kernel_pol else ""
     data = [b for b in (skill_block, block, pol_block) if b]
 
-    def assemble(dropped: int) -> str:
-        return conversation_context.compose(_dropped_note(dropped, max_prompt) + parts + data) + text
+    # Окно модели: самые новые ходы, пока помещаются (резюме, вложения и текст владельца — всегда).
+    avail = int(budget["prompt_tokens"]) - _estimate_tokens(conversation_context.compose(head + data) + text) - 80
+    chosen: list[tuple[str, bool]] = []
+    for part, cut in reversed(history):
+        cost = _estimate_tokens(part) + 2
+        if cost > avail:
+            break
+        chosen.append((part, cut))
+        avail -= cost
+    chosen.reverse()
 
-    dropped = 0
-    prompt = assemble(dropped)
-    while parts and len(prompt) > max_prompt:
-        parts.pop(1 if summary and len(parts) > 1 else 0)
-        dropped += 1
-        prompt = assemble(dropped)
-    if len(prompt) > max_prompt and dropped:
+    def assemble(kept: list[tuple[str, bool]]) -> str:
+        note = _window_note(len(history) - len(kept), len(history), budget)
+        return conversation_context.compose(note + head + [p for p, _ in kept] + data) + text
+
+    prompt = assemble(chosen)
+    while chosen and len(prompt) > hard_chars:
+        chosen.pop(0)
+        prompt = assemble(chosen)
+    if len(prompt) > hard_chars and len(chosen) < len(history):
         # Опущено всё, а сообщение с вложениями впритык: без пометки, но и без
         # опущенного — лишнего в запросе нет, а сообщение не отвергается зря.
-        prompt = assemble(0)
-    if len(prompt) > max_prompt:
-        raise _fail(413, f"слишком длинный запрос: {len(prompt)} > {max_prompt} символов",
+        prompt = conversation_context.compose(head + data) + text if (head or data) else text
+    if len(prompt) > hard_chars:
+        raise _fail(413, f"слишком длинный запрос: {len(prompt)} > {hard_chars} символов",
                     code="CHAT_PROMPT_TOO_LONG", hint="сократите сообщение или уберите вложения")
+    if info is not None:
+        used = _estimate_tokens(prompt)
+        dropped = len(history) - len(chosen)
+        info.update({
+            "model": budget["model"], "locality": budget["locality"], "window": budget["window"],
+            "window_known": budget["window_known"], "budget_tokens": budget["prompt_tokens"],
+            "used_tokens": used, "turns_live": len(history), "turns_included": len(chosen),
+            "turns_dropped": dropped, "answers_cut": sum(1 for _, cut in chosen if cut),
+            "summary": bool(summary), "over_budget": used > budget["prompt_tokens"],
+            "compact_suggested": bool(dropped) or used >= COMPACT_SUGGEST_SHARE * budget["prompt_tokens"],
+        })
     return prompt
 
 
@@ -1174,8 +1290,34 @@ async def list_threads(request: Request, q: str | None = Query(default=None, max
     last_ids = [i for i in (last_task_id(d["raw"]) for _, d, _e in rows) if i is not None]
     statuses = await _task_statuses(svc, last_ids)
     items = [_summary(tid, data, entry, statuses) for tid, data, entry in rows]
+    # Owner 31.10: the chat list marks which chat is running right now and on which model.
+    running = [it["last"]["task_id"] for it in items if it.get("last") and it["last"]["status"] not in TERMINAL_STATUSES
+               and it["last"]["status"] != "missing"]
+    if running:
+        models = await _models_of_tasks(svc, running)
+        for it in items:
+            last = it.get("last")
+            if last and last["task_id"] in models:
+                last.update(running=True, model=models[last["task_id"]])
     items.sort(key=lambda it: (not it["pinned"], -it["_updated"], it["id"]))
     return {"items": [_public(it) for it in items[:limit]], "total": len(items)}
+
+
+async def _models_of_tasks(svc: Any, task_ids: list[int]) -> dict[int, str | None]:
+    """task id -> alias of the model of its agent (ids only, no text)."""
+    out: dict[int, str | None] = {}
+    with contextlib.suppress(Exception):
+        async with svc.db.session() as s:
+            rows = (await s.execute(sa.select(tasks_t.c.id, tasks_t.c.agent_id)
+                                    .where(tasks_t.c.id.in_(_int_ids(task_ids))))).fetchall()
+        _agents, models, providers = await _catalog(svc)
+        agents = {int(a["id"]): a for a in _agents}
+        for task_id, agent_id in rows:
+            agent = agents.get(int(agent_id)) if agent_id is not None else None
+            view = _model_view(models.get(agent.get("model_id")) if agent else None,
+                               providers.get((models.get(agent.get("model_id")) or {}).get("provider_id")) if agent else None)
+            out[int(task_id)] = (view or {}).get("alias")
+    return out
 
 
 @router.post("/chat/threads", status_code=201)
@@ -1456,6 +1598,12 @@ def _keep_owner_active(svc: Any, task_id: int) -> None:
 async def send_turn(thread_id: str, body: SendIn, request: Request):
     """Сообщение в чат = задача Bossman: тот же предпросмотр, создание и запуск,
     что у POST /api/tasks/preflight, /api/tasks и /api/tasks/{id}/run."""
+    return await _send_core(request, thread_id, body)
+
+
+async def _send_core(request: Any, thread_id: str, body: SendIn) -> dict:
+    """Тело send_turn. `request` — запрос владельца или его снимок (_Caller) у очереди треда: те же учётные данные,
+    тот же предпросмотр/создание/запуск."""
     svc = _svc(request)
     data = _require_session(svc, thread_id)
     text = body.text
@@ -1471,7 +1619,8 @@ async def send_turn(thread_id: str, body: SendIn, request: Request):
         return await _replay(request, svc, thread_id, existing, text, body.attachments)
 
     attachments = _resolve_attachments(svc, body.attachments, thread_id)
-    prompt = await _compose_prompt(svc, data["raw"], text, attachments)
+    context: dict = {}
+    prompt = await _compose_prompt(svc, data["raw"], text, attachments, agent_id=body.agent_id, info=context)
 
     # 1. Предпросмотр: тот же select_executor, что и у создания. Отказ — 409, и
     #    ничего не создано.
@@ -1506,8 +1655,9 @@ async def send_turn(thread_id: str, body: SendIn, request: Request):
     run_id, admission = await _start(request, int(task["id"]))
     if admission.get("ok"):
         _keep_owner_active(svc, int(task["id"]))
-    return await _send_response(svc, thread_id, idx, turn, int(task["id"]), run_id, admission,
-                                agent, False)
+    out = await _send_response(svc, thread_id, idx, turn, int(task["id"]), run_id, admission, agent, False)
+    out["context"] = context              # только числа: окно, бюджет, сколько ходов вошло (владелец 31.10)
+    return out
 
 
 @router.post("/chat/threads/{thread_id}/stop")
@@ -1517,6 +1667,12 @@ async def stop_thread(thread_id: str, request: Request):
     svc = _svc(request)
     data = _require_session(svc, thread_id)
     ids = [int(turn["task_id"]) for _, turn in _turns(data["raw"])][-STOP_SCAN_TURNS:]
+    # STOP этого чата: его очередь и ещё не прочитанные «направить сейчас» тоже снимаются (другие чаты не трогаются)
+    await _queue_clear(svc, thread_id)
+    inbox = getattr(getattr(svc, "engine", None), "steer_inbox", None)
+    if isinstance(inbox, dict):
+        for task_id in ids:
+            inbox.pop(task_id, None)
     statuses = await _task_statuses(svc, ids)
     for task_id in reversed(ids):
         status = statuses.get(task_id)
@@ -1530,6 +1686,362 @@ async def stop_thread(thread_id: str, request: Request):
             raise _passthrough(code, payload)
         return {"ok": bool(payload.get("ok")), "task_id": task_id, "status": payload.get("status")}
     return {"ok": True, "task_id": None, "status": "idle"}
+
+
+# ======================================================================
+# Очередь: почему ход ещё не начался (владелец 31.10: «пока один чат работает, другие не могут»)
+# ======================================================================
+
+def _title_of(svc: Any, thread_id: str | None, meta: dict[str, dict]) -> str | None:
+    if not thread_id:
+        return None
+    data = _load_session(svc, thread_id)
+    if data is None:
+        return None
+    return _entry(meta, thread_id)["title"] or _fallback_title(data["raw"])
+
+
+@router.get("/chat/tasks/{task_id}/queue")
+async def task_queue(task_id: int, request: Request):
+    """Почему задача хода ждёт: сколько параллельных слотов у движка и кто их занимает (чаты — по названию).
+
+    Чаты НЕ сериализуются друг за другом: движок держит до `workers` прогонов сразу (BCC_WORKERS). Ждёт ход,
+    только когда все слоты заняты или задаче не хватило ресурса (память модели) — это и показывается владельцу
+    вместо заблокированного ввода. Текста ходов здесь нет: id, статусы, названия чатов."""
+    svc = _svc(request)
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(tasks_t.c.id, tasks_t.c.status, tasks_t.c.priority)
+                               .where(tasks_t.c.id == int(task_id)))).first()
+        if row is None:
+            raise _fail(404, "задача не найдена", code="TASK_NOT_FOUND")
+        status = str(row[1])
+        own_run = (await s.execute(sa.select(runs_t.c.id).where(runs_t.c.task_id == int(task_id))
+                                   .order_by(runs_t.c.id.desc()).limit(1))).scalar()
+        running = [int(r[0]) for r in (await s.execute(
+            sa.select(runs_t.c.task_id).where(runs_t.c.status.in_(("leased", "running")),
+                                              runs_t.c.task_id != int(task_id))
+            .order_by(runs_t.c.id))).fetchall()]
+        ahead = 0
+        if status == "queued" and own_run is not None:
+            ahead = int((await s.execute(
+                sa.select(sa.func.count()).select_from(runs_t.join(tasks_t, tasks_t.c.id == runs_t.c.task_id))
+                .where(runs_t.c.status == "queued", tasks_t.c.status.in_(("queued", "running")),
+                       sa.or_(tasks_t.c.priority < row[2],
+                              sa.and_(tasks_t.c.priority == row[2], runs_t.c.id < own_run))))).scalar() or 0)
+    engine = getattr(svc, "engine", None)
+    workers = int(getattr(engine, "workers", 0) or 0) or None
+    meta = _read_meta(svc)
+    holders = []
+    for tid in running[:8]:
+        thread_id = _thread_of_task(svc, tid, exclude="")
+        holders.append({"task_id": tid, "thread_id": thread_id, "thread_title": _title_of(svc, thread_id, meta)})
+    if status != "queued":
+        reason = None
+    elif workers and len(running) >= workers:
+        reason = "slots_busy"
+    elif ahead:
+        reason = "queue_ahead"
+    else:
+        reason = "waiting_resources"          # слот есть: ждёт ресурса (память под модель) или следующего цикла
+    return {"task_id": int(task_id), "status": status, "workers": workers, "running": holders,
+            "running_total": len(running), "ahead": ahead, "reason": reason}
+
+
+# ======================================================================
+# Очередь сообщений треда и «направить сейчас» (владелец 31.10)
+# ======================================================================
+
+#: «Пока модель отвечает, владелец пишет следующее — оно встаёт в очередь треда и уходит сразу после текущего (видно
+#: «в очереди», можно отменить). Кнопка Steer — отправить СЕЙЧАС: модель увидит его на следующем шаге, без перезапуска.»
+QUEUE_MAX = 5
+QUEUE_POLL_S = 1.0
+QUEUE_MAX_WAIT_S = 4 * 3600.0
+STEER_MAX = 5
+
+
+class _Caller:
+    """Снимок запроса владельца (приложение + его учётные заголовки) для фоновой отправки из очереди,
+    как `agent_extras._ReplayRequest` у фонового /compact."""
+
+    def __init__(self, request: Any) -> None:
+        self.app = request.app
+        self.headers = dict(request.headers)
+
+
+class QueueIn(BaseModel):
+    text: str = Field(min_length=1, max_length=TEXT_MAX_CHARS)
+    agent_id: int | None = None
+
+
+class SteerIn(BaseModel):
+    text: str = Field(min_length=1, max_length=TURN_TEXT_CHARS)
+
+
+def _queue_path(svc: Any) -> Path:
+    return Path(svc.settings.data_dir) / "terminal" / "chat-queue.json"
+
+
+def _queue_read(svc: Any) -> dict[str, list[dict]]:
+    try:
+        raw = json.loads(_queue_path(svc).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    threads = raw.get("threads") if isinstance(raw, dict) else None
+    if not isinstance(threads, dict):
+        return {}
+    return {k: [i for i in v if isinstance(i, dict) and i.get("id")] for k, v in threads.items()
+            if isinstance(k, str) and THREAD_ID_RE.fullmatch(k) and isinstance(v, list)}
+
+
+async def _queue_mutate(svc: Any, fn: Callable[[dict[str, list[dict]]], Any]) -> Any:
+    async with _state(svc).lock:
+        data = await asyncio.to_thread(_queue_read, svc)
+        out = fn(data)
+        data = {k: v for k, v in data.items() if v}
+        await asyncio.to_thread(_write_json_atomic, _queue_path(svc), {"version": 1, "threads": data})
+        return out
+
+
+async def _queue_clear(svc: Any, thread_id: str) -> None:
+    with contextlib.suppress(Exception):
+        await _queue_mutate(svc, lambda d: d.pop(thread_id, None))
+
+
+def _queue_public(items: list[dict]) -> list[dict]:
+    return [{"id": i["id"], "text": str(i.get("text") or ""), "agent_id": i.get("agent_id"), "at": i.get("at"),
+             "kind": i.get("kind") or "queued", "error": i.get("error")} for i in items]
+
+
+def _running_task(svc: Any, raw: dict, statuses: dict[int, str]) -> int | None:
+    last = last_task_id(raw)
+    if last is None or last <= 0:
+        return None
+    return last if statuses.get(last) not in TERMINAL_STATUSES and last in statuses else None
+
+
+def _ensure_drainer(svc: Any, caller: _Caller, thread_id: str) -> None:
+    jobs: dict = getattr(_state(svc), "queue_jobs", None) or {}
+    _state(svc).queue_jobs = jobs
+    job = jobs.get(thread_id)
+    if job is not None and not job.done():
+        return
+    job = jobs[thread_id] = asyncio.create_task(_drain_queue(svc, caller, thread_id), name=f"bcc-chat-queue-{thread_id}")
+    tasks = getattr(svc, "_tasks", None)
+    if isinstance(tasks, list):
+        tasks.append(job)
+
+        def _forget(done: asyncio.Task) -> None:
+            if done in tasks:
+                tasks.remove(done)
+
+        job.add_done_callback(_forget)
+
+
+async def _drain_queue(svc: Any, caller: _Caller, thread_id: str) -> None:
+    """Пока в очереди треда что-то есть: ждать, когда последний ход треда завершится, и отправить следующее тем же
+    путём, что и кнопка «Отправить». «Направить сейчас», которое задача не успела прочитать (ответ уже был финальным),
+    уходит первым обычным ходом — ни одно слово владельца не теряется. Owner STOP — очередь стоит, не отправляется."""
+    from .tools_cloud import stop_reason
+    deadline = time.monotonic() + QUEUE_MAX_WAIT_S
+    while time.monotonic() < deadline:
+        items = (await asyncio.to_thread(_queue_read, svc)).get(thread_id) or []
+        data = _load_session(svc, thread_id)
+        if data is None:
+            await _queue_clear(svc, thread_id)
+            return
+        last = last_task_id(data["raw"])
+        statuses = await _task_statuses(svc, [last] if last is not None and last > 0 else [])
+        running = _running_task(svc, data["raw"], statuses)
+        inbox = getattr(getattr(svc, "engine", None), "steer_inbox", None)
+        if running is None and last is not None and isinstance(inbox, dict) and inbox.get(last):
+            left = inbox.pop(last, None) or []
+
+            def _front(d: dict) -> None:
+                d[thread_id] = [{"id": "s" + secrets.token_hex(6), "text": t, "agent_id": None, "at": _now_turn_at(),
+                                 "kind": "steer_leftover"} for t in left] + (d.get(thread_id) or [])
+            await _queue_mutate(svc, _front)
+            continue
+        if not items and not (running is not None and isinstance(inbox, dict) and inbox.get(running)):
+            return
+        if running is not None or not items or stop_reason(svc):
+            await asyncio.sleep(QUEUE_POLL_S)
+            continue
+        item = items[0]
+        try:
+            agent_id = item.get("agent_id")
+            if agent_id is None and last is not None and last > 0:
+                with contextlib.suppress(Exception):
+                    async with svc.db.session() as s:
+                        agent_id = (await s.execute(sa.select(tasks_t.c.agent_id).where(tasks_t.c.id == last))).scalar()
+            await _send_core(caller, thread_id, SendIn(text=item["text"], agent_id=agent_id,
+                                                       client_request_id=f"chatq-{item['id']}"))
+            await _queue_mutate(svc, lambda d: d.__setitem__(
+                thread_id, [i for i in d.get(thread_id) or [] if i.get("id") != item["id"]]))
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
+            why = str(detail.get("message") or "не отправлено")[:300]
+
+            def _mark(d: dict) -> None:
+                d[thread_id] = [i for i in d.get(thread_id) or [] if i.get("id") != item["id"]]
+            await _queue_mutate(svc, _mark)
+            with contextlib.suppress(Exception):
+                await svc.bus.emit("chat.queue_failed", thread_id=thread_id, queue_id=item["id"], error=why)
+            return
+        await asyncio.sleep(QUEUE_POLL_S)
+
+
+@router.get("/chat/threads/{thread_id}/queue")
+async def get_queue(thread_id: str, request: Request):
+    svc = _svc(request)
+    _require_session(svc, thread_id)
+    items = (await asyncio.to_thread(_queue_read, svc)).get(thread_id) or []
+    if items:
+        _ensure_drainer(svc, _Caller(request), thread_id)      # после перезапуска Bossman очередь продолжает работу
+    return {"thread_id": thread_id, "items": _queue_public(items)}
+
+
+@router.post("/chat/threads/{thread_id}/queue", status_code=201)
+async def enqueue(thread_id: str, body: QueueIn, request: Request):
+    """Следующее сообщение, пока чат отвечает: встаёт в очередь треда и уходит сразу после текущего хода."""
+    svc = _svc(request)
+    _require_session(svc, thread_id)
+    if not body.text.strip():
+        raise _fail(422, "пустое сообщение", code="CHAT_TEXT_EMPTY")
+    item = {"id": "q" + secrets.token_hex(6), "text": body.text, "agent_id": body.agent_id, "at": _now_turn_at(),
+            "kind": "queued"}
+
+    def _add(d: dict) -> list[dict] | None:
+        cur = d.get(thread_id) or []
+        if len(cur) >= QUEUE_MAX:
+            return None
+        d[thread_id] = cur + [item]
+        return d[thread_id]
+    items = await _queue_mutate(svc, _add)
+    if items is None:
+        raise _fail(409, f"в очереди этого чата уже {QUEUE_MAX} сообщений", code="CHAT_QUEUE_FULL")
+    _mark_owner_active(svc, "chat_queue")
+    _ensure_drainer(svc, _Caller(request), thread_id)
+    return {"thread_id": thread_id, "item": _queue_public([item])[0], "items": _queue_public(items)}
+
+
+@router.delete("/chat/threads/{thread_id}/queue/{queue_id}")
+async def cancel_queued(thread_id: str, queue_id: str, request: Request):
+    svc = _svc(request)
+    _require_session(svc, thread_id)
+
+    def _drop(d: dict) -> bool:
+        cur = d.get(thread_id) or []
+        kept = [i for i in cur if i.get("id") != queue_id]
+        d[thread_id] = kept
+        return len(kept) != len(cur)
+    if not await _queue_mutate(svc, _drop):
+        raise _fail(404, "в очереди такого сообщения нет (уже отправлено или отменено)", code="CHAT_QUEUE_ITEM_NOT_FOUND")
+    return {"ok": True, "thread_id": thread_id, "removed": queue_id}
+
+
+@router.post("/chat/threads/{thread_id}/steer", status_code=202)
+async def steer(thread_id: str, body: SteerIn, request: Request):
+    """«Направить сейчас»: сообщение владельца идёт в РАБОТАЮЩУЮ задачу чата — модель увидит его на следующем шаге
+    (между вызовами модели, как STOP/пауза), без перезапуска. Не успела (ответ уже финальный) — сообщение уходит
+    следующим ходом через очередь треда. Права, подтверждения и бюджеты не меняются: это слова владельца, не доступ."""
+    svc = _svc(request)
+    data = _require_session(svc, thread_id)
+    last = last_task_id(data["raw"])
+    statuses = await _task_statuses(svc, [last] if last is not None and last > 0 else [])
+    running = _running_task(svc, data["raw"], statuses)
+    if running is None:
+        raise _fail(409, "в этом чате сейчас ничего не выполняется — отправьте сообщение обычным ходом",
+                    code="CHAT_NOTHING_RUNNING")
+    inbox = getattr(getattr(svc, "engine", None), "steer_inbox", None)
+    if not isinstance(inbox, dict):
+        raise _fail(503, "движок не принимает сообщений во время работы", code="CHAT_STEER_UNAVAILABLE")
+    pending = inbox.setdefault(running, [])
+    if len(pending) >= STEER_MAX:
+        raise _fail(409, f"уже {STEER_MAX} непрочитанных сообщений для этой задачи", code="CHAT_STEER_FULL")
+    pending.append(_sanitize(body.text)[:TURN_TEXT_CHARS])
+    _mark_owner_active(svc, "chat_steer")
+    _ensure_drainer(svc, _Caller(request), thread_id)          # не прочитанное задачей уйдёт следующим ходом
+    with contextlib.suppress(Exception):
+        await svc.bus.emit("run.steer_queued", task_id=running, pending=len(pending))
+    return {"ok": True, "thread_id": thread_id, "task_id": running, "pending": len(pending)}
+
+
+# ======================================================================
+# Перенос сжатого контекста из другого чата (владелец 31.10)
+# ======================================================================
+
+class ImportContextIn(BaseModel):
+    source_thread_id: str = Field(min_length=4, max_length=64)
+    #: модель, которой уйдёт следующий ход (размер резюме проверяется по её окну); нет — агент последнего хода
+    agent_id: int | None = None
+
+
+@router.get("/chat/compacted")
+async def list_compacted(request: Request, exclude: str | None = Query(default=None, max_length=64)):
+    """Чаты владельца, у которых есть резюме /compact: из них можно перенести контекст в другой чат.
+    Только названия и размеры — само резюме здесь не отдаётся."""
+    svc = _svc(request)
+    meta = _read_meta(svc)
+    items = []
+    for thread_id in _all_thread_ids(svc):
+        if thread_id == exclude:
+            continue
+        data = _load_session(svc, thread_id)
+        if data is None:
+            continue
+        summary = str(data["raw"].get("summary") or "").strip()
+        if not summary:
+            continue
+        entry = _entry(meta, thread_id)
+        if entry["archived"]:
+            continue
+        updated = max(float(data["mtime"]), entry["updated_at"] or 0.0)
+        items.append({"id": thread_id, "title": entry["title"] or _fallback_title(data["raw"]),
+                      "summary_chars": len(summary), "summary_tokens": _estimate_tokens(summary),
+                      "compacted_at_turn": _compacted_at(data["raw"]), "updated_at": _iso(updated), "_u": updated})
+    items.sort(key=lambda it: -it["_u"])
+    return {"items": [{k: v for k, v in it.items() if k != "_u"} for it in items]}
+
+
+@router.post("/chat/threads/{thread_id}/import-context", status_code=201)
+async def import_context(thread_id: str, body: ImportContextIn, request: Request):
+    """Вставить резюме /compact другого чата в этот чат видимой заметкой «Контекст из чата …».
+
+    Заметка идёт в контекст модели следующего хода (см. _compose_prompt). Размер резюме — не больше
+    IMPORT_MAX_SHARE бюджета промпта модели: больше — 413 с предложением сжать исходный чат ещё раз."""
+    svc = _svc(request)
+    target = _require_session(svc, thread_id)
+    if body.source_thread_id == thread_id:
+        raise _fail(422, "нельзя перенести контекст чата в него же", code="CHAT_IMPORT_SAME_THREAD")
+    source = _require_session(svc, body.source_thread_id)          # 404 CHAT_THREAD_NOT_FOUND — нет такого чата
+    summary = _sanitize(source["raw"].get("summary") or "").strip()
+    if not summary:
+        raise _fail(409, "у этого чата нет сжатого контекста (/compact) — переносить нечего",
+                    code="CHAT_NO_SUMMARY", hint="сначала сожмите исходный чат командой /compact")
+    agent_id = body.agent_id
+    if agent_id is None:
+        with contextlib.suppress(Exception):
+            from .agent_extras import _last_turn_agent_id
+            agent_id = await _last_turn_agent_id(svc, target["raw"])
+    budget = await _context_budget(svc, agent_id)
+    limit = int(budget["prompt_tokens"] * IMPORT_MAX_SHARE)
+    tokens = _estimate_tokens(summary)
+    if tokens > limit:
+        raise _fail(413, f"резюме больше бюджета модели: ≈{tokens} > {limit} токенов",
+                    code="CHAT_IMPORT_TOO_LARGE",
+                    hint="сожмите исходный чат ещё раз (/compact «короче») или выберите модель с большим окном")
+    meta = _read_meta(svc)
+    title = _entry(meta, body.source_thread_id)["title"] or _fallback_title(source["raw"])
+    digest = hashlib.sha256(summary.encode("utf-8")).hexdigest()[:12]
+    note = {"kind": IMPORT_NOTE_KIND, "key": f"import:{body.source_thread_id}:{digest}",
+            "source_thread_id": body.source_thread_id, "source_title": title, "summary": summary,
+            "summary_chars": len(summary), "summary_tokens": tokens,
+            "compacted_at_turn": _compacted_at(source["raw"])}
+    idx = await append_note(svc, thread_id, note, f"Контекст из чата «{title}»")
+    return {"ok": True, "imported": idx is not None, "idx": idx, "source_thread_id": body.source_thread_id,
+            "source_title": title, "summary_chars": len(summary), "summary_tokens": tokens,
+            "limit_tokens": limit, "model": budget["model"], "window": budget["window"],
+            "thread": await _thread_summary(svc, thread_id)}
 
 
 # ======================================================================

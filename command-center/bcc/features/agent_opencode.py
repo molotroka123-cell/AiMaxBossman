@@ -2386,8 +2386,10 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                         f"(required_tools={matched_skill['required_tools']})]\n"
                         f"{matched_skill['prompt_block']}\n\n"
                     )
-                prompt = await _compose_prompt(svc, data["raw"], mode_prefix + skill_prefix + text, attachments)
                 chosen_agent_id = await _resolve_agent_id_for_model(svc, body.agent_id or cfg.get("agent_id"), route["model"])
+                context_fit: dict = {}      # окно модели этого хода: сколько истории вошло (владелец 31.10)
+                prompt = await _compose_prompt(svc, data["raw"], mode_prefix + skill_prefix + text, attachments,
+                                               agent_id=chosen_agent_id, info=context_fit)
 
             from ..task_admission import ExecutorUnavailable, select_executor
             from .chat_threads import _admission_of, _model_view, _turn_view
@@ -2482,6 +2484,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                         "billing": model_v.get("billing"),
                     } if model_v else None,
                     "replayed": False,
+                    "context": context_fit,
                     "mode": effective_mode,
                     "bypass_permissions": bypass_permissions,
                     "route": route,

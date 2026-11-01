@@ -199,6 +199,7 @@
       <svg><use href="#i-chev"/></svg><span>Вниз</span>
     </button>
     <div class="chat-files" id="chat-files" role="region" aria-label="Прикреплённые файлы для изучения" hidden></div>
+    <div class="chat-queue" id="chat-queue" role="region" aria-label="Очередь сообщений этого чата" hidden></div>
     <form class="composer" id="composer">
       <!-- «/» в начале строки: команды, tools и skills (как в Claude Code / OpenCode); фокус остаётся в поле ввода -->
       <div class="slash-menu" id="slash-menu" hidden>
@@ -213,6 +214,7 @@
       <button class="icon-btn compose-tool" id="btn-mic" type="button" aria-pressed="false" aria-label="Голос: удерживайте и говорите" title="Удерживайте и говорите: текст появится в поле ввода"><svg aria-hidden="true"><use href="#i-mic"/></svg></button>
       <textarea id="input" rows="1" placeholder="Напишите Bossman…" aria-label="Сообщение" enterkeyhint="send" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="slash-list" autocapitalize="sentences"></textarea>
       <button class="send-btn" id="btn-send" type="submit" aria-label="Отправить"><svg><use href="#i-send"/></svg></button>
+      <button class="send-btn steer" id="btn-steer" type="button" aria-label="Направить сейчас: модель увидит на следующем шаге" title="Направить сейчас (Steer)" hidden><svg aria-hidden="true"><use href="#i-bolt"/></svg></button>
       <button class="send-btn stop" id="btn-stop" type="button" aria-label="Остановить" hidden><svg><use href="#i-stop"/></svg></button>
     </form>
   </section>

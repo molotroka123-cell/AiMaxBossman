@@ -63,7 +63,7 @@ test('hold for 500 ms opens the sheet with the three actions; the click after th
   const sheet = ctx.sheet();
   assert.equal(sheet.getAttribute('role'), 'dialog'); assert.equal(sheet.getAttribute('aria-modal'), 'true');
   assert.deepEqual([...sheet.querySelectorAll('button')].map((b) => b.textContent),
-    ['Архивировать в зашифрованную папку', 'Удалить навсегда', 'Отмена']);
+    ['Перенести контекст из…', 'Архивировать в зашифрованную папку', 'Удалить навсегда', 'Отмена']);   // owner 31.10: + import
   assert.ok(sheet.textContent.includes(`…${SHORT}`), 'short id is shown');
   ctx.row.dispatchEvent(new ctx.w.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));   // Android sends it after the hold
   assert.equal(ctx.d.querySelectorAll('.chat-actions').length, 1, 'no second sheet from the follow-up contextmenu');

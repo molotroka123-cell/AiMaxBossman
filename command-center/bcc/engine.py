@@ -133,6 +133,9 @@ class TaskEngine:
         import os
         self.workers = workers if workers is not None else int(os.environ.get("BCC_WORKERS", "3"))
         self._active: dict[int, asyncio.Task] = {}       # run_id → задача исполнения
+        # Owner 31.10 «Steer»: owner messages for a RUNNING task (task_id -> texts), read between model steps
+        # (features/chat_threads.steer). In memory: an unread one goes out as the chat's next turn (thread queue).
+        self.steer_inbox: dict[int, list[str]] = {}
         self._cancelling: set[int] = set()               # hard cancel по Stop
         # FL-01: fence, под которым ЭТОТ движок держит run; условные записи
         # сравнивают с ним. Run без записи здесь (execute() напрямую) принимает
@@ -1021,7 +1024,9 @@ class TaskEngine:
         if not messages:
             if agent.get("system_prompt"):
                 messages.append({"role": "system", "content": agent["system_prompt"]})
-            recalled = await self._recall_memory(run_id, task)
+            recalled = None
+            if await self._memory_stays_local(run_id, task, agent):
+                recalled = await self._recall_memory(run_id, task)
             if recalled:
                 messages.append({"role": "system", "content": recalled})
             messages.append({"role": "user", "content": task["prompt"]})
@@ -1074,6 +1079,16 @@ class TaskEngine:
                     and not messages[-1].get("tool_calls"):
                 # финальный ответ уже есть (например, сохранён до паузы) — модель не дёргаем
                 break
+            steer = self.steer_inbox.pop(task["id"], None)
+            if steer:
+                # «Направить сейчас»: слова владельца — следующий user-ход этого же прогона. Права, подтверждения
+                # и бюджеты не меняются: модель может попросить инструмент, а политика решает как всегда.
+                for text in steer:
+                    messages.append({"role": "user", "content": STEER_PREFIX + text})
+                await self._log(run_id, "info", "run.steer",
+                                f"владелец направил задачу во время работы: {len(steer)} сообщ.")
+                await self._emit_stream("run.steer", task_id=task["id"], run_id=run_id, step=step + 1,
+                                        count=len(steer))
             answer_stream = _AnswerStream(self, task["id"], run_id, step + 1)
             try:
                 result, model = await self._call_model(task, agent, messages, run_id,
@@ -1082,6 +1097,7 @@ class TaskEngine:
                                                        on_delta=answer_stream)
                 await answer_stream.flush()
             except ProviderError as exc:
+                await self._privacy_notice(task["id"], run_id, step + 1, exc)
                 # `kind` carries what the adapter knew about the failure; the
                 # text alone cannot always tell a network blip from a refusal.
                 await self._handle_failure(run_id, task, str(exc), messages, step,
@@ -2878,6 +2894,50 @@ class TaskEngine:
                          "preview": str(pack.get("text") or "")[:4000]})
         return pack["text"]
 
+    async def _memory_stays_local(self, run_id: int, task: dict, agent: dict) -> bool:
+        """False = the agent's model is a cloud one and the task did not opt in to memory_to_cloud.
+
+        provider_governance strips recalled memory from every cloud call anyway (`memory.withheld_from_cloud`), so
+        recalling it only delayed the cloud answer (live DB 31.10: up to 10 s of recall before GLM 46's first
+        call, then withheld). Any doubt (no model row, lookup failure) keeps the old behaviour: recall."""
+        meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
+        if meta.get("memory_to_cloud") is True or agent.get("model_id") is None:
+            return True
+        try:
+            from .providers import is_local_url
+            from .provider_governance import is_cloud_offload
+            async with self.db.session() as s:
+                m = await fetch_one(s, models_t, int(agent["model_id"]))
+                p = await fetch_one(s, providers_t, int(m["provider_id"])) if m else None
+            if m is None or p is None:
+                return True
+            cloud = not is_local_url(p.get("base_url") or "") or is_cloud_offload(p, m)
+        except Exception:  # noqa: BLE001 - a lookup failure must not cost the task its memory
+            return True
+        if cloud:
+            await self._log(run_id, "info", "memory.recall_skipped",
+                            "память не подбирается: модель агента облачная, а память владельца в облако не уходит "
+                            "(разрешить: meta.memory_to_cloud=true)")
+        return not cloud
+
+    async def _privacy_notice(self, task_id: int, run_id: int, step: int, exc: BaseException) -> None:
+        """Owner 31.10: the AI Gateway kept this request (and the chat in it) off the cloud model — say so live.
+
+        Before, the refusal went only to the run log and the recovery ladder quietly moved the turn to a local model:
+        the pult showed a «lagging cloud model that does not read the chat» (live DB 31.10: GLM 46 task 849 —
+        `confidential:protected_secret_file`, local reroute, first token after 140 s). The event carries rule NAMES
+        only (never the matched text); the privacy rule itself is unchanged."""
+        code = getattr(exc, "reason_code", None)
+        if not code:
+            return
+        rules = [str(r).split(":", 1)[-1] if ":" in str(r) else str(r)
+                 for r in (getattr(exc, "triggered_rules", None) or [])
+                 if not str(r).startswith(("gate:", "context:", "redact:"))]
+        with contextlib.suppress(Exception):
+            await self._emit_stream("run.notice", task_id=task_id, run_id=run_id, step=step,
+                                    notice="privacy_withheld", reason_code=str(code),
+                                    rules=rules[:6], text=str(exc)[:300])
+
     async def _emit_stream(self, kind: str, /, **data: Any) -> None:
         """Bossman 1.2 terminal visibility: observation only, never control flow.
 
@@ -2947,6 +3007,8 @@ class TaskEngine:
         await self.bus.emit("run.log", run_id=run_id, level=level, log_kind=kind, message=message)
 
 
+#: How an owner «Steer» message reaches the model inside a running task (owner 31.10).
+STEER_PREFIX = "[Владелец пишет во время работы — учти это на следующем шаге]\n"
 #: Upper bound for model text carried by one terminal-stream event. The full
 #: answer stays in the checkpoint/result; the event is a view of it.
 STREAM_TEXT_CHARS = 16_000
