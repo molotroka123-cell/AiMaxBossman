@@ -734,6 +734,36 @@ class Core:
                 self.backend.forget()       # restarted elsewhere: look again next time
             raise
 
+    # /key NAME=value (owner 01.11.2026): the file alone did not change what Bossman used — the OpenRouter
+    # row lives in the vault and kept the expired key. Known names are applied to the backend right away
+    # through the existing identity-guarded endpoints; values never appear in logs, replies or events.
+    PROVIDER_KEY_NAMES: dict[str, str] = {
+        "OPENROUTER_API_KEY": "openrouter",       # POST /api/openrouter/connect (canonical row, idempotent)
+        "NVIDIA_API_KEY": "NVIDIA NIM",           # PATCH /api/providers/{id}/key by provider name
+        "GROQ_API_KEY": "Groq",
+        "GEMINI_API_KEY": "Google AI Studio",
+        "MISTRAL_API_KEY": "Mistral",
+    }
+
+    async def apply_provider_key(self, name: str, value: str) -> str:
+        """Push one stored key into the backend. Returns a short status word (never the value)."""
+        target = self.PROVIDER_KEY_NAMES.get(name)
+        if target is None:
+            return "file_only"
+        try:
+            if target == "openrouter":
+                out = await self._request("POST", "/api/openrouter/connect", {"api_key": value}, timeout=60)
+                return "applied" if out.get("ok") else "rejected"
+            providers = await self._request("GET", "/api/providers", timeout=15)
+            rows = providers.get("providers", providers) if isinstance(providers, dict) else providers
+            row = next((r for r in rows if isinstance(r, dict) and r.get("name") == target), None)
+            if row is None:
+                return "no_provider"
+            await self._request("PATCH", f"/api/providers/{int(row['id'])}/key", {"api_key": value}, timeout=15)
+            return "applied"
+        except CompanionError as exc:
+            return f"error:{exc}"[:40]
+
     async def evolution(self, action: str) -> dict:
         """Only the fixed owner actions are forwarded; no arbitrary URL or command."""
         if action not in {"status", "start", "pause", "resume", "stop", "report"}:

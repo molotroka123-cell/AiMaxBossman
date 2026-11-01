@@ -671,9 +671,13 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         if person.role != "owner":
             await self.telegram.send(person, "🔐 Ключи принимает только владелец. Сообщение не сохранено." + suffix)
             return
+        applied: dict[str, str] = {}
         try:
             keys = key_intake.parse_key_command(text)
             out = await asyncio.to_thread(key_intake.store_keys, keys)
+            for name, value in keys.items():   # backend first-class providers get the key now, not «at next start»
+                applied[name] = await self.core.apply_provider_key(name, value)
+            keys = {k: "" for k in keys}       # names only from here on
         except key_intake.KeyIntakeError as exc:
             await self.telegram.send(person, f"🔐 Ключ не принят: {exc}. Ничего не сохранено." + suffix)
             return
@@ -689,8 +693,10 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             parts.append("заменены: " + ", ".join(out["replaced"]))
         if not parts:
             parts.append("без изменений: " + ", ".join(sorted(keys)))
-        await self.telegram.send(person, "🔐 Ключи сохранены локально (" + "; ".join(parts) + "). "
-                                 "Защищённая копия обновится при следующем запуске backend." + suffix)
+        live = [f"{n}: {st}" for n, st in applied.items() if st != "file_only"]
+        tail = (" В Bossman применены сразу: " + ", ".join(live) + ".") if live else ""
+        await self.telegram.send(person, "🔐 Ключи сохранены локально (" + "; ".join(parts) + ")." + tail
+                                 + " Остальные — при следующем запуске backend." + suffix)
 
     async def ingest_callback(self, update: dict):
         cb = update.get("callback_query")
