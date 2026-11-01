@@ -242,6 +242,46 @@ async def test_lh_20261031_relative_outputs_superseded_by_later_success_finalize
     assert await _status(env, tid) == "completed"
 
 
+async def _call_in(env, run_id, task_id, cwd, *, command, preview, cid):
+    spec = REGISTRY.get("terminal.run")
+    await env.svc.engine._record_tool_call(
+        run_id, task_id, 0, SimpleNamespace(id=cid, name="terminal.run",
+                                            arguments={"command": command, "mode": "project_host", "cwd": str(cwd)}),
+        spec, effect="auto", status="executed", preview=preview)
+
+
+@pytest.mark.parametrize("writes", [True, False])
+async def test_lh_20261031_876_input_evidence_finalize(env, tmp_path, writes):
+    """LH rerun 31.10, task 876: declared evidence is the INPUT orders.csv (pre-existing, untouched); four analyses
+    exited 1, then successes. Completes only when a later success wrote a fresh file in the run folder."""
+    import os
+    stack = await make_stack(env.client, prompt="Please perform the requested operation")
+    tid = stack["task"]["id"]
+    run = await env.svc.engine.claim()
+    folder = tmp_path / "lh-run"            # NOT tmp_path itself: the test DB lives there and is written meanwhile
+    folder.mkdir()
+    await _allow_root(env, folder)
+    orders = folder / "orders.csv"
+    orders.write_text("order_id\n1\n", encoding="utf-8")
+    os.utime(orders, (1_000_000_000, 1_000_000_000))
+    await _set_meta(env, tid, {"review": {"evidence": [{"kind": "file", "target": "orders.csv",
+                                                        "expect": {"exists": True}}]}})
+    for i in range(4):
+        await _call_in(env, run, tid, folder, command=f"python -c 'import pandas  # {i}'",
+                       preview="exit_code=1\nTraceback", cid=f"f{i}")
+    await _call_in(env, run, tid, folder, command="python -c 'print(1)'", preview="exit_code=0\n1", cid="probe")
+    await _call_in(env, run, tid, folder, command="python -c 'open(\"notes/03_findings.md\",\"w\")'",
+                   preview="exit_code=0\n", cid="write")
+    if writes:
+        (folder / "notes").mkdir()
+        (folder / "notes" / "03_findings.md").write_text("P-07 C-0042", encoding="utf-8")
+    decision = await finalize_task(env.svc.engine, run, tid, answer="done", usage={})
+    if writes:
+        assert decision.ok, decision.reason
+    else:
+        assert not decision.ok and decision.reason == "effectful terminal outcome is failed or still unobserved"
+
+
 async def test_relative_output_without_superseding_success_still_refuses(env, tmp_path):
     """Same relative contract, but the only later success wrote a DIFFERENT file: the owed output predates it."""
     import os

@@ -67,9 +67,9 @@ def _required_expectations(task: dict) -> list:
     return expected
 
 
-def _row_started(row: dict) -> float | None:
+def _row_time(row: dict, key: str = "created_at") -> float | None:
     from datetime import datetime
-    when = row.get("created_at")
+    when = row.get(key)
     if isinstance(when, str):
         try:
             when = datetime.fromisoformat(when.replace("Z", "+00:00"))
@@ -78,6 +78,10 @@ def _row_started(row: dict) -> float | None:
     if not isinstance(when, datetime):
         return None
     return (when if when.tzinfo else when.replace(tzinfo=timezone.utc)).timestamp()
+
+
+def _row_started(row: dict) -> float | None:
+    return _row_time(row, "created_at")
 
 
 def _terminal_exit(row: dict) -> int | None:
@@ -92,40 +96,104 @@ def _succeeded(row: dict) -> bool:
     return row.get("tool") != "terminal.run" or _terminal_exit(row) == 0
 
 
-def _produced_after(expected: list, row: dict, roots: list | None = None) -> bool:
-    """Every expectation is a file that exists and was last modified after `row` started.
-
-    The file is located exactly as the verifier will read it (`resolve_file_target`): with the task's verifier
-    roots a relative target (the Auto Full prompt says «use relative paths») resolves to the one root holding it;
-    without roots only an ABSOLUTE path is accepted, as before."""
+def _locate(expectation, roots: list | None):
+    """The file a `file` expectation names, located exactly as the verifier will read it (`resolve_file_target`):
+    with the task's verifier roots a relative target (the Auto Full prompt says «use relative paths») resolves to
+    the one root holding it; without roots only an ABSOLUTE path is accepted. None = not locatable."""
     from pathlib import Path
     from .v2.verification import resolve_file_target
+    if getattr(expectation, "kind", "") != "file":
+        return None
+    raw = str(getattr(expectation, "target", "") or "")
+    if roots:
+        target, problem = resolve_file_target(raw, list(roots))
+        return None if problem else target
+    target = Path(raw)
+    return target if target.is_absolute() else None
+
+
+def _produced_after(expected: list, row: dict, roots: list | None = None) -> bool:
+    """Every expectation is a file that exists and was last modified after `row` started."""
     started = _row_started(row)
     if started is None:
         return False
     for e in expected:
-        if getattr(e, "kind", "") != "file":
-            return False
-        raw = str(getattr(e, "target", "") or "")
-        if roots:
-            target, problem = resolve_file_target(raw, list(roots))
-            if problem:
-                return False
-        else:
-            target = Path(raw)
-            if not target.is_absolute():
-                return False
-        if not target.is_file() or target.stat().st_mtime <= started:
+        target = _locate(e, roots)
+        if target is None or not target.is_file() or target.stat().st_mtime <= started:
             return False
     return bool(expected)
 
 
+def _is_input(expectation, run_started: float | None, roots: list | None) -> bool:
+    """A declared file that already existed before this run's first tool call and was not modified since: the
+    run READ it, it cannot be the run's output (LH 31.10 task 876: evidence `orders.csv`, the input data)."""
+    if run_started is None:
+        return False
+    target = _locate(expectation, roots)
+    return target is not None and target.is_file() and target.stat().st_mtime <= run_started
+
+
+#: Bounded walk of the folder a superseding call ran in (never a whole drive).
+_FRESH_WALK_DEPTH = 4
+_FRESH_WALK_FILES = 5000
+_FRESH_MTIME_SLACK_S = 2.0
+
+
+def _wrote_fresh_file(row: dict, roots: list | None) -> bool:
+    """`row` (a finished, observed call) left at least one non-empty file inside the verifier roots whose
+    modification time falls inside that call's own window [created_at, finished_at + slack]. Read fresh from disk
+    now; only the call's own working folder is walked (bounded), and only when that folder lies inside the roots."""
+    import os
+    from pathlib import Path
+    from .v2.verification import resolve_file_target
+    started, finished = _row_time(row, "created_at"), _row_time(row, "finished_at")
+    cwd = str((row.get("args") or {}).get("cwd") or "") if isinstance(row.get("args"), dict) else ""
+    if not roots or started is None or finished is None or not cwd or not Path(cwd).is_absolute():
+        return False
+    folder, problem = resolve_file_target(cwd, list(roots))
+    if problem or not folder.is_dir():
+        return False
+    base_depth, seen = len(folder.parts), 0
+    for dirpath, dirnames, filenames in os.walk(folder):
+        if len(Path(dirpath).parts) - base_depth >= _FRESH_WALK_DEPTH:
+            dirnames[:] = []
+        for name in filenames:
+            seen += 1
+            if seen > _FRESH_WALK_FILES:
+                return False
+            path = Path(dirpath) / name
+            try:
+                if path.is_symlink():
+                    continue
+                st = path.stat()
+            except OSError:
+                continue
+            if st.st_size > 0 and started < st.st_mtime <= finished + _FRESH_MTIME_SLACK_S:
+                _, outside = resolve_file_target(str(path), list(roots))
+                if not outside:
+                    return True
+    return False
+
+
 def _superseded(failed_index: int, rows: list[dict], expected: list, roots: list | None) -> bool:
-    """A failed effectful attempt is superseded only by a LATER successful effectful call after whose start every
-    declared output was (re)written. A crashed attempt that itself left a partial output, or a later success that
-    wrote some other file, supersedes nothing; `verify_all` still re-reads the world afterwards."""
-    return any(_effectful(later) and _succeeded(later) and _produced_after(expected, later, roots)
-               for later in rows[failed_index + 1:])
+    """A failed effectful attempt is superseded only by a LATER successful effectful call (observed exit 0).
+
+    * Declared OUTPUTS: that call must have started before every one of them was last written. A crashed attempt
+      that itself left a partial output, or a later success that wrote some other file, supersedes nothing.
+    * Every declared file is an INPUT (existed before the run's first call, untouched since): the contract names
+      no output to check, so the later success must itself have written a non-empty file inside the verifier
+      roots, observed fresh on disk inside that call's window.
+    `verify_all` still re-reads the world afterwards; unobserved outcomes are never excused (`_succeeded`)."""
+    run_started = _row_started(rows[0]) if rows else None
+    outputs = [e for e in expected if not _is_input(e, run_started, roots)]
+    for later in rows[failed_index + 1:]:
+        if not (_effectful(later) and _succeeded(later)):
+            continue
+        if outputs and _produced_after(outputs, later, roots):
+            return True
+        if not outputs and _wrote_fresh_file(later, roots):
+            return True
+    return False
 
 
 def _effectful(row: dict) -> bool:

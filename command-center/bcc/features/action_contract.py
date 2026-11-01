@@ -373,7 +373,8 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
     # Запиши out\profile.json» made the input orders.csv the proof (long-horizon run 30.10). Names right after a
     # write verb come first; the rest keeps the old order as a fallback.
     matches = list(_FILENAME_RE.finditer(text))
-    produced = [m for m in matches if _WRITE_VERB_BEFORE_RE.search(text[max(0, m.start() - 120):m.start()])]
+    produced = [m for m in matches if _WRITE_VERB_BEFORE_RE.search(text[max(0, m.start() - 120):m.start()])
+                or _written_into(text, m.start())]
     for match in produced + [m for m in matches if m not in produced]:
         target = match.group(0)
         if target in tool_names:
@@ -396,6 +397,30 @@ _WRITE_VERB_BEFORE_RE = re.compile(
     # long-horizon run f, step 2: «маржа по продуктам -> out\product_margin.csv» — an arrow names the output too
     r"|(?:->|→|=>)\s*|\bв\s+файл\s+)"
     r"(?:[A-Za-z]:[\\/]|\\\\|/)?[^\s]*$", re.I | re.U)
+
+# Long-horizon run 31.10, task 876: «запиши эти три проверяемые находки (продукт P-07, …) с числами и именами
+# файлов-источников в `notes/03_findings.md`» — the write verb is far from the file, only «в» sits next to it, so the
+# adjacent-verb rule above missed it and the INPUT `orders.csv` (first file in the prompt) became the evidence.
+# A file right after «в/во/into/to» is the written target when the same sentence's last read-or-write verb before
+# it is a write verb («прочитай … в X» stays a read).
+_INTO_BEFORE_RE = re.compile(r"(?:^|\s)(?:в|во|into|to)\s+[`\"'«]?(?:[A-Za-z]:[\\/]|\\\\|/)?[^\s]*$", re.I | re.U)
+_SENTENCE_END_RE = re.compile(r"[.!?](?=\s)|\n")
+_WRITE_OR_READ_VERB_RE = re.compile(
+    r"\b(?P<write>(?:запиши|запишите|сохрани|сохраните|создай|создайте|сформируй|напиши|выгрузи|допиши|"
+    r"write|save|create|output|dump|export)\w*)"
+    r"|\b(?P<read>(?:прочитай|прочти|прочитайте|открой|загрузи|возьми|посмотри|проверь|выведи|покажи|"
+    r"read|open|load|print|show|check|inspect)\w*)", re.I | re.U)
+
+
+def _written_into(text: str, start: int) -> bool:
+    if not _INTO_BEFORE_RE.search(text[max(0, start - 12):start]):
+        return False
+    window = text[max(0, start - 240):start]
+    ends = list(_SENTENCE_END_RE.finditer(window))
+    clause = window[ends[-1].end():] if ends else window
+    verbs = list(_WRITE_OR_READ_VERB_RE.finditer(clause))
+    return bool(verbs) and verbs[-1].group("write") is not None
+
 
 _ABS_HEAD_RE = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\|/)[^\s\"'«»<>|*?]*$")
 
