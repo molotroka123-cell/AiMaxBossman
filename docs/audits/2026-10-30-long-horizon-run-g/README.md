@@ -23,3 +23,9 @@ Bossman defects found by runs a–f and fixed before this run: stacked memory re
 names in roots[0]=Python312\Lib — the owner's 14:10 finalize_refused→failed→deadlock chain (1f46bfd7), STOP/fail did not
 release memory (c4ec83e5), resident model reserved twice (d1411222), failed attempt + pre-existing file / output
 markers (928fa152, 61f6b0a8), `cmd /C` hung under Git-bash (e9ad41d2); agent model `:latest` had num_ctx 8192 (agent 52 → ctx32k).
+
+**Follow-up 01.11 (driver v2, branch `feat/lh-driver-gaps-20261101`):** the step-5 check now parses REPORT.md and requires all
+three verified findings with their numbers (this run's REPORT.md is flagged incomplete: region finding missing); memory is
+checked by a memory-only auditor code word (+ `--no-memory-control` negative control); `--rounds N` / `--max-hours H` run
+fresh datasets per round with kill + STOP in every round; `--soak-hours 24` is a separate mode. Unit tests:
+`tests/test_long_horizon_driver.py`. No live run on v2 yet (NOT_RUN).
