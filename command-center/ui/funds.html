@@ -1,0 +1,31 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Остатки по провайдерам</title>
+<style>
+:root{--bg:#121216;--card:#1c1c22;--text:#eceaf0;--dim:#9a98a6;--ok:#3ec46d;--warn:#f0b63a;--bad:#ff5c5c;--grey:#55545e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Roboto,sans-serif;padding:16px}
+h1{font-size:20px;margin:0 0 4px}.meta{color:var(--dim);font-size:13px;margin-bottom:14px}.meta b{color:var(--text)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.card{background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid #2a2a33}
+.name{display:flex;justify-content:space-between;color:var(--dim);font-size:13px}.bal{font-size:34px;font-weight:700;margin:4px 0}
+.bar{height:6px;border-radius:3px;background:#2a2a33;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%}
+.row{display:flex;justify-content:space-between;font-size:13px;color:var(--dim)}.topup{color:var(--bad);font-weight:700;margin-top:6px}
+.note{font-size:12px;color:var(--dim);margin-top:4px}.offline{background:#3a1d1d;color:#ffb3b3;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:none}
+</style></head><body>
+<h1>Остатки по провайдерам</h1>
+<div class="meta">Обновлено: <b id="upd">—</b> · опрос раз в 60 с · источник <code>/api/funds</code> (только локально)</div>
+<div class="offline" id="offline">Нет связи или нет сессии (войдите в Command Center на этом же адресе). Показаны последние данные.</div>
+<div class="grid" id="grid"></div>
+<script>
+const API='/api/funds'; // same-origin: cookie session of the Command Center
+const fmt=(v,c)=>v==null?'—':(c==='free'?'бесплатно':(Math.round(v*100)/100).toLocaleString('ru-RU')+' '+c);
+function level(p){if(p.limit==null||p.balance==null)return{c:'var(--grey)',w:100};const r=Math.max(0,Math.min(1,p.balance/p.limit));return{c:r>0.5?'var(--ok)':r>0.2?'var(--warn)':'var(--bad)',w:Math.round(r*100)}}
+function needTopup(p){if(p.currency==='free'||p.balance==null)return false;if(p.balance<2)return true;return p.limit!=null&&p.balance/p.limit<0.2}
+function render(d){document.getElementById('upd').textContent=new Date(d.updated_at||Date.now()).toLocaleString('ru-RU');
+const g=document.getElementById('grid');g.innerHTML='';for(const p of d.providers||[]){const l=level(p);const el=document.createElement('div');el.className='card';
+el.innerHTML=`<div class="name"><span>${p.name}</span><span>${p.status||''}</span></div><div class="bal">${fmt(p.balance,p.currency)}</div>
+<div class="bar"><i style="width:${l.w}%;background:${l.c}"></i></div><div class="row"><span>лимит: ${p.limit==null?'—':fmt(p.limit,p.currency)}</span><span>сегодня: ${fmt(p.spent_today,p.currency)}</span></div>
+${needTopup(p)?'<div class="topup">⚠ пополнить</div>':''}${p.note?`<div class="note">${p.note}</div>`:''}`;g.appendChild(el)}}
+async function tick(){try{const r=await fetch(API,{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw 0;const d=await r.json();document.getElementById('offline').style.display='none';render(d);try{localStorage.setItem('funds',JSON.stringify(d))}catch(e){}}
+catch(e){document.getElementById('offline').style.display='block';try{const c=localStorage.getItem('funds');if(c)render(JSON.parse(c))}catch(_){}}}
+tick();setInterval(tick,60000);
+</script></body></html>
