@@ -7,6 +7,7 @@ from bcc.studio.provider import GenerationPlane,ProviderFailure
 from bcc.studio.runtime import StudioError,storage,persist,one,verified_handle,provider_fingerprint
 from bcc.studio.tables import jobs,runs,config
 from bcc.studio import governance as gov
+from bcc.paid_money import ceil_micro
 from bcc.studio.progress import JobProgressWriter
 from bcc.v2.images_tables import image_jobs
 from sqlalchemy.dialects.sqlite import insert
@@ -126,7 +127,8 @@ async def generate(svc,job,ext,model):
         if model['provider'] in ('comfyui','sdcpp'):value=0
         else:
             known=[provider.costs[r] for r in submitted if r in provider.costs]
-            value=round(sum(known),6) if known else 'NOT_CAPTURED:provider_did_not_report'
+            # 01.11: a tiny positive provider charge is booked UP to the micro-dollar, not round()ed to a free 0
+            value=ceil_micro(max(0.0,float(sum(known)))) if known else 'NOT_CAPTURED:provider_did_not_report'
         if value!=noted[0]:
             async with svc.db.session() as s:
                 await s.execute(sa.update(jobs).where(jobs.c.job_id==job['id']).values(cost_usd=value));await s.commit()

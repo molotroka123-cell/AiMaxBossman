@@ -25,8 +25,11 @@ Currency: provider prices are USD; the cap is EUR.  1 USD is booked as 1 EUR,
 which over-counts (EUR > USD) and so errs on the safe side.
 
 This module imports nothing from the rest of ``bcc`` except the tiny autonomy
-file-lock / STOP helpers, so governance, the budget guard and the CLI can all
-use it without cycles.
+file-lock / STOP helpers and the stdlib-only ``bcc.paid_money`` rounding rule, so
+governance, the budget guard and the CLI can all use it without cycles.
+
+The ledger is Bossman's LOCAL reservation against the owner's caps; it does not
+limit what the provider bills (the provider's usage page is the actual charge).
 """
 from __future__ import annotations
 
@@ -42,6 +45,7 @@ from urllib.parse import urlsplit
 
 from .autonomy.journal import atomic_write_bytes, file_lock
 from .autonomy import stop as _stop
+from .paid_money import ceil_micro
 
 log = logging.getLogger("bcc.long_run")
 
@@ -274,7 +278,16 @@ class LongRunLedger:
                    f"is unknown ({worst_case_eur!r}); the call was NOT made.")
             self._refuse(provider, model, 0.0, msg)
             raise LongRunRefused(msg)
-        worst = max(0.0, worst)
+        if worst <= 0:
+            # A paid call never reserves 0 (01.11): a zero worst case would pass every cap.
+            msg = (f"LONG-RUN REFUSED: the worst-case cost of this {FAMILIES[provider]['label']} call "
+                   f"is {worst_case_eur!r}, not a positive amount; a paid call never reserves 0. "
+                   "The call was NOT made.")
+            self._refuse(provider, model, 0.0, msg)
+            raise LongRunRefused(msg)
+        # Rounded UP to the micro-unit before the cap check AND in the row: round(1e-7, 6) == 0 used to book
+        # every tiny call as free, so any number of them passed the cap (Codex repro 01.11, same class).
+        worst = ceil_micro(worst)
         with file_lock(self._lock()):
             cap = self.caps()[provider]
             spent = self._spent_by_provider(self._rows())[provider]
@@ -286,13 +299,22 @@ class LongRunLedger:
                 raise LongRunRefused(msg)
             rid = uuid.uuid4().hex
             self._append({"id": rid, "kind": "reserve", "provider": provider, "model": model,
-                          "eur": round(worst, 6), "purpose": purpose[:120],
+                          "eur": worst, "purpose": purpose[:120],
                           "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.clock()))})
             return rid
 
     def commit(self, rid: str, actual_eur: float, *, tokens_in: int = 0, tokens_out: int = 0) -> None:
+        try:
+            actual = float(actual_eur)
+        except (TypeError, ValueError):
+            actual = float("nan")
+        if not math.isfinite(actual):
+            # Unknown actual charge: no commit row, so the reservation keeps counting at its worst case.
+            # max(0.0, nan) == 0.0 would have settled it as a FREE call.
+            log.error("long_run: actual cost of %s is unknown (%r); worst case stays booked", rid, actual_eur)
+            return
         with file_lock(self._lock()):
-            self._append({"id": rid, "kind": "commit", "eur": round(max(0.0, float(actual_eur)), 6),
+            self._append({"id": rid, "kind": "commit", "eur": ceil_micro(max(0.0, actual)),
                           "tokens_in": int(tokens_in), "tokens_out": int(tokens_out),
                           "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.clock()))})
 

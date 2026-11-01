@@ -7,6 +7,7 @@ from bcc.studio import catalog
 from bcc.studio.tables import config,budget,jobs
 from bcc.studio.runtime import one,digest,StudioError
 from bcc.v2.governor import GovernorState,GovernorThresholds
+from bcc.paid_money import ceil_micro
 
 DEFAULT={'enabled':False,'free_only':True,'cloud_budget_usd':0,'per_job_usd':0,'prices':{},'download_hosts':[]}
 async def policy(svc):
@@ -45,7 +46,11 @@ async def reserve(svc,model,jid,count,inputs):
     # каталог поставки, и только он.
     if p['free_only'] and catalog.declared_free(model) is not True:
         raise StudioError('budget','free_only: нулевая цена не подтверждена каталогом как бесплатный тариф','OWNER_REQUIRED')
-    amount=price*count
+    amount=float(price*count)
+    # 01.11: a paid generation never reserves 0 - an owner-typed 0 with free_only off is not a free tariff,
+    # and a positive amount is rounded UP to the micro-dollar (Bossman's local reservation, not the provider bill).
+    if amount<=0 and catalog.declared_free(model) is not True:raise StudioError('budget','paid model: zero reservation refused - price not confirmed as free by the catalog','OWNER_REQUIRED')
+    amount=ceil_micro(amount)
     if amount>p['per_job_usd']:raise StudioError('budget','per-job budget exceeded','OWNER_REQUIRED')
     if inputs:
         key='egress:'+digest({'provider':'openrouter','inputs':inputs})

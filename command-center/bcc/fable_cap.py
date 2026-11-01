@@ -26,6 +26,10 @@ endpoint в формате Anthropic денег не стоит, и резерв
 редактирует сам, и потолок, который считают по цене, назначенной тратящей
 стороной, — не потолок. Модели, которой в прайсе нет, отказываем ДО вызова
 адаптера: неизвестную цену нельзя оценить консервативно.
+
+Это ЛОКАЛЬНЫЙ резерв Bossman: он ограничивает то, что отправляет сам Bossman,
+а не счёт провайдера; фактическое списание — по странице использования провайдера.
+Положительные суммы округляются ВВЕРХ до микродоллара (01.11, bcc.paid_money).
 """
 from __future__ import annotations
 
@@ -35,6 +39,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .paid_money import ceil_micro
 from .providers import ChatResult, Health, ProviderAdapter, ProviderError, is_local_url
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -202,7 +207,9 @@ def _settle(budget, rid: str, cost: float, request_id: str) -> None:
 
 def _book_overflow(budget, overflow: float, request_id: str) -> None:
     for _ in range(3):
-        take = round(min(float(overflow), budget.remaining()), 6)
+        # 01.11: a sub-micro overflow is booked as one micro-dollar (round(x, 6) dropped it as 0);
+        # what does not fit takes the whole (floored) remainder, closing the cap.
+        take = min(ceil_micro(max(0.0, float(overflow))), budget.remaining())
         if take <= 0:
             return
         try:

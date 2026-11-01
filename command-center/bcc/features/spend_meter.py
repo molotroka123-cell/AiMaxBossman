@@ -35,6 +35,7 @@ durable-журнале, а сама величина (3.00 USD) — конста
 from __future__ import annotations
 
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,6 +45,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
 from ..db import missions as missions_t, task_runs as runs_t, tasks as tasks_t, utcnow
+from ..paid_money import ceil_micro, floor_micro
 from . import Feature
 
 FLAG = "BOSSMAN_SPEND_METER_ENABLED"
@@ -66,7 +68,15 @@ def enabled() -> bool:
 
 
 def _usd(value: Any) -> float:
-    return round(float(value or 0.0), 6)
+    """Spend: a positive amount is rounded UP to the micro-dollar (01.11) - round(x, 6) booked sub-micro paid runs as 0."""
+    out = float(value or 0.0)
+    return ceil_micro(out) if math.isfinite(out) and out > 0 else round(out, 6)
+
+
+def _limit_usd(value: Any) -> float:
+    """A cap is rounded DOWN to the micro-dollar: rounding never creates headroom."""
+    out = float(value or 0.0)
+    return floor_micro(out) if math.isfinite(out) else round(out, 6)
 
 
 # ---------- потолки владельца (единственное состояние модуля) ----------
@@ -118,7 +128,7 @@ class Limits:
             return None                      # задача вне миссии ограничена только сутками
         if mission_id in self.per_mission:
             return self.per_mission[mission_id]
-        budget = _usd(cloud_budget_usd)
+        budget = _limit_usd(cloud_budget_usd)
         return budget if budget > 0 else self.mission_default_usd
 
     def payload(self) -> dict:
@@ -131,15 +141,15 @@ def _limits(svc) -> Limits:
     per_mission: dict[int, float] = {}
     for key, value in (state.get("per_mission") or {}).items():
         try:
-            per_mission[int(key)] = max(0.0, _usd(value))
+            per_mission[int(key)] = max(0.0, _limit_usd(value))
         except (TypeError, ValueError):
             continue                         # мусорный ключ игнорируем, дефолт остаётся в силе
     daily = state.get("daily_usd")
     mission_default = state.get("mission_default_usd")
     return Limits(
-        daily_usd=max(0.0, _usd(daily)) if daily is not None
+        daily_usd=max(0.0, _limit_usd(daily)) if daily is not None
         else _env_usd(DAILY_ENV, DEFAULT_DAILY_USD),
-        mission_default_usd=max(0.0, _usd(mission_default)) if mission_default is not None
+        mission_default_usd=max(0.0, _limit_usd(mission_default)) if mission_default is not None
         else _env_usd(MISSION_ENV, DEFAULT_MISSION_USD),
         per_mission=per_mission)
 
@@ -256,7 +266,7 @@ async def _mission_budgets(svc) -> dict[int, float]:
     async with svc.db.session() as s:
         rows = (await s.execute(sa.select(missions_t.c.id,
                                           missions_t.c.cloud_budget_usd))).fetchall()
-    return {int(r._mapping["id"]): _usd(r._mapping["cloud_budget_usd"]) for r in rows}
+    return {int(r._mapping["id"]): _limit_usd(r._mapping["cloud_budget_usd"]) for r in rows}
 
 
 # ---------- допуск ----------
@@ -461,11 +471,12 @@ async def check(request: Request):
     svc = request.app.state.svc
     body = await request.json()
     try:
-        amount_usd = round(float(body.get("amount_usd")), 6)
+        amount_usd = float(body.get("amount_usd"))
     except (TypeError, ValueError):
         raise HTTPException(422, {"message": "нужно amount_usd (число USD)"})
-    if amount_usd <= 0:
+    if not math.isfinite(amount_usd) or amount_usd <= 0:
         raise HTTPException(422, {"message": "amount_usd должен быть больше нуля"})
+    amount_usd = ceil_micro(amount_usd)          # a sub-micro amount is checked as one micro-dollar, not as 0
     mission_id = body.get("mission_id")
     try:
         mission_id = int(mission_id) if mission_id is not None else None
