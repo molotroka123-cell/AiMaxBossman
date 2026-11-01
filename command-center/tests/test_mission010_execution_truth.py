@@ -175,8 +175,8 @@ async def test_all_successful_children_complete_parent(env):
 
 
 async def test_failed_attempt_then_verified_post_state_finalizes(env, tmp_path):
-    """Long-horizon run 30.10: a first script attempt exited 1, the agent fixed it and the owed file exists with
-    the right content. The declared post-state decides — the task completes; the earlier attempt is not a veto."""
+    """Long-horizon run 30.10: a first script attempt exited 1, the agent fixed it (a NEW successful command) and
+    the owed file exists with the right content. The earlier attempt is superseded — the task completes."""
     stack = await make_stack(env.client, prompt="Please perform the requested operation")
     tid = stack["task"]["id"]
     run = await env.svc.engine.claim()
@@ -184,13 +184,84 @@ async def test_failed_attempt_then_verified_post_state_finalizes(env, tmp_path):
     await _set_meta(env, tid, {"required_effects": [{"kind": "file", "target": str(tmp_path / "owed.txt"),
                                                     "expect": {"exists": True}}]})
     await _call(env, run, tid, status="executed", preview="exit_code=1\nTraceback")
+    await _call(env, run, tid, command="python mutate_fixed.py", cid="fixed")
     import os
     import time
-    (tmp_path / "owed.txt").write_text("ok", encoding="utf-8")          # produced AFTER the failed attempt
+    (tmp_path / "owed.txt").write_text("ok", encoding="utf-8")          # produced by the successful retry
     later = time.time() + 5
     os.utime(tmp_path / "owed.txt", (later, later))
     decision = await finalize_task(env.svc.engine, run, tid, answer="done", usage={})
     assert decision.ok, decision.reason
+
+
+async def test_failed_attempt_alone_is_not_superseded_by_its_own_partial_output(env, tmp_path):
+    """A crashed script may leave a partial output behind (written after the attempt started). Without a later
+    successful call that output is not proof — the failed attempt still blocks completion."""
+    import os
+    import time
+    stack = await make_stack(env.client, prompt="Please perform the requested operation")
+    tid = stack["task"]["id"]
+    run = await env.svc.engine.claim()
+    await _allow_root(env, tmp_path)
+    await _set_meta(env, tid, {"required_effects": [{"kind": "file", "target": str(tmp_path / "owed.txt"),
+                                                    "expect": {"exists": True}}]})
+    await _call(env, run, tid, status="executed", preview="exit_code=1\nTraceback")
+    (tmp_path / "owed.txt").write_text("partial", encoding="utf-8")
+    later = time.time() + 5
+    os.utime(tmp_path / "owed.txt", (later, later))
+    decision = await finalize_task(env.svc.engine, run, tid, answer="done", usage={})
+    assert not decision.ok and decision.reason == "effectful terminal outcome is failed or still unobserved"
+    assert await _status(env, tid) != "completed"
+
+
+async def test_lh_20261031_relative_outputs_superseded_by_later_success_finalize(env, tmp_path):
+    """Live long-horizon run 31.10, task 857 (synthetic): `python3` absent (exit 49), `import pandas` failed
+    (exit 1), a csv-module rewrite exited 0 and wrote the outputs. The Auto Full prompt uses RELATIVE paths, so the
+    declared evidence is `out/monthly_region.csv`; review verified it, finalize refused 3x -> REVIEW_ESCALATION_EXHAUSTED.
+    The relative target is resolved through the verifier roots, the later success supersedes both failures."""
+    import os
+    import time
+    stack = await make_stack(env.client, prompt="Please perform the requested operation")
+    tid = stack["task"]["id"]
+    run = await env.svc.engine.claim()
+    await _allow_root(env, tmp_path)
+    await _set_meta(env, tid, {"review": {"evidence": [{"kind": "file", "target": "out/monthly_region.csv",
+                                                        "expect": {"exists": True}}]}})
+    await _call(env, run, tid, command="mkdir -p out && python3 -c \"import pandas\"", status="executed",
+                preview="exit_code=49\nPython was not found", cid="py3")
+    await _call(env, run, tid, command="mkdir -p out && python -c \"import pandas\"", status="executed",
+                preview="exit_code=1\nModuleNotFoundError: No module named 'pandas'", cid="pandas")
+    await _call(env, run, tid, command="mkdir -p out && python -c \"import csv\"", cid="csv")
+    (tmp_path / "out").mkdir()
+    out = tmp_path / "out" / "monthly_region.csv"
+    out.write_text("region,month,revenue\n", encoding="utf-8")
+    later = time.time() + 5
+    os.utime(out, (later, later))
+    decision = await finalize_task(env.svc.engine, run, tid, answer="done", usage={})
+    assert decision.ok, decision.reason
+    assert await _status(env, tid) == "completed"
+
+
+async def test_relative_output_without_superseding_success_still_refuses(env, tmp_path):
+    """Same relative contract, but the only later success wrote a DIFFERENT file: the owed output predates it."""
+    import os
+    import time
+    stack = await make_stack(env.client, prompt="Please perform the requested operation")
+    tid = stack["task"]["id"]
+    run = await env.svc.engine.claim()
+    await _allow_root(env, tmp_path)
+    await _set_meta(env, tid, {"review": {"evidence": [{"kind": "file", "target": "out/monthly_region.csv",
+                                                        "expect": {"exists": True}}]}})
+    (tmp_path / "out").mkdir()
+    out = tmp_path / "out" / "monthly_region.csv"
+    out.write_text("partial", encoding="utf-8")
+    await _call(env, run, tid, command="mkdir -p out && python -c \"import pandas\"", status="executed",
+                preview="exit_code=1\nTraceback", cid="pandas")
+    await _call(env, run, tid, command="python -c \"open('out/other.csv','w')\" > log.txt", cid="other")
+    os.utime(out, (1_000_000_000, 1_000_000_000))                          # not rewritten by the success
+    decision = await finalize_task(env.svc.engine, run, tid, answer="done", usage={})
+    assert not decision.ok and decision.reason == "effectful terminal outcome is failed or still unobserved"
+    assert await _status(env, tid) != "completed"
 
 
 async def test_failed_attempt_with_a_pre_existing_file_still_refuses(env, tmp_path):
