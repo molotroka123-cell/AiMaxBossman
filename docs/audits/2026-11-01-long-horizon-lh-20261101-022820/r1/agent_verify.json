@@ -1,0 +1,20 @@
+{
+  "worst_margin_product": {
+    "product": "P-05",
+    "claimed": 0,
+    "recomputed": -801454.6,
+    "ok": false
+  },
+  "top_customer": {
+    "customer_id": "C-0959",
+    "claimed": 0,
+    "recomputed": 15.8,
+    "ok": false
+  },
+  "region_drop": {
+    "region": "Восток",
+    "claimed": 0,
+    "recomputed": 34.0,
+    "ok": false
+  }
+}

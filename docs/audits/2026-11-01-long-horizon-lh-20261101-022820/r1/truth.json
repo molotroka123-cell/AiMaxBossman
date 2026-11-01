@@ -1,0 +1,19 @@
+{
+ "unique_orders": 60000,
+ "duplicate_rows": 1172,
+ "total_revenue": 36285895.67,
+ "worst_margin_product": "P-05",
+ "worst_margin_value": -801454.6,
+ "north_drop_pct": -6.2,
+ "declining_region": "Восток",
+ "region_drop_pct": 34.0,
+ "top_customer": "C-0959",
+ "top_customer_share_pct": 15.8,
+ "planted": {
+  "negative_margin_product": "P-05",
+  "declining_region": "Восток",
+  "top_customer": "C-0959",
+  "seed": 985999250
+ },
+ "memory_code_word": "DELTA-DINGO-290"
+}

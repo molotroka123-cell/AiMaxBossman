@@ -1,0 +1,376 @@
+{
+ "run_id": "lh-20261101-022820",
+ "agent": 52,
+ "driver_version": 2,
+ "started": "2026-11-01 10:28:20",
+ "started_ts": 1793528900.4112384,
+ "rows": 60000,
+ "rounds_planned": 1,
+ "max_hours": null,
+ "deadline_ts": null,
+ "soak_hours": null,
+ "control": false,
+ "current_round": 1,
+ "rounds": {
+  "1": {
+   "round": 1,
+   "round_id": "lh-20261101-022820-r1",
+   "seed": 985999250,
+   "steps": {
+    "profile": {
+     "task_id": 907,
+     "task_ids": [
+      907
+     ],
+     "started": "2026-11-01 10:28:21",
+     "attempts": 1,
+     "status": "completed",
+     "finished": "2026-11-01 10:36:27",
+     "problems": [],
+     "verified": true,
+     "checkpoint": {
+      "round": 1,
+      "task_id": 907,
+      "sha": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+      "result_sha256": {
+       "out\\profile.json": "c403f5aaa3266114",
+       "notes\\01_profile.md": "1a858c87f1c22678"
+      },
+      "next_step": "metrics"
+     }
+    },
+    "metrics": {
+     "task_id": 908,
+     "task_ids": [
+      908
+     ],
+     "started": "2026-11-01 10:36:27",
+     "attempts": 1,
+     "status": "completed",
+     "finished": "2026-11-01 11:05:03",
+     "problems": [],
+     "verified": true,
+     "checkpoint": {
+      "round": 1,
+      "task_id": 908,
+      "sha": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+      "result_sha256": {
+       "out\\monthly_region.csv": "6cf921e352f1507b",
+       "out\\product_margin.csv": "ab8d000ff8a1627b",
+       "out\\top_customers.csv": "faeef6052113178b"
+      },
+      "next_step": "findings"
+     }
+    },
+    "findings": {
+     "task_id": 909,
+     "task_ids": [
+      909
+     ],
+     "started": "2026-11-01 11:05:03",
+     "attempts": 1,
+     "status": "completed",
+     "finished": "2026-11-01 11:18:42",
+     "problems": [],
+     "verified": true,
+     "checkpoint": {
+      "round": 1,
+      "task_id": 909,
+      "sha": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+      "result_sha256": {
+       "notes\\03_findings.md": "5f91f7c811286d05"
+      },
+      "next_step": "verify"
+     }
+    },
+    "verify": {
+     "task_id": 910,
+     "task_ids": [
+      910
+     ],
+     "started": "2026-11-01 11:18:42",
+     "attempts": 1,
+     "status": "completed",
+     "finished": "2026-11-01 11:45:52",
+     "problems": [
+      "verify.json not all ok: ['worst_margin_product', 'top_customer', 'region_drop']"
+     ],
+     "verified": false
+    }
+   },
+   "next": 3,
+   "started": "2026-11-01 10:28:20",
+   "started_ts": 1793528900.5829315,
+   "sha": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+   "planted": {
+    "negative_margin_product": "P-05",
+    "top_customer": "C-0959",
+    "declining_region": "Восток"
+   },
+   "code_word_sha256": "ac9471f1f4a135f5",
+   "auto_full_lease_id": 45,
+   "interrupt_done": true,
+   "interrupt_task": 909,
+   "calls_done_before_kill": [
+    "call_xm84dd49"
+   ],
+   "stop_done": true,
+   "stop_pending": false,
+   "stop_at": "2026-11-01 11:22:44",
+   "calls_at_stop": 1,
+   "stop_new_calls": 0,
+   "blocked": "verify",
+   "auto_full_card": {
+    "lease_id": 45,
+    "folder": "C:\\Users\\asd\\Bossman\\wt-agent-proof-20261025\\lh-runs\\lh-20261101-022820-r1",
+    "used": 18,
+    "action_log_count": 18,
+    "revoked_on_finish": true
+   }
+  }
+ },
+ "events": [
+  {
+   "t": "2026-11-01 10:28:20",
+   "round": 1,
+   "kind": "identity",
+   "runtime": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+   "head": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+   "source_identity": "PASS",
+   "ok": true
+  },
+  {
+   "t": "2026-11-01 10:28:20",
+   "round": 1,
+   "kind": "run_started",
+   "step": "profile",
+   "rounds_planned": 1,
+   "max_hours": null,
+   "soak_hours": null,
+   "control": false
+  },
+  {
+   "t": "2026-11-01 10:28:20",
+   "round": 1,
+   "kind": "dataset",
+   "seed": 985999250,
+   "unique_orders": 60000,
+   "duplicate_rows": 1172
+  },
+  {
+   "t": "2026-11-01 10:28:20",
+   "round": 1,
+   "kind": "auto_full_enabled",
+   "lease_id": 45,
+   "folder": "C:\\Users\\asd\\Bossman\\wt-agent-proof-20261025\\lh-runs\\lh-20261101-022820-r1"
+  },
+  {
+   "t": "2026-11-01 10:28:21",
+   "round": 1,
+   "kind": "step_started",
+   "step": "profile",
+   "task": 907,
+   "task_status": null
+  },
+  {
+   "t": "2026-11-01 10:36:27",
+   "round": 1,
+   "kind": "step_verified",
+   "step": "profile",
+   "checkpoint": {
+    "round": 1,
+    "task_id": 907,
+    "sha": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+    "result_sha256": {
+     "out\\profile.json": "c403f5aaa3266114",
+     "notes\\01_profile.md": "1a858c87f1c22678"
+    },
+    "next_step": "metrics"
+   }
+  },
+  {
+   "t": "2026-11-01 10:36:27",
+   "round": 1,
+   "kind": "step_started",
+   "step": "metrics",
+   "task": 908,
+   "task_status": null
+  },
+  {
+   "t": "2026-11-01 11:05:03",
+   "round": 1,
+   "kind": "step_verified",
+   "step": "metrics",
+   "checkpoint": {
+    "round": 1,
+    "task_id": 908,
+    "sha": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+    "result_sha256": {
+     "out\\monthly_region.csv": "6cf921e352f1507b",
+     "out\\product_margin.csv": "ab8d000ff8a1627b",
+     "out\\top_customers.csv": "faeef6052113178b"
+    },
+    "next_step": "findings"
+   }
+  },
+  {
+   "t": "2026-11-01 11:05:03",
+   "round": 1,
+   "kind": "step_started",
+   "step": "findings",
+   "task": 909,
+   "task_status": null
+  },
+  {
+   "t": "2026-11-01 11:06:54",
+   "round": 1,
+   "kind": "interrupt_kill_backend",
+   "task": 909,
+   "completed_calls": 1
+  },
+  {
+   "t": "2026-11-01 11:07:05",
+   "round": 1,
+   "kind": "identity",
+   "runtime": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+   "head": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+   "source_identity": "PASS",
+   "ok": true
+  },
+  {
+   "t": "2026-11-01 11:18:42",
+   "round": 1,
+   "kind": "step_verified",
+   "step": "findings",
+   "checkpoint": {
+    "round": 1,
+    "task_id": 909,
+    "sha": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+    "result_sha256": {
+     "notes\\03_findings.md": "5f91f7c811286d05"
+    },
+    "next_step": "verify"
+   }
+  },
+  {
+   "t": "2026-11-01 11:18:42",
+   "round": 1,
+   "kind": "step_started",
+   "step": "verify",
+   "task": 910,
+   "task_status": null
+  },
+  {
+   "t": "2026-11-01 11:22:44",
+   "round": 1,
+   "kind": "stop_sent",
+   "task": 910
+  },
+  {
+   "t": "2026-11-01 11:23:29",
+   "round": 1,
+   "kind": "stop_check",
+   "new_tool_calls_after_stop": 0
+  },
+  {
+   "t": "2026-11-01 11:23:29",
+   "round": 1,
+   "kind": "stop_then_retry",
+   "task": 910
+  },
+  {
+   "t": "2026-11-01 11:45:52",
+   "round": 1,
+   "kind": "step_blocked",
+   "step": "verify",
+   "problems": [
+    "verify.json not all ok: ['worst_margin_product', 'top_customer', 'region_drop']"
+   ]
+  },
+  {
+   "t": "2026-11-01 11:45:52",
+   "round": 1,
+   "kind": "run_finished",
+   "verdict": "FAIL",
+   "rounds_passed": 0
+  }
+ ],
+ "result": {
+  "run_id": "lh-20261101-022820",
+  "mode": "memory",
+  "rounds_planned": 1,
+  "rounds_passed": 0,
+  "rounds": [
+   {
+    "round": 1,
+    "round_id": "lh-20261101-022820-r1",
+    "seed": 985999250,
+    "planted": {
+     "negative_margin_product": "P-05",
+     "top_customer": "C-0959",
+     "declining_region": "Восток"
+    },
+    "sha": "3b23ceb6e93c94cd2b55507c643b0a53268f4342",
+    "status": "FAIL",
+    "reasons": [
+     "step verify blocked: [\"verify.json not all ok: ['worst_margin_product', 'top_customer', 'region_drop']\"]"
+    ],
+    "steps": {
+     "profile": {
+      "task_id": 907,
+      "verified": true,
+      "attempts": 1
+     },
+     "metrics": {
+      "task_id": 908,
+      "verified": true,
+      "attempts": 1
+     },
+     "findings": {
+      "task_id": 909,
+      "verified": true,
+      "attempts": 1
+     },
+     "verify": {
+      "task_id": 910,
+      "verified": false,
+      "attempts": 1
+     },
+     "report": {
+      "task_id": null,
+      "verified": null,
+      "attempts": null
+     }
+    },
+    "interrupted": true,
+    "stop_new_calls": 0,
+    "duplicated_completed_calls": 0,
+    "report_complete": null,
+    "report_missing": null,
+    "memory": {
+     "mode": null,
+     "ok": null,
+     "reason": null,
+     "recalled_events": null,
+     "record_in_recall": null,
+     "code_word_in_recall": null,
+     "code_word_in_report": null
+    },
+    "duration_min": null
+   }
+  ],
+  "elapsed_hours": 1.29,
+  "max_hours": null,
+  "duplicated_completed_calls": 0,
+  "soak": {
+   "requested_hours": null,
+   "status": "NOT_CLAIMED",
+   "note": "a 1.29 h run never claims 24H_SOAK; use --soak-hours 24"
+  },
+  "verdict": "FAIL",
+  "reasons": [
+   "round 1: step verify blocked: [\"verify.json not all ok: ['worst_margin_product', 'top_customer', 'region_drop']\"]"
+  ],
+  "finished": "2026-11-01 11:45:52"
+ }
+}
