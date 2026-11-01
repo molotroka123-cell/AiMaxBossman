@@ -1,0 +1,76 @@
+{
+ "verdict": "PASS",
+ "at": "2026-11-01T02:11:42",
+ "local_agent": 41,
+ "cloud_agent": 46,
+ "checks": {
+  "project_created": {
+   "ok": true,
+   "code": 201
+  },
+  "chat_in_project": {
+   "ok": true,
+   "code": 201
+  },
+  "local_turn": {
+   "ok": true,
+   "task": 899,
+   "status": "completed"
+  },
+  "model_switch_keeps_context": {
+   "ok": true,
+   "task": 900,
+   "status": "completed"
+  },
+  "cloud_writes_in_project": {
+   "ok": true,
+   "task": 901,
+   "status": "completed",
+   "files": 1
+  },
+  "parallel_chats": {
+   "ok": true,
+   "codes": [
+    200,
+    200
+   ],
+   "status": [
+    "completed",
+    "completed"
+   ]
+  },
+  "queue_and_steer_accepted": {
+   "ok": true,
+   "codes": [
+    201,
+    202
+   ]
+  },
+  "queued_prompt_ran_after": {
+   "ok": true,
+   "turns": 2,
+   "status": "completed"
+  },
+  "compact_transfer": {
+   "ok": true,
+   "compact_code": 202,
+   "listed": true,
+   "import_code": 201,
+   "status": "completed"
+  }
+ },
+ "runtime_sha": "500244acda6a9d5cfff9386e63d263d51b97fd45",
+ "source_sha": "500244ac",
+ "spend_usd": {
+  "glm_5_3_flash_7api": 0.002424,
+  "tasks": [
+   900,
+   901,
+   903,
+   904,
+   906
+  ],
+  "local": 0.0
+ },
+ "note": "Re-run of the 9 owner scenarios of docs/audits/2026-10-31-pult-chat-ux-owner on a newer runtime (the 31.10 PASS was on 10df5245 and is historical). Cloud = GLM 46 under the owner's standing $2/day permission; free NIM agent 25 is not enabled for the pult (mobile_cloud_ok), so it was not used. Tasks 899-906."
+}
