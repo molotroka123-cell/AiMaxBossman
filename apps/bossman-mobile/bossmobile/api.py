@@ -242,6 +242,31 @@ class ExchangeIn(BaseModel):
     text: str = Field(min_length=1, max_length=300)
 
 
+# practical SwapMe flow (owner item 7, 01.11): numbers arrive as strings or JSON numbers and are parsed to Decimal
+# by the assistant (NaN/negative/non-numeric are refused there with a readable message, not here as a 422 type error)
+_Num = str | int | float | None
+
+
+class FlowQuoteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    client: str = Field(min_length=1, max_length=60)
+    side: str = Field(min_length=1, max_length=20)
+    base: str = Field(min_length=1, max_length=8)
+    quote: str = Field(default="CZK", min_length=1, max_length=8)
+    amount: _Num = None
+    markup_pct: _Num = None
+    max_rate_age_hours: _Num = 96
+    tolerance_pct: _Num = "0.5"
+    assume_usdt_usd_parity: bool = False
+    training: bool = False
+
+
+class FlowConfirmIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    actual_in: _Num = None
+    actual_out: _Num = None
+
+
 class WorkerRegisterIn(BaseModel):
     device_id: str = Field(min_length=1, max_length=80, pattern=REQ_ID)
     role: str = Field(default="worker", min_length=1, max_length=60)
@@ -1409,6 +1434,83 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             media_type="application/pdf",
             headers={"Content-Disposition": f'inline; filename="{fname}"', "Cache-Control": "no-store"},
         )
+
+    # ------------------------------------------------------------------ SwapMe practical flow (owner item 7, 01.11)
+    def _flow(fn):
+        """Run one flow step on the shared assistant: STOP -> 423, a refused input -> 422 with the reason."""
+        from bossman_shared.exchange_assistant.flow import FlowError
+        from bossman_shared.exchange_assistant.store import StoreError
+        try:
+            a = exchange()
+        except Exception as exc:  # noqa: BLE001
+            raise fail(503, "помощник обменника недоступен", "BM_EXCHANGE_UNAVAILABLE", type(exc).__name__) from None
+        if a.global_stop():
+            raise fail(423, "действует СТОП/пауза: записи обменника заблокированы до «Продолжить»", "BM_STOP")
+        try:
+            return fn(a)
+        except FlowError as exc:
+            raise fail(422, str(exc), "BM_EXCHANGE_REFUSED") from None
+        except StoreError as exc:
+            if "СТОП" in str(exc):
+                raise fail(423, str(exc), "BM_STOP") from None
+            raise fail(422, str(exc), "BM_EXCHANGE_REFUSED") from None
+
+    @app.post("/m/api/exchange/flow/quote")
+    async def exchange_flow_quote(body: FlowQuoteIn, _=Depends(session)):
+        rec = _flow(lambda a: a.flow_quote(client=body.client, side=body.side, base=body.base, quote_ccy=body.quote,
+                                           amount=body.amount, markup_pct=body.markup_pct,
+                                           max_rate_age_hours=body.max_rate_age_hours, tolerance_pct=body.tolerance_pct,
+                                           assume_usdt_usd_parity=body.assume_usdt_usd_parity, training=body.training))
+        return {"ok": True, "record": rec}
+
+    @app.post("/m/api/exchange/flow/{quote_id}/accept")
+    async def exchange_flow_accept(quote_id: str, _=Depends(session)):
+        return {"ok": True, "record": _flow(lambda a: a.flow_accept(quote_id[:16]))}
+
+    @app.post("/m/api/exchange/flow/{quote_id}/confirm")
+    async def exchange_flow_confirm(quote_id: str, body: FlowConfirmIn, _=Depends(session)):
+        return {"ok": True, "record": _flow(lambda a: a.flow_confirm(quote_id[:16], actual_in=body.actual_in,
+                                                                     actual_out=body.actual_out))}
+
+    @app.get("/m/api/exchange/flow/{quote_id}")
+    async def exchange_flow_record(quote_id: str, _=Depends(session)):
+        from bossman_shared.exchange_assistant.flow import FlowError
+        try:
+            return {"record": exchange().flow_record(quote_id[:16])}
+        except FlowError as exc:
+            raise fail(404, str(exc), "BM_DEAL_NOT_FOUND") from None
+
+    @app.get("/m/api/exchange/statement")
+    async def exchange_statement(client: str = Query("", max_length=60), start: str = Query("", max_length=10),
+                                 end: str = Query("", max_length=10), fmt: Literal["json", "csv", "text"] = Query("json", alias="format"),
+                                 _=Depends(session)):
+        """Statement from the local CRM, per client and/or period [start, end] (desk-local dates, end inclusive)."""
+        from datetime import timedelta as _td
+        from bossman_shared.exchange_assistant import flow as flow_mod
+        from bossman_shared.exchange_assistant.agent import desk_tz
+
+        def day(raw: str, name: str):
+            if not raw:
+                return None
+            try:
+                return datetime.strptime(raw, "%Y-%m-%d").replace(tzinfo=desk_tz())
+            except ValueError:
+                raise fail(422, f"{name}: дата в формате ГГГГ-ММ-ДД", "BM_EXCHANGE_REFUSED") from None
+        t0, t1 = day(start, "начало"), day(end, "конец")
+        t1 = t1 + _td(days=1) if t1 else None
+        try:
+            stmt = exchange().flow_statement(client=client or None, start=t0, end=t1)
+        except flow_mod.FlowError as exc:
+            raise fail(422, str(exc), "BM_EXCHANGE_REFUSED") from None
+        if fmt == "json":
+            return stmt
+        tag = re.sub(r"[^0-9A-Za-z_-]", "_", client or "all")[:40]
+        if fmt == "csv":
+            return Response(content=("﻿" + flow_mod.statement_csv(stmt)).encode("utf-8"), media_type="text/csv; charset=utf-8",
+                            headers={"Content-Disposition": f'attachment; filename="swapme-statement-{tag}.csv"',
+                                     "Cache-Control": "no-store"})
+        return Response(content=flow_mod.statement_text(stmt).encode("utf-8"), media_type="text/plain; charset=utf-8",
+                        headers={"Cache-Control": "no-store"})
 
     # ------------------------------------------------------------------ telegram calls (owner 20.10)
     @app.get("/m/api/calls/status")

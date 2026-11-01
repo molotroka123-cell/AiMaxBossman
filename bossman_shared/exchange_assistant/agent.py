@@ -11,6 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Callable
 
+from . import flow
 from .quote import CURRENCIES, QuoteError, build_quote
 from .rates import RateBook, RateError, default_fx_db, load_official, pair_name, parse_decimal
 from .store import Store, StoreError
@@ -31,6 +32,13 @@ RE_REVERSE = re.compile(r"^(?:отмена|отменить)\s+d-?(\d+)\s+(.+)$"
 RE_RECEIPT = re.compile(r"^(?:чек|pdf|пдф|квитанция)\s+d-?(\d+)$")
 RE_DAILY = re.compile(r"^(?:суточный\s+отчет|суточный\s+отчёт|итоги\s+сутки|отчет\s+за\s+сутки|отчёт\s+за\s+сутки)$")
 RE_DASH = re.compile(r"^(?:дашборд|итоги|итог)(?:\s+(сегодня|неделя|месяц))?$")
+# practical flow (owner item 7, 01.11): client alias + explicit markup + rate source/date -> CRM -> statement
+RE_DEAL = re.compile(rf"^сделка\s+(?:клиент\s+)?([0-9a-zа-я][0-9a-zа-я._\-]{{0,39}}):?\s+(купить|покупает|продать|продает)\s+"
+                     rf"{_NUM}\s*{_CCY}\s+за\s+{_CCY}\s+(?:наценка|при|ставка)\s+(-?\d+(?:[.,]\d+)?)\s*%"
+                     r"(\s+usdt\s*=\s*usd)?(\s+учебная)?$")
+RE_ACCEPT = re.compile(r"^клиент\s+согласен\s+(q-[0-9a-f]{8})$")
+RE_STATEMENT = re.compile(r"^выписка(?:\s+(?!сегодня$|неделя$|месяц$|все$)([0-9a-zа-я][0-9a-zа-я._\-]{0,39}))?"
+                          r"(?:\s+(сегодня|неделя|месяц|все))?$")
 
 HELP = ("Команды помощника обменника:\n"
         "• курс — текущие курсы с источником и временем\n"
@@ -42,11 +50,17 @@ HELP = ("Команды помощника обменника:\n"
         "• чек D-12 — получить PDF-квитанцию SwapMe по подтверждённой сделке\n"
         "• суточный отчёт — сводка сделок, оборота и PDF-чеков за 24 ч\n"
         "• отмена D-12 <причина> — отменить сделку (реверс, без удаления)\n"
-        "• итоги [сегодня|неделя|месяц] — оборот, позиции, сделки")
+        "• итоги [сегодня|неделя|месяц] — оборот, позиции, сделки\n"
+        "Практическая сделка с CRM (клиент, курс ЧНБ с датой, наценка по сделке, округление ROUND_HALF_UP):\n"
+        "• сделка anna купить 1000 usdt за czk наценка 3% [usdt=usd] [учебная] — котировка для клиента (не выручка)\n"
+        "• клиент согласен Q-XXXXXXXX — ждём деньги (pending, не выручка)\n"
+        "• обмен выполнен Q-XXXXXXXX приняли <сумма> выдали <сумма> — фактические суммы, допуск 0.5%\n"
+        "• выписка [anna] [сегодня|неделя|месяц|все] — выписка из CRM")
 
 
-WRITE_PATTERNS = (RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE)
-ALL_PATTERNS = (RE_RATES, RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE, RE_RECEIPT, RE_DAILY, RE_DASH)
+WRITE_PATTERNS = (RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE, RE_DEAL, RE_ACCEPT)
+ALL_PATTERNS = (RE_RATES, RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE, RE_RECEIPT, RE_DAILY, RE_DASH,
+                RE_DEAL, RE_ACCEPT, RE_STATEMENT)
 
 
 def normalize(text: str) -> str:
@@ -145,8 +159,37 @@ class Assistant:
         now = self.clock()
         try:
             return self._dispatch(t, actor, now, stopped=stopped)
-        except (QuoteError, RateError, StoreError, InvalidOperation) as e:
+        except (QuoteError, RateError, StoreError, InvalidOperation, flow.FlowError) as e:
             return f"Не выполнено: {e}"
+
+    # ------------------------------------------------------------------ practical flow (owner item 7, 01.11)
+    def flow_quote(self, *, stopped: bool = False, **kw) -> dict:
+        """Sourced rate + explicit markup -> quote with its CRM record (status «quote»). Same book as every surface."""
+        self._ensure_not_stopped(stopped)
+        return flow.quote(self.store, self.book(), now=self.clock(), **kw)
+
+    def flow_accept(self, qid: str, *, by: str = "owner", stopped: bool = False) -> dict:
+        self._ensure_not_stopped(stopped)
+        return flow.accept(self.store, qid, self.clock(), by=by)
+
+    def flow_confirm(self, qid: str, *, actual_in, actual_out, by: str = "owner", stopped: bool = False) -> dict:
+        self._ensure_not_stopped(stopped)
+        return flow.confirm(self.store, qid, self.clock(), actual_in=actual_in, actual_out=actual_out, by=by)
+
+    def flow_record(self, qid: str) -> dict:
+        return flow.record(self.store, qid, self.clock())
+
+    def flow_statement(self, *, client=None, start: datetime | None = None, end: datetime | None = None) -> dict:
+        return flow.statement(self.store, self.clock(), client=client, start=start, end=end)
+
+    def period_bounds(self, period: str | None, now: datetime) -> tuple[datetime | None, datetime | None]:
+        if period == "сегодня":
+            return desk_day_start(now), now + timedelta(seconds=1)
+        if period == "неделя":
+            return now - timedelta(days=7), now + timedelta(seconds=1)
+        if period == "месяц":
+            return business_month(now)
+        return None, None
 
     def deal_pdf(self, deal_id: int) -> tuple[str, bytes]:
         """Return (filename, pdf_bytes) for a confirmed or reversed deal."""
@@ -206,6 +249,22 @@ class Assistant:
             self._ensure_not_stopped(stopped)
             r = self.store.set_manual_rate(ccy(m[1]) + ccy(m[2]), parse_decimal(m[3], "курс"), m[4], now, actor)
             return f"Записан ручной курс: {r.label()}"
+        if m := RE_DEAL.match(t):
+            self._ensure_not_stopped(stopped)
+            side = "client_buys" if m[2] in ("купить", "покупает") else "client_sells"
+            rec = flow.quote(self.store, self.book(), client=m[1], side=side, base=ccy(m[4]), quote_ccy=ccy(m[5]),
+                             amount=m[3], markup_pct=m[6], now=now, assume_usdt_usd_parity=bool(m[7]),
+                             training=bool(m[8]), by=actor)
+            return flow.quote_text(rec)
+        if m := RE_ACCEPT.match(t):
+            self._ensure_not_stopped(stopped)
+            rec = flow.accept(self.store, m[1], now, by=actor)
+            return (f"Клиент согласен: {rec['quote_id']} → D-{rec['deal_id']}, статус: {rec['status_ru']}.\n"
+                    f"Когда деньги реально пришли и ушли: «обмен выполнен {rec['quote_id']} приняли "
+                    f"{rec['client_gives']['quoted']} выдали {rec['client_gets']['quoted']}» (фактические суммы).")
+        if m := RE_STATEMENT.match(t):
+            start, end = self.period_bounds(m[2] or "месяц", now)
+            return flow.statement_text(flow.statement(self.store, now, client=m[1], start=start, end=end))
         if m := RE_GET.match(t):
             self._ensure_not_stopped(stopped)
             buy_verb = bool(m[1])
@@ -232,6 +291,19 @@ class Assistant:
             self._ensure_not_stopped(stopped)
             self.store.save_quote(q)
             return q.text()
+        if (m := RE_CONFIRM.match(t)) and self.store.crm_row(m[1]) is not None:
+            self._ensure_not_stopped(stopped)
+            if not (m[2] and m[3]):
+                raise flow.FlowError(f"укажите фактические суммы: «обмен выполнен {m[1].upper()} приняли <сумма> выдали <сумма>» "
+                                     "(до подтверждения сделка не записывается как проведённая)")
+            if m[4]:
+                raise flow.FlowError("в практическом потоке «подтверждаю расхождение» не действует: при другой сумме "
+                                     "сделайте новую котировку")
+            rec = flow.confirm(self.store, m[1], now, actual_in=m[2], actual_out=m[3], by=actor)
+            g, r = rec["client_gives"], rec["client_gets"]
+            return (f"Сделка записана: D-{rec['deal_id']} по {rec['quote_id']} · клиент {rec['client']} · {rec['status_ru']}\n"
+                    f"Приняли {g['actual']} {g['ccy']}, выдали {r['actual']} {r['ccy']}\n"
+                    f"Чек PDF: SwapMe-D-{rec['deal_id']}-{rec['quote_id']}.pdf\n{flow.NOT_REVENUE_NOTE}")
         if m := RE_CONFIRM.match(t):
             self._ensure_not_stopped(stopped)
             in_actual = parse_decimal(m[2], "приняли").quantize(Decimal("0.01")) if m[2] else None

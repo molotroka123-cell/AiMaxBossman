@@ -1,0 +1,4 @@
+created_at,client,quote_id,deal_id,status,training,side,client_gives_ccy,client_gives_quoted,client_gives_actual,client_gets_ccy,client_gets_quoted,client_gets_actual,rate_pair,market_rate,rate_source,rate_as_of,rate_date,markup_pct,manager_rate,rounding,assumptions,markup_value_czk
+2026-11-01T10:13:42+00:00,train-anna,Q-FC2D8475,D-1,confirmed,yes,client_buys,CZK,22468.42,22468.42,USDT,1000.00,1000.00,USDT/CZK,21.814,ЧНБ USD/CZK,2026-11-01T10:13:36+00:00,2026-10-30,3,22.4684,"ROUND_HALF_UP до 0.01: одно округление итоговой суммы, половина сотой — вверх (10.005 → 10.01)","ДОПУЩЕНИЕ: 1 USDT ≈ 1 USD (паритет 1:1). Это не рыночный курс USDT: официального источника для USDT нет, риск отклонения USDT от доллара несёт менеджер.",654.42
+
+# note,Котировка и ожидающая сделка — не выручка. «Подтверждена» значит: менеджер ввёл фактически полученные и выданные суммы; деньги на счёте/кошельке Bossman не проверяет.

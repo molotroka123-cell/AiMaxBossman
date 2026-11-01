@@ -37,6 +37,18 @@ CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, ts TEXT NOT NULL, kind
 CREATE TRIGGER IF NOT EXISTS events_no_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT, 'events are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS events_no_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT, 'events are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS deals_no_delete BEFORE DELETE ON deals BEGIN SELECT RAISE(ABORT, 'deals are never deleted; reverse instead'); END;
+-- minimal local CRM of the practical flow (owner item 7, 01.11): who the quote is for and where its rate came from.
+-- Status is never stored here: it is derived from quotes/deals, so a CRM row cannot claim «confirmed» on its own.
+CREATE TABLE IF NOT EXISTS crm_records(quote_id TEXT PRIMARY KEY REFERENCES quotes(id), client_alias TEXT NOT NULL,
+  created_at TEXT NOT NULL, side TEXT NOT NULL CHECK(side IN ('client_buys','client_sells')),
+  base_ccy TEXT NOT NULL, quote_ccy TEXT NOT NULL, amount TEXT NOT NULL, total TEXT NOT NULL,
+  market_rate TEXT NOT NULL, rate_source TEXT NOT NULL, rate_as_of TEXT NOT NULL, rate_date TEXT,
+  rate_provenance TEXT NOT NULL, markup_pct TEXT NOT NULL, manager_rate TEXT NOT NULL, rounding TEXT NOT NULL,
+  assumptions TEXT NOT NULL, tolerance_pct TEXT NOT NULL, max_rate_age_hours INTEGER NOT NULL,
+  training INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_crm_client_created ON crm_records(client_alias, created_at);
+CREATE TRIGGER IF NOT EXISTS crm_no_delete BEFORE DELETE ON crm_records BEGIN SELECT RAISE(ABORT, 'crm records are never deleted'); END;
+CREATE TRIGGER IF NOT EXISTS crm_no_update BEFORE UPDATE ON crm_records BEGIN SELECT RAISE(ABORT, 'crm records are append-only'); END;
 """
 TABLES = {"manual_rates", "quotes", "deals", "events"}
 TRIGGERS = {"events_no_update", "events_no_delete", "deals_no_delete"}
@@ -402,6 +414,46 @@ class Store:
             self.db.execute("UPDATE quotes SET crm_status='cancelled' WHERE id=?", (q["id"],))
             self._event(now, "quote_cancelled", q["id"], {"reason": reason.strip()[:200], "by": by, "crm_status": "cancelled"})
         return self.quote(q["id"])  # type: ignore[return-value]
+
+    # ---------------------------------------------------------------- CRM of the practical flow
+    @_locked
+    def save_flow_quote(self, q: Quote, crm: dict) -> None:
+        """Quote + its CRM record + one event in ONE transaction (a quote never exists without its client and source)."""
+        self._check_stop()
+        cols = ("quote_id", "client_alias", "created_at", "side", "base_ccy", "quote_ccy", "amount", "total",
+                "market_rate", "rate_source", "rate_as_of", "rate_date", "rate_provenance", "markup_pct",
+                "manager_rate", "rounding", "assumptions", "tolerance_pct", "max_rate_age_hours", "training", "created_by")
+        if crm.get("quote_id") != q.id:
+            raise StoreError("CRM-запись не совпадает с котировкой")
+        with self.db:
+            cur = self.db.execute("INSERT OR IGNORE INTO quotes(id, body, created_at, valid_until, crm_status) VALUES (?,?,?,?,?)",
+                                  (q.id, _quote_body(q), _iso(q.created_at), _iso(q.valid_until), "quoted"))
+            if cur.rowcount == 0:
+                raise StoreError(f"котировка {q.id} уже существует")
+            self.db.execute(f"INSERT INTO crm_records({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                            tuple(crm[c] for c in cols))
+            self._event(q.created_at, "quote", q.id, {"give": f"{q.give_amount} {q.give_ccy}", "get": f"{q.get_amount} {q.get_ccy}",
+                                                      "crm_status": "quoted", "client": crm["client_alias"],
+                                                      "markup_pct": crm["markup_pct"], "rate_source": crm["rate_source"],
+                                                      "rate_as_of": crm["rate_as_of"], "training": bool(crm["training"])})
+
+    @_locked
+    def crm_row(self, qid: str) -> dict | None:
+        row = self.db.execute("SELECT * FROM crm_records WHERE quote_id=?", (str(qid).upper(),)).fetchone()
+        return dict(row) if row else None
+
+    @_locked
+    def crm_rows(self, client: str | None = None) -> list[dict]:
+        """CRM records joined with their quote status and deal (if any); oldest first."""
+        sql = ("SELECT c.*, q.crm_status AS quote_status, q.valid_until AS valid_until, q.body AS quote_body, "
+               "d.id AS deal_id, d.status AS deal_status, d.crm_status AS deal_crm_status, d.confirmed_at AS confirmed_at, "
+               "d.leg_in_actual AS leg_in_actual, d.leg_out_actual AS leg_out_actual, d.reversed_at AS reversed_at "
+               "FROM crm_records c JOIN quotes q ON q.id = c.quote_id LEFT JOIN deals d ON d.quote_id = c.quote_id")
+        args: tuple = ()
+        if client is not None:
+            sql += " WHERE c.client_alias = ?"
+            args = (client,)
+        return [dict(r) for r in self.db.execute(sql + " ORDER BY c.created_at, c.quote_id", args)]
 
     @_locked
     def deals(self) -> list[dict]:
