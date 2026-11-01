@@ -468,6 +468,9 @@ _READONLY_HEADS = frozenset({
     "get-process", "gps", "get-service", "gsv", "get-ciminstance", "gcim", "get-wmiobject", "gwmi",
     "select-string", "sls", "select-object", "select", "where-object", "measure-object", "measure",
     "test-path", "resolve-path", "format-table", "ft", "format-list", "fl", "out-string", "write-output",
+    # owner task #982 (01.11): `cd <dir> && git log` was a «mutation» because `cd` was unknown, so its exit 128 failed a
+    # 200 s AUTO run. Changing the shell's directory changes nothing on disk; every OTHER segment is still classified.
+    "cd", "chdir", "pushd", "popd", "set-location", "sl", "push-location", "pop-location",
 })
 _PWSH_MUTATION_RE = re.compile(
     r"\b(?:set-content|add-content|out-file|clear-content|new-item|remove-item|copy-item|move-item|rename-item|"

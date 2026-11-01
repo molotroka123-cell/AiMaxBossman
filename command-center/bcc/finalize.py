@@ -196,12 +196,18 @@ def _superseded(failed_index: int, rows: list[dict], expected: list, roots: list
     return False
 
 
+_BENIGN_REDIRECT_RE = re.compile(r"(?i)(?<![\w>])(?:[0-9]?>&[0-9]|[0-9]?>{1,2}\s*(?:/dev/null|nul|\$null)(?![\w./\\]))")
+
+
 def _effectful(row: dict) -> bool:
     """Use the executor capability, not model wording, as the safety backstop."""
     from .tools import REGISTRY
     if row.get("tool") == "terminal.run":
         from .features.action_contract import _looks_like_mutation
         command = str((row.get("args") or {}).get("command") or "")
+        # Owner task #982 (01.11): `git status --short 2>&1` counted as a write because of the bare `>`. Stream merges
+        # and discards (`2>&1`, `>&2`, `2>/dev/null`, `>nul`, `2>$null`) write no file; a real `> file` still counts.
+        command = _BENIGN_REDIRECT_RE.sub(" ", command)
         # Shell expansions and write-capable git subcommands must not inherit
         # the action classifier's deliberately permissive "read" heuristic.
         if re.search(r"[>$`]|\bgit\s+(?:config|branch|tag|remote|fetch)\b|--output(?:=|\s)"
