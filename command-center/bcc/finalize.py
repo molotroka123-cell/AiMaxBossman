@@ -233,6 +233,20 @@ def _effectful(row: dict) -> bool:
 _WORLD_DECIDES = ("denied", "rejected", "interrupted", "reconciled")
 
 
+#: File tools name their target explicitly, so «the same action» is the same tool on the same file - whatever root or
+#: content the model passed. Live cloud matrix 01.11 (task 988): GLM's code.write with a foreign root was refused by
+#: the project sandbox (nothing written), the next code.write of the SAME path succeeded, and the task still failed.
+_FILE_TARGET_TOOLS = ("code.write", "code.patch")
+
+
+def _attempt_key(row: dict) -> tuple:
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    if row.get("tool") in _FILE_TARGET_TOOLS and str(args.get("path") or "").strip():
+        target = re.sub(r"^(?:\./)+", "", str(args.get("path")).strip().replace("\\", "/")).lower()
+        return (row.get("tool"), "path", target)
+    return (row.get("tool"), row.get("args_hash") or repr(row.get("args")))
+
+
 def _effect_problem(rows: list[dict], expected: list, task: dict | None = None,
                     roots: list | None = None) -> str:
     """Reject unsuccessful effects, then check declared capability obligations.
@@ -270,7 +284,7 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None,
     latest: dict = {}
     for index, row in enumerate(rows):
         if _effectful(row) and not (expected and row.get("status") in _WORLD_DECIDES):
-            latest[(row.get("tool"), row.get("args_hash") or repr(row.get("args")))] = (index, row)
+            latest[_attempt_key(row)] = (index, row)
     for index, row in latest.values():
         if row.get("status") != "executed" or row.get("error"):
             return "effectful tool did not succeed: " + str(row.get("tool"))

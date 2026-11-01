@@ -37,3 +37,26 @@ def test_stream_merges_and_discards_are_not_writes():
         assert _effectful({"tool": "terminal.run", "args": {"command": cmd}}) is False, cmd
     for cmd in ("git log > log.txt", "echo x >> notes.md", "ls 2> err.txt", "cat a >/dev/nullx", "echo $HOME"):
         assert _effectful({"tool": "terminal.run", "args": {"command": cmd}}) is True, cmd
+
+
+def _write(path: str, status: str, i: int, root: str | None = None, error: str | None = None) -> dict:
+    args = {"path": path, "content": "x"}
+    if root:
+        args["root"] = root
+    return {"tool": "code.write", "args": args, "args_hash": f"w{i}", "status": status, "error": error}
+
+
+def test_a_refused_file_write_is_superseded_by_a_later_write_of_the_same_file():
+    """Live cloud matrix 01.11 (task 988): a sandbox-refused code.write (foreign root) then the same path written."""
+    rows = [_write("notes.txt", "error", 1, root="/mnt/user-data/uploads", error="песочница проекта"),
+            _write("./notes.txt", "executed", 2)]
+    assert _effect_problem(rows, []) == ""
+
+
+def test_a_different_file_does_not_supersede_a_failed_write():
+    rows = [_write("notes.txt", "error", 1, error="x"), _write("other.txt", "executed", 2)]
+    assert _effect_problem(rows, []) == "effectful tool did not succeed: code.write"
+    rows = [_write("x.txt", "error", 1, error="x"), _write("../x.txt", "executed", 2)]     # ../x is NOT x
+    assert _effect_problem(rows, []) == "effectful tool did not succeed: code.write"
+    rows = [_write("notes.txt", "executed", 1), _write("notes.txt", "error", 2, error="x")]  # failure AFTER success
+    assert _effect_problem(rows, []) == "effectful tool did not succeed: code.write"
