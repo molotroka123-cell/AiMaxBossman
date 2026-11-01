@@ -238,3 +238,16 @@ async def test_tokens_per_verified_effect_is_none_when_nothing_was_verified(env)
     tid = stack["task"]["id"]
     m = await mb.run_metrics(env.svc, tid)
     assert m["tokens_per_verified_effect"] is None
+
+
+async def test_a_run_of_failed_tool_calls_trips_the_error_guard(env):
+    """Task 1005 (01.11): 86 FAILED code.read calls, 461k tokens - executed-only counting never saw them."""
+    stack = await make_stack(env.client)
+    tid, run = stack["task"]["id"], await env.svc.engine.claim()
+    limits = mb.Limits.for_task({"meta": {}})
+    for i in range(mb.MAX_TOOL_ERRORS_PER_RUN):
+        await _tool_row(env, run, tid, tool="code.read", h=f"e{i}", status="error")
+    assert await mb.check_identical_calls(env.svc, limits, run) is None        # at the limit: still allowed
+    await _tool_row(env, run, tid, tool="code.read", h="last", status="error")
+    breach = await mb.check_identical_calls(env.svc, limits, run)
+    assert breach is not None and breach.code == "TOOL_ERROR_LOOP"

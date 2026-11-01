@@ -155,6 +155,10 @@ async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> P
         # live cloud matrix 01.11 (task 959): GLM sent root="." - in a sandbox a RELATIVE root means the project folder,
         # not the backend's working directory. Absolute paths are still checked as given.
         raw_s = str(raw or "").strip()
+        # task 1005: DeepSeek sent root="project" 20+ times; a word naming «the project» means the project folder
+        if raw_s.lower().strip("/\\ ") in ("", ".", "project", "проект", "root", "workspace", "project_root"):
+            raw_s = ""
+            candidate = project if project is not None else candidate
         if project is not None and raw_s and not Path(raw_s).expanduser().is_absolute():
             try:
                 candidate = (project / raw_s).resolve()
@@ -164,7 +168,8 @@ async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> P
             raise PermissionError("песочница проекта: доступна только папка проекта этого чата"
                                   + (f" ({project})" if project is not None else ""))
         if not candidate.exists():
-            raise FileNotFoundError(candidate)
+            raise FileNotFoundError(f"папка root не существует: {candidate}. Не передавай root — пути указывай "
+                                    f"относительно папки проекта {project}")
         return candidate
     # V2.2 §9: рабочая область соседнего агента лежит внутри разрешённого корня,
     # поэтому общая проверка корней её пропустила бы — закрываем до неё.

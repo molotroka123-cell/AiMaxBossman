@@ -156,3 +156,15 @@ async def test_a_relative_root_in_the_sandbox_is_the_project_folder(env):
     for bad in ("..", "../..", "sub/../.."):                       # negatives: relative escapes stay refused
         with pytest.raises(PermissionError, match="песочница проекта"):
             await tools_code.resolve_root(env.svc, bad, str(folder), ctx)
+
+
+async def test_root_words_mean_the_project_and_a_missing_root_explains_itself(env):
+    """Task 1005 (01.11): root="project" resolved to <project>/project (missing) and the model looped 86 times."""
+    cloud = (await _local_stack(env.client, base_url=CLOUD, name="ds"))["agent"]
+    p = await _project(env, "Words")
+    folder = Path(p["path"]).resolve()
+    ctx = await _ctx(env, cloud, folder, sandbox=True)
+    for word in ("project", "Project", "/", "проект"):
+        assert await tools_code.resolve_root(env.svc, word, str(folder), ctx) == folder
+    with pytest.raises(FileNotFoundError, match="Не передавай root"):
+        await tools_code.resolve_root(env.svc, "nosuchdir", str(folder), ctx)
