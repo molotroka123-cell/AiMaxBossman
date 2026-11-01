@@ -821,3 +821,4 @@ body { background:
 .thread.running b::before { content: "● "; color: #16a34a; }
 .thread .run-tag { color: #16a34a; font-weight: 600; }
 .note .ctx-summary { margin-top: 6px; font-size: 14px; }
+.turn-note { margin-top: 6px; font-size: 12px; opacity: .7; }

@@ -726,6 +726,8 @@ async def _task_views(svc: Any, ids: list[Any]) -> dict[int, dict]:
                      "pricing_known": pricing.get(last["model_alias"]) if last["model_alias"] else None}
                     if last else None),
             "runs": len(task_runs),
+            # owner 01.11: a chat answer the model gave in TEXT where an action was asked - shown, never a claimed action
+            "action_not_executed": list(meta.get("action_not_executed") or []) or None,
         }
     return out
 
@@ -1368,7 +1370,8 @@ async def get_thread(thread_id: str, request: Request):
                 "at": turn.get("at"), "status": view["status"] if view else "missing",
                 "result": view["result"] if view else None, "error": view["error"] if view else None,
                 "failure_summary": view.get("failure_summary") if view else None,
-                "run": view["run"] if view else None}
+                "run": view["run"] if view else None,
+                "action_not_executed": view.get("action_not_executed") if view else None}
         if isinstance(turn.get("attachments"), list):
             item["attachments"] = [a for a in turn["attachments"] if isinstance(a, dict)]
         files = await asyncio.to_thread(_agent_files, svc, int(turn["task_id"]))

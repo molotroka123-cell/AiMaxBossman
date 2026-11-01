@@ -1,7 +1,9 @@
 """Live owner run 31.10, task 866: «Запомни кодовое слово X. Ответь: ок» in a pult chat to an agent without memory tools
 failed with action_contract/no_verified_action. In a chat the turn is kept in the chat history, so the request is honoured.
 
-Negatives: the same words OUTSIDE a chat still fail; a chat turn asking for another action (file) still fails.
+Owner 01.11 widened it: «пульт лагает … исправь фильтры, чтобы работало даже на облачных моделях» - ANY chat turn
+answered in text is delivered (marked `action_not_executed`, never claimed as done). Outside a chat the strict
+rule stays (negative test).
 Synthetic data only (tmp data dir, scripted local model).
 """
 from __future__ import annotations
@@ -49,7 +51,7 @@ class TextModel:
             writer.close()
 
 
-async def _run(tmp_path, text: str, *, via_chat: bool) -> dict:
+async def _run(tmp_path, text: str, *, via_chat: bool, permissions: dict | None = None) -> dict:
     model = TextModel()
     base = await model.start()
     app, svc = await start_app(make_settings(tmp_path), start_workers=True, engine_options=FAST_ENGINE)
@@ -61,7 +63,8 @@ async def _run(tmp_path, text: str, *, via_chat: bool) -> dict:
                                                           "alias": "gemma-stub"})).json()
             # like live agent 41: an explicit tool list WITHOUT any memory tool (memory.write is never granted to it)
             agent = (await client.post("/api/agents", json={"name": "Gemma", "model_id": mod["id"], "max_steps": 3,
-                                                            "tools": ["terminal.status"]})).json()
+                                                            "tools": ["terminal.status"],
+                                                            "permissions": permissions or {}})).json()
             if via_chat:
                 thread = (await client.post("/api/chat/threads", json={})).json()
                 sent = (await client.post(f"/api/chat/threads/{thread['id']}/send", json={
@@ -76,7 +79,9 @@ async def _run(tmp_path, text: str, *, via_chat: bool) -> dict:
                 t = (await client.get(f"/api/tasks/{task_id}")).json()["task"]
                 return t if t["status"] in {"completed", "failed", "stopped", "blocked", "waiting_approval"} else None
 
-            return await wait_for(done, timeout=20)
+            final = await wait_for(done, timeout=20)
+            final["_meta"] = (await client.get(f"/api/tasks/{task_id}")).json()["task"].get("meta") or {}
+            return final
     finally:
         await svc.stop()
         await model.stop()
@@ -92,6 +97,18 @@ async def test_remember_outside_a_chat_still_needs_a_real_memory_action(tmp_path
     assert final["status"] == "failed", final
 
 
-async def test_other_actions_in_a_chat_are_not_exempted(tmp_path):
-    final = await _run(tmp_path, "Запомни это и создай файл notes.txt с текстом привет.", via_chat=True)
+async def test_a_file_request_answered_in_text_in_a_chat_is_delivered_and_marked(tmp_path):
+    final = await _run(tmp_path, "Создай файл notes.txt с текстом привет.", via_chat=True)
+    assert final["status"] == "completed", final
+    assert "TERMINAL_FILE_ACTION" in (final["_meta"].get("action_not_executed") or []), final["_meta"]
+
+
+async def test_a_chat_only_cloud_agent_answers_in_a_chat(tmp_path):
+    final = await _run(tmp_path, "Напиши скрипт и создай файл run.py", via_chat=True,
+                       permissions={"cloud_pc_access": False})
+    assert final["status"] == "completed", final
+
+
+async def test_the_same_file_request_outside_a_chat_still_fails(tmp_path):
+    final = await _run(tmp_path, "Создай файл notes.txt с текстом привет.", via_chat=False)
     assert final["status"] != "completed", final

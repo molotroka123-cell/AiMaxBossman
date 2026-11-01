@@ -1153,7 +1153,15 @@
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
         b.ended = true;
         if (b.photo) { b.text = turn.result || ''; restorePhotoTurn(b, turn); continue; }
-        if (turn.result) { b.text = turn.result; rich(b.ans, turn.result); } else if (turn.failure_summary || turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.failure_summary || turn.error; }
+        if (turn.result) {
+          b.text = turn.result; rich(b.ans, turn.result);
+          if (turn.action_not_executed && turn.action_not_executed.length) {   // owner 01.11: a text answer, not a done action
+            const note = document.createElement('div');
+            note.className = 'turn-note';
+            note.textContent = 'ℹ️ Ответ текстом: действие инструментом не выполнялось';
+            b.ans.appendChild(note);
+          }
+        } else if (turn.failure_summary || turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.failure_summary || turn.error; }
         b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
         showAgentFiles(b, turn.files);
         if (turn.result) msgActions(b);
