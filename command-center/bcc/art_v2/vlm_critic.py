@@ -1,14 +1,15 @@
-"""VLM Art Critic (Automated Multi-Modal Self-Check & Quality Control Gate).
+"""VLM Art Critic: HONEST STATE (audit 31.10, P0 «ложный PASS в Studio»).
 
-Provides:
-1. VLMArtCritic: Inspects keyframes (0%, 25%, 50%, 75%, 100%) and computes:
-   - brightness, contrast, laplacian_sharpness, non_black_ratio (>= 0.90),
-     face_cosine_score, audio_rms_db.
-   - Checklist of artifacts: extra fingers, distorted faces, cropped heads, illegible text.
-2. Auto-correction engine:
-   - When initial quality score is below threshold (< 0.80), automatically adjusts
-     seed, negative prompt constraints, and controlnet weight up to 2 retries.
-   - Issues a cryptographic ArtQCReceipt (status="PASS", score >= 0.90).
+This module used to «certify» any input: it never looked at the media (every keyframe was a hard-coded «studio render»
+metric), «repaired» a flaw by simply re-reading the same constants without the defect, then raised the score to at least
+`target_pass_score` (0.92) and signed a PASS receipt. Nothing was measured or regenerated.
+
+What it is now:
+  * metrics are MEASURED only when the caller passes real per-keyframe measurements (dicts: brightness, contrast,
+    laplacian_sharpness, non_black_ratio, face_cosine_score, audio_rms_db, artifacts_detected, + `source`); otherwise
+    every keyframe is marked `source="synthetic"` and the receipt status is NOT_MEASURED — never PASS;
+  * the score is never raised: a receipt carries exactly the aggregate of what was measured;
+  * the critic regenerates nothing, so a correction is only RECOMMENDED (`applied: False`) and a flawed input is REJECTED.
 """
 from __future__ import annotations
 
@@ -32,12 +33,13 @@ class KeyframeMetrics:
     face_cosine_score: float
     audio_rms_db: float
     artifacts_detected: list[str] = field(default_factory=list)
+    source: str = "synthetic"           # "synthetic" = not measured; anything else names the real measurement
 
 
 @dataclass
 class ArtQCReceipt:
     receipt_id: str
-    status: str                         # "PASS" or "REJECTED"
+    status: str                         # "PASS" | "REJECTED" | "NOT_MEASURED" (synthetic input never passes)
     score: float                        # 0.0 - 1.0 (target >= 0.90)
     project_id: str
     timestamp_utc: str
@@ -56,7 +58,7 @@ class VLMArtCritic:
 
     def __init__(self, pass_threshold: float = 0.80, target_pass_score: float = 0.92):
         self.pass_threshold = pass_threshold
-        self.target_pass_score = target_pass_score
+        self.target_pass_score = target_pass_score      # a goal for the generator, NEVER a floor for the score
         self.max_retries = 2
 
     def compute_deterministic_metrics(
@@ -65,7 +67,19 @@ class VLMArtCritic:
         position_pct: int = 50,
         synthetic_defect: bool = False,
     ) -> KeyframeMetrics:
-        """Calculates deterministic metrics for a single frame."""
+        """Metrics of one keyframe: MEASURED when `frame_data` is a dict of real measurements, else synthetic constants."""
+        if isinstance(frame_data, dict) and frame_data.get("source") not in (None, "", "synthetic"):
+            return KeyframeMetrics(
+                position_pct=int(frame_data.get("position_pct", position_pct)),
+                brightness=float(frame_data["brightness"]),
+                contrast=float(frame_data["contrast"]),
+                laplacian_sharpness=float(frame_data["laplacian_sharpness"]),
+                non_black_ratio=float(frame_data["non_black_ratio"]),
+                face_cosine_score=float(frame_data["face_cosine_score"]),
+                audio_rms_db=float(frame_data.get("audio_rms_db", 0.0)),
+                artifacts_detected=[str(a) for a in frame_data.get("artifacts_detected") or []],
+                source=str(frame_data["source"]),
+            )
         if synthetic_defect:
             return KeyframeMetrics(
                 position_pct=position_pct,
@@ -95,8 +109,12 @@ class VLMArtCritic:
         media_input: Any,
         synthetic_defect_on_first_try: bool = False,
     ) -> list[KeyframeMetrics]:
-        """Extracts 5 keyframes: 0%, 25%, 50%, 75%, 100%."""
+        """5 keyframes (0/25/50/75/100%): the caller's real measurements when `media_input` is a list of 5 measurement
+        dicts, otherwise synthetic placeholders (marked `source="synthetic"`, which can never PASS)."""
         positions = [0, 25, 50, 75, 100]
+        if isinstance(media_input, list) and len(media_input) == len(positions) and all(
+                isinstance(m, dict) for m in media_input):
+            return [self.compute_deterministic_metrics(m, position_pct=p) for m, p in zip(media_input, positions)]
         keyframes = []
         for p in positions:
             # If defect simulated, trigger on 50% frame
@@ -144,47 +162,39 @@ class VLMArtCritic:
         controlnet_weight: float = 0.85,
         simulate_initial_flaw: bool = False,
     ) -> ArtQCReceipt:
-        """Runs the inspection gate with auto-correction (up to 2 retries) and generates ArtQCReceipt."""
-        current_seed = seed
-        current_prompt = prompt
-        current_cn_weight = controlnet_weight
+        """Score what was measured and issue a receipt. Nothing is regenerated here: a flaw yields REJECTED plus a
+        RECOMMENDED correction; synthetic (unmeasured) keyframes yield NOT_MEASURED. The score is never raised."""
+        if simulate_initial_flaw and not isinstance(media_input, list):
+            keyframes = self.extract_keyframes(media_input, synthetic_defect_on_first_try=True)
+        else:
+            keyframes = self.extract_keyframes(media_input)
+        score = self.calculate_aggregate_score(keyframes)
+        measured = bool(keyframes) and all(k.source != "synthetic" for k in keyframes)
         retries = 0
-        corrections_applied = []
-
-        # Try loop
-        has_defect = simulate_initial_flaw
-        while True:
-            keyframes = self.extract_keyframes(media_input, synthetic_defect_on_first_try=has_defect)
-            score = self.calculate_aggregate_score(keyframes)
-
-            if score >= self.pass_threshold or retries >= self.max_retries:
-                # If we were in defect mode, after retry we produce the perfected result
-                if retries > 0 and score < self.pass_threshold:
-                    keyframes = self.extract_keyframes(media_input, synthetic_defect_on_first_try=False)
-                    score = self.calculate_aggregate_score(keyframes)
-                break
-
-            # Defect detected: apply auto-correction without sending flawed artifact to user
-            retries += 1
-            has_defect = False  # Clear defect on retry
-            correction = {
-                "retry": retries,
+        corrections_applied: list[dict[str, Any]] = []
+        if score < self.pass_threshold:
+            corrections_applied.append({
+                "retry": 1,
+                "applied": False,           # recommendation only: the critic does not regenerate
                 "reason": "score_below_threshold",
-                "old_seed": current_seed,
-                "new_seed": current_seed + 1001 * retries,
-                "old_cn_weight": current_cn_weight,
-                "new_cn_weight": round(min(1.0, current_cn_weight + 0.07), 2),
+                "old_seed": seed,
+                "new_seed": seed + 1001,
+                "old_cn_weight": controlnet_weight,
+                "new_cn_weight": round(min(1.0, controlnet_weight + 0.07), 2),
                 "prompt_adjustment": "added: (masterpiece, photorealistic:1.3), negative: (deformed hands, missing digits:1.4)",
-            }
-            current_seed = correction["new_seed"]
-            current_cn_weight = correction["new_cn_weight"]
-            corrections_applied.append(correction)
+            })
 
-        # Final verification
-        final_score = max(score, self.target_pass_score)
+        final_score = score                 # audit 31.10: never max(score, target) — that certified anything
         all_nb = all(k.non_black_ratio >= 0.90 for k in keyframes)
         all_fc = all(k.face_cosine_score >= 0.78 for k in keyframes)
         all_clean = all(len(k.artifacts_detected) == 0 for k in keyframes)
+        all_sharp = all(k.laplacian_sharpness >= 10.0 for k in keyframes)
+        if not measured:
+            status = "NOT_MEASURED"
+        elif final_score >= self.pass_threshold and all_nb and all_fc and all_clean and all_sharp:
+            status = "PASS"
+        else:
+            status = "REJECTED"
 
         timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         # An identifier, not a security digest (the receipt signature below is sha256);
@@ -196,20 +206,21 @@ class VLMArtCritic:
             "project_id": project_id,
             "timestamp": timestamp,
             "score": final_score,
+            "status": status,
             "retries": retries,
         }
         sig = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
         return ArtQCReceipt(
             receipt_id=receipt_id,
-            status="PASS" if final_score >= self.pass_threshold else "REJECTED",
+            status=status,
             score=final_score,
             project_id=project_id,
             timestamp_utc=timestamp,
             retries_used=retries,
             non_black_pass=all_nb,
             face_cosine_pass=all_fc,
-            sharpness_pass=True,
+            sharpness_pass=all_sharp,
             artifacts_clean_pass=all_clean,
             keyframes_evaluated=[asdict(k) for k in keyframes],
             corrections_applied=corrections_applied,

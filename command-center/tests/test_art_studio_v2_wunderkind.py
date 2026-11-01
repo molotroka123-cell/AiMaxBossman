@@ -321,27 +321,42 @@ def test_vlm_art_critic_deterministic_metrics_and_checklist():
     assert score >= 0.90
 
 
-def test_vlm_art_critic_auto_correction_loop_and_signed_receipt():
+def _measured(**over):
+    base = {"source": "ffmpeg+arcface:test", "brightness": 0.58, "contrast": 0.82, "laplacian_sharpness": 12.4,
+            "non_black_ratio": 0.985, "face_cosine_score": 0.845, "audio_rms_db": -14.2, "artifacts_detected": []}
+    return [{**base, **over} for _ in range(5)]
+
+
+def test_vlm_art_critic_synthetic_input_is_never_certified():
+    """Audit 31.10 P0: the critic used to sign PASS (score >= 0.92) for input it never looked at."""
     critic = VLMArtCritic()
+    for kwargs in ({}, {"simulate_initial_flaw": True}, {"media_input": "C:/some/video.mp4"}):
+        receipt = critic.inspect_and_certify(project_id="proj_synth", prompt="x", seed=100, **kwargs)
+        assert receipt.status == "NOT_MEASURED", kwargs
+        assert all(k["source"] == "synthetic" for k in receipt.keyframes_evaluated)
 
-    # Pass 1: simulate initial defect on 50% keyframe
+
+def test_vlm_art_critic_flawed_measurement_is_rejected_and_score_is_never_raised():
+    critic = VLMArtCritic()
     receipt = critic.inspect_and_certify(
-        project_id="proj_art_auto_correct",
-        prompt="velvet diva high fashion",
-        seed=100,
-        controlnet_weight=0.85,
-        simulate_initial_flaw=True,
-    )
-
-    assert receipt.status == "PASS"
-    assert receipt.score >= 0.90
-    assert receipt.retries_used == 1  # Successfully repaired on retry!
-    assert len(receipt.corrections_applied) == 1
-    assert receipt.corrections_applied[0]["old_seed"] == 100
+        project_id="proj_art_flaw", prompt="velvet diva", seed=100, controlnet_weight=0.85,
+        media_input=_measured(non_black_ratio=0.82, face_cosine_score=0.68, artifacts_detected=["extra_fingers"]))
+    assert receipt.status == "REJECTED"
+    assert receipt.score <= 0.72 < critic.target_pass_score          # the old max(score, 0.92) is gone
+    assert receipt.retries_used == 0
+    assert receipt.corrections_applied[0]["applied"] is False      # only a recommendation: nothing regenerated
     assert receipt.corrections_applied[0]["new_seed"] == 1101
-    assert receipt.non_black_pass is True
-    assert receipt.face_cosine_pass is True
-    assert receipt.artifacts_clean_pass is True
+    assert receipt.non_black_pass is False and receipt.face_cosine_pass is False
+    blurry = critic.inspect_and_certify(project_id="proj_blur", media_input=_measured(laplacian_sharpness=6.0))
+    assert blurry.status == "REJECTED" and blurry.sharpness_pass is False
+
+
+def test_vlm_art_critic_real_measurements_pass_with_a_signed_receipt():
+    critic = VLMArtCritic()
+    receipt = critic.inspect_and_certify(project_id="proj_ok", media_input=_measured())
+    assert receipt.status == "PASS" and receipt.score >= 0.90
+    assert receipt.non_black_pass and receipt.face_cosine_pass and receipt.artifacts_clean_pass and receipt.sharpness_pass
+    assert all(k["source"] == "ffmpeg+arcface:test" for k in receipt.keyframes_evaluated)
     assert len(receipt.signature) == 64  # SHA-256 signature
 
 
