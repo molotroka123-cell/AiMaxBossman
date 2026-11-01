@@ -19,6 +19,7 @@ import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 
 from . import run_provenance
+from .paid_money import ceil_micro as _ceil_micro
 from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, models as models_t,
                  providers as providers_t, run_events as run_events_t,
@@ -1164,7 +1165,7 @@ class TaskEngine:
                     run_id, task, agent, messages, result.tool_calls, step,
                     policy_rules, tool_specs,
                     usage={"tokens_in": tokens_in, "tokens_out": tokens_out,
-                           "cost_usd": round(cost, 6), "model_alias": alias})
+                           "cost_usd": _run_usd(cost), "model_alias": alias})
                 if waiting:
                     return                  # ждём человека: состояние в БД
                 breach = await _budget.check_identical_calls(self.services, limits, run_id)
@@ -1174,7 +1175,7 @@ class TaskEngine:
                     return
                 await self._save_checkpoint(run_id, messages, step, note="tools",
                                             tokens_in=tokens_in, tokens_out=tokens_out,
-                                            cost_usd=round(cost, 6), model_alias=alias)
+                                            cost_usd=_run_usd(cost), model_alias=alias)
                 cp_id = await self._insert_checkpoint(run_id, messages, step, note="tools")
                 try:
                     await self._call_hooks("on_step", task, run_id,
@@ -1195,7 +1196,7 @@ class TaskEngine:
                 return
             await self._save_checkpoint(run_id, messages, step, note="answer",
                                         tokens_in=tokens_in, tokens_out=tokens_out,
-                                        cost_usd=round(cost, 6), model_alias=alias)
+                                        cost_usd=_run_usd(cost), model_alias=alias)
             # 1.2: the model's final (non-tool) answer of this step, after it is
             # durable in the checkpoint. It is NOT "task completed": the gates
             # and finalize below still decide that (task.completed / failed).
@@ -1321,7 +1322,7 @@ class TaskEngine:
                     # task=failed was paired with run=queued forever.
                     await self._finish(run_id, task["id"], target_status, error=feedback,
                                        result=answer, tokens_in=tokens_in, tokens_out=tokens_out,
-                                       cost_usd=round(cost, 6), model_alias=alias)
+                                       cost_usd=_run_usd(cost), model_alias=alias)
                 elif target_status == "paused":
                     # A human challenge on the page: the owner acts, then Resume
                     # continues THIS run from its checkpoint with the gate's
@@ -1348,7 +1349,7 @@ class TaskEngine:
         from .finalize import finalize_task
         decision = await finalize_task(self, run_id, task["id"], answer=answer, verdicts=verdicts,
                                        usage={"tokens_in": tokens_in, "tokens_out": tokens_out,
-                                              "cost_usd": round(cost, 6), "model_alias": alias})
+                                              "cost_usd": _run_usd(cost), "model_alias": alias})
         if not decision.ok:
             await self._log(run_id, "warn", "run.finalize_refused", decision.reason[:500])
             if decision.checks.get("failure_status") == "paused":
@@ -1370,7 +1371,7 @@ class TaskEngine:
                 )
                 await self._finish(run_id, task["id"], "failed", error=decision.reason,
                                    result=fallback_answer, tokens_in=tokens_in, tokens_out=tokens_out,
-                                   cost_usd=round(cost, 6), model_alias=alias)
+                                   cost_usd=_run_usd(cost), model_alias=alias)
                 return
             await self._escalate_gate_failure(run_id, task, messages, step,
                                               CriticalHookFailure("finalize", "bcc.finalize.finalize_task", decision.reason))
@@ -2843,12 +2844,12 @@ class TaskEngine:
         await self.bus.emit("run.budget_exceeded", task_id=task["id"], run_id=run_id,
                             code=breach.code, detail=breach.detail[:300],
                             tokens_in=tokens_in, tokens_out=tokens_out,
-                            cost_usd=round(cost, 6), step=step)
+                            cost_usd=_run_usd(cost), step=step)
         await self._finish(run_id, task["id"], "failed", error=str(breach),
                            checkpoint={"messages": messages, "step": step,
                                        "note": f"budget:{breach.code}"},
                            tokens_in=tokens_in, tokens_out=tokens_out,
-                           cost_usd=round(cost, 6), model_alias=alias)
+                           cost_usd=_run_usd(cost), model_alias=alias)
 
     async def _fail_now(self, run_id: int, task_id: int, error: str) -> None:
         """Провал без ретраев (нет агента/модели, попытки исчерпаны) — с записью в лог run'а."""
@@ -2983,7 +2984,7 @@ class TaskEngine:
             "run.usage", **base,
             usage_reported=bool(result.tokens_in or result.tokens_out),
             step_tokens_in=int(result.tokens_in or 0), step_tokens_out=int(result.tokens_out or 0),
-            tokens_in=int(tokens_in), tokens_out=int(tokens_out), cost_usd=round(float(cost), 6),
+            tokens_in=int(tokens_in), tokens_out=int(tokens_out), cost_usd=_run_usd(cost),
             pricing_known=bool(model.get("pricing_known")),
             context_window=int(context_window) if isinstance(context_window, int) and context_window > 0 else None,
             max_tokens_total=int(getattr(limits, "max_tokens", 0) or 0) or None,
@@ -3147,6 +3148,15 @@ def _fallback_failure(label: str, exc: ProviderError, fb_label: str,
     err.failed_models = list(attempts)          # type: ignore[attr-defined]
     err.classify_text = str(exc) if primary_kind in POLICY_KINDS else str(fb_exc)  # type: ignore[attr-defined]
     return err
+
+
+def _run_usd(cost: float) -> float:
+    """Run cost as stored/emitted: a positive amount is rounded UP to the micro-dollar (01.11).
+
+    round(cost, 6) stored a run of a few sub-micro paid calls as 0, so spend_meter, delegation releases and the
+    session totals that read runs.cost_usd counted it as free. This is Bossman's local bookkeeping, not the
+    provider's bill."""
+    return _ceil_micro(max(0.0, float(cost or 0.0)))
 
 
 def _cost(model: dict, result: ChatResult) -> float:

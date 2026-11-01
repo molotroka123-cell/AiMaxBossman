@@ -23,6 +23,7 @@ from . import approver_policy, schemas
 from .approver_policy import ApproverPolicy
 from .journal import Journal, atomic_write_bytes, canonical, file_lock, sha256_bytes, utc_now
 from .policy import CANONICAL_TARGET_BRANCH, scope_violations
+from ..paid_money import ceil_micro
 from .types import GOAL_STATES, Goal, Review
 
 TERMINAL = frozenset({"COMPLETE"})
@@ -523,7 +524,7 @@ class GoalStore:
             if not math.isfinite(prev_cost) or prev_cost < 0.0:
                 u["cost_usd"] = float("inf")
             else:
-                u["cost_usd"] = round(prev_cost + cost_val, 6)
+                u["cost_usd"] = ceil_micro(prev_cost + cost_val)   # 01.11: sub-micro charges are not dropped
             reason = self.budget_exceeded(rec)
             if reason and rec["state"] not in TERMINAL and rec["state"] != "BLOCKED":
                 self._move(rec, "BLOCKED", {"reason": f"budget exhausted: {reason}"})

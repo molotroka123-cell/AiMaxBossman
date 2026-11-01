@@ -46,6 +46,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
 from .. import conversation_context
+from ..paid_money import ceil_micro, ceil_micro_or_none, floor_micro, paid_quote
 from ..db import task_runs as runs_t
 from ..single_flight import await_shared
 from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
@@ -240,6 +241,10 @@ def _ledger_lock(svc: Any):
         yield
 
 
+#: The one rounding rule for paid money (bcc.paid_money): positive -> UP to the micro-dollar, never 0.
+ceil_micro_usd = ceil_micro
+
+
 def _money(value: Any, *, what: str) -> float:
     if isinstance(value, bool) or value is None:
         raise ValueError(f"missing {what}")
@@ -343,8 +348,8 @@ def _ledger(rows: list[dict], *, now: float | None = None) -> dict[str, Any]:
             continue
         if str(r.get("ts", ""))[:10] == today:
             spent += float(r.get("cost_usd") or 0.0)
-    return {"today": today, "spent_usd": round(spent, 6), "unknown": unknown, "open": open_rows,
-            "reserved_usd": round(sum(float(r["quoted_cost_usd"]) for r in open_rows), 6)}
+    return {"today": today, "spent_usd": ceil_micro(spent), "unknown": unknown, "open": open_rows,
+            "reserved_usd": ceil_micro(sum(float(r["quoted_cost_usd"]) for r in open_rows))}
 
 
 def unresolved_unknown_spend(data_dir: Path) -> list[dict]:
@@ -383,7 +388,7 @@ def reconcile_unknown_spend_by_owner(data_dir: Path, *, target_record_sha256: st
         if target is None:
             raise LookupError("no unresolved billing_unknown row with this SHA-256")
         record = {"ts": _stamp(), "status": "billing_reconciled",
-                  "reconciles_sha256": target_record_sha256, "cost_usd": round(float(actual_cost_usd), 6),
+                  "reconciles_sha256": target_record_sha256, "cost_usd": ceil_micro(float(actual_cost_usd)),
                   "quoted_cost_usd": target.get("quoted_cost_usd"),
                   "decided_by": "owner", "evidence_note": note[:500], "model": target.get("model"),
                   "provider": target.get("provider")}
@@ -444,11 +449,11 @@ async def budget_state(svc: Any, task_id: int | None) -> dict:
     session = await _session_budget(svc, task_id)
     if session:
         held = sum(float(r["quoted_cost_usd"]) for r in led["open"] if r.get("session_id") == session["session_id"])
-        return {"scope": "session", **session, "reserved_usd": round(held, 6),
-                "remaining_usd": round(max(0.0, session["remaining_usd"] - held), 6)}
+        return {"scope": "session", **session, "reserved_usd": ceil_micro(held),
+                "remaining_usd": max(0.0, floor_micro(session["remaining_usd"] - held))}
     return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD, "spent_usd": led["spent_usd"],
             "reserved_usd": led["reserved_usd"],
-            "remaining_usd": round(max(0.0, DEFAULT_SESSION_BUDGET_USD - led["spent_usd"] - led["reserved_usd"]), 6)}
+            "remaining_usd": max(0.0, floor_micro(DEFAULT_SESSION_BUDGET_USD - led["spent_usd"] - led["reserved_usd"]))}
 
 
 def reserve_paid_call_sync(data_dir: Path, *, quoted_usd: float, budget_usd: float, scope: str,
@@ -460,11 +465,13 @@ def reserve_paid_call_sync(data_dir: Path, *, quoted_usd: float, budget_usd: flo
     cannot both spend the last of the budget. The session budget (`session_remaining_usd`) comes from the in-memory session
     runtime of THIS process; its in-flight quotes are held through the same ledger rows.
     Fails closed: unknown spend, an unreadable/corrupt ledger or a busy lock -> no reservation, no paid call.
+    This is Bossman's LOCAL reservation against the owner's cap: it decides whether Bossman sends the call. It does not
+    limit what the provider bills; the provider's usage page is the record of the actual charge.
     """
     try:
-        quoted = _money(quoted_usd, what="quote")
+        quoted = paid_quote(quoted_usd)           # positive, rounded UP to the micro-dollar; 0/None/NaN/str refused
     except (TypeError, ValueError):
-        return None, "CLOUD_ASK_NO_BUDGET: у платного вызова нет цены - без цены не отправляем"
+        return None, "CLOUD_ASK_NO_BUDGET: у платного вызова нет положительной цены - без цены не отправляем"
     svc = _svc_for(data_dir)
     try:
         with _ledger_lock(svc):
@@ -478,11 +485,11 @@ def reserve_paid_call_sync(data_dir: Path, *, quoted_usd: float, budget_usd: flo
             else:
                 scope, session_id = "day", None
                 remaining = float(budget_usd) - led["spent_usd"] - led["reserved_usd"]
-            remaining = round(remaining, 6)
+            remaining = floor_micro(remaining)       # rounding never makes room that is not there
             if remaining <= 0 or quoted > remaining:
                 return None, f"CLOUD_ASK_NO_BUDGET: оценка {quoted} USD при остатке бюджета {max(0.0, remaining)} USD"
             row = {**(meta or {}), "ts": _stamp(), "status": "reserved", "reservation_id": uuid.uuid4().hex,
-                   "quoted_cost_usd": round(quoted, 6), "cost_usd": None, "scope": scope, "session_id": session_id,
+                   "quoted_cost_usd": quoted, "cost_usd": None, "scope": scope, "session_id": session_id,
                    "pid": os.getpid()}
             _append_audit_locked(svc, row)
             return row, None
@@ -553,7 +560,7 @@ def _governance_refusal(cand: dict) -> str:
 def estimate_cost(cand: dict, tokens_in: int, tokens_out: int = MAX_ANSWER_TOKENS) -> float | None:
     if cand["price_in_1m"] is None or cand["price_out_1m"] is None:
         return None
-    return round((tokens_in * cand["price_in_1m"] + tokens_out * cand["price_out_1m"]) / 1e6, 6)
+    return ceil_micro((tokens_in * cand["price_in_1m"] + tokens_out * cand["price_out_1m"]) / 1e6)
 
 
 def _match(cands: list[dict], wanted: str) -> dict | None:
@@ -575,6 +582,9 @@ def choose(cands: list[dict], *, requested: str | None, tokens_in: int, remainin
         cost = estimate_cost(c, tokens_in)
         if cost is None:
             return "CLOUD_ASK_NO_MODEL", "цена модели неизвестна"          # как governance: без цены не отправляем
+        if c["paid"] and cost <= 0:
+            # A paid call never reserves 0 (01.11): a 0/0 price on a paid worker is not proof it is free.
+            return "CLOUD_ASK_NO_MODEL", "у платной модели нулевая цена - цена не подтверждена, без цены не отправляем"
         refusal = _governance_refusal(c)
         if refusal:
             return "CLOUD_ASK_NO_MODEL", refusal
@@ -706,7 +716,7 @@ def _actual_cost(route: dict, result: Any) -> float | None:
     from .. import long_run
     priced = {"price_in": route.get("price_in_1m"), "price_out": route.get("price_out_1m")}
     spent = long_run.actual_eur(priced, result)
-    return round(spent, 6) if spent is not None and math.isfinite(spent) and spent >= 0 else None
+    return ceil_micro_or_none(spent)            # tiny known charge -> at least one micro-dollar; unknown stays None
 
 
 # ------------------------------------------------------------------------------------------------------- обработчик
@@ -757,7 +767,8 @@ async def _t_ask(args: dict, ctx: ToolContext) -> ToolResult:
     started = time.monotonic()
     base = {"model": bound["model"], "provider": bound["provider"], "worker": bound["worker"], "chars_out": len(text),
             "approval_id": ctx.approval_id, "task_id": task_id, "run_id": ctx.run_id,
-            "scope": reservation["scope"] if reservation else "day", "quoted_cost_usd": quoted,
+            "scope": reservation["scope"] if reservation else "day",
+            "quoted_cost_usd": reservation["quoted_cost_usd"] if reservation else quoted,
             "reservation_id": reservation["reservation_id"] if reservation else None}
     try:
         result = await asyncio.wait_for(call(svc, bound, messages, max_tokens=MAX_ANSWER_TOKENS, timeout=CALL_TIMEOUT_S),
@@ -781,7 +792,7 @@ async def _t_ask(args: dict, ctx: ToolContext) -> ToolResult:
         if cost and reservation and reservation["scope"] == "session" and session:
             rt = _orch(svc).runtime(session["session_id"])
             # max(): the session total is max(run costs, runtime); adding to the snapshot keeps every parallel call counted
-            rt.spent_usd = round(max(float(rt.spent_usd or 0.0), session["spent_usd"]) + cost, 6)   # учёт роутера
+            rt.spent_usd = ceil_micro(max(float(rt.spent_usd or 0.0), session["spent_usd"]) + cost)   # учёт роутера
             rt.emit("session.updated", spent_usd=rt.spent_usd, cloud_ask_cost_usd=cost)
         await audit(svc, **base, chars_in=len(answer), cost_usd=cost,
                     status="billing_unknown" if cost is None else ("ok" if answer else "empty"),

@@ -1,0 +1,76 @@
+{
+  "receipt": "paid-reservation-never-rounds-to-zero",
+  "date": "2026-11-01",
+  "owner_item": "master prompt 01.11 item 2 «ЗАКРОЙ РАСХОДЫ»",
+  "branch": "fix/paid-reservation-complete-20261101",
+  "base_sha": "c0f6d2e4",
+  "codex_candidate": {"sha": "e24c14f23c09266af02df2f9c944791bc81ff8f4", "cherry_picked_as": "4491dcf0",
+                      "authorship_kept": true},
+  "scope_note": "A reservation is Bossman's LOCAL ledger entry against the owner's cap; it decides whether Bossman sends the call. It is NOT a limit on the provider's bill.",
+  "data": "synthetic only; no real paid provider call; owner :8801 not touched; no owner chats/keys read",
+  "reproduction_on_base": {
+    "twenty_reservations_of_1e-7_vs_budget_1e-6": {"won": 20, "expected": 1},
+    "estimate_cost_price_0.01_per_1M_1_plus_1_tokens": 0.0,
+    "reserve_quoted_usd_0": "accepted, quoted_cost_usd=0.0",
+    "new_test_file_on_base": {"file": "command-center/tests/test_paid_reservation_complete_20261101.py", "failed": 19, "passed": 10},
+    "same_file_after_codex_cherry_pick_only": {"failed": 12, "passed": 17}
+  },
+  "rule": {
+    "module": "command-center/bcc/paid_money.py",
+    "positive_amount": "ceil to 1e-6 (float noise trimmed at 1e-12)",
+    "paid_reservation_of_zero": "refused",
+    "remaining_of_cap": "floor to 1e-6",
+    "unknown_price_or_final_cost": "None/null, fails closed"
+  },
+  "paths": [
+    {"path": "bcc/features/tools_cloud.py (cloud.ask)", "before": "VULNERABLE", "after": "FIXED"},
+    {"path": "bcc/long_run.py LongRunLedger (GovernedAdapter paid families)", "before": "VULNERABLE (12/12 tiny calls passed 5e-6 cap)", "after": "FIXED (5/12)"},
+    {"path": "bcc/engine.py runs.cost_usd (9 sites)", "before": "VULNERABLE (tiny paid run stored as 0)", "after": "FIXED"},
+    {"path": "bcc/features/spend_meter.py", "before": "VULNERABLE", "after": "FIXED (spend ceil, caps floor)"},
+    {"path": "bcc/studio/governance.py reserve", "before": "VULNERABLE (paid model, owner price 0, free_only off -> reserve 0)", "after": "FIXED"},
+    {"path": "bcc/studio/dispatch.py note_cost", "before": "VULNERABLE (round(sum,6))", "after": "FIXED"},
+    {"path": "bcc/autonomy/budget.py, bcc/autonomy/goals.py", "before": "VULNERABLE in code, no USD caller today", "after": "FIXED"},
+    {"path": "bossman_shared/fable_budget.py + bcc/fable_cap.py _book_overflow", "before": "fail-closed on tiny estimate; tiny actual/overflow dropped", "after": "FIXED"},
+    {"path": "bcc/features/tools_agents.py delegation reserve", "before": "reserve SAFE; release read engine-rounded cost", "after": "FIXED via engine"},
+    {"path": "bcc/economy_orchestrator.py, bcc/security/spend_firewall.py, bcc/provider_governance.py, bcc/mission_budget.py, bcc/autonomy/planner.py, bcc/v2/governor.py, bcc/self_improve/loop.py, bcc/features/economy_swarm.py", "before": "SAFE", "after": "unchanged"},
+    {"path": "bcc/pit/cloud_budget.py, bcc/pit/jeff_kb_cloud.py, bcc/pit/runtime.py, bcc/jev/client.py, bcc/security/ai_gateway.py", "before": "NOT_A_PAID_PATH", "after": "unchanged"}
+  ],
+  "test_runs": {
+    "final_code": {
+      "test_tools_cloud_ask.py": 8,
+      "test_agent_extras_cloud_ask.py": 37,
+      "test_p0_billing_unknown_20261031.py": 18,
+      "test_paid_quote_rounding.py": 2,
+      "test_paid_reservation_complete_20261101.py": 29,
+      "test_paid_rounding_all_paths_20261101.py": 24,
+      "test_long_run_profile.py": 15,
+      "test_fable_hard_cap.py": 14,
+      "test_spend_meter.py": 9,
+      "test_spend_meter_studio_source.py": 1,
+      "test_studio_zero_price_is_not_free.py": 10,
+      "test_studio_paid_dispatch_audit.py": 10,
+      "test_mission_budget.py": 17,
+      "test_autonomy_goals.py": 34,
+      "all_failed": 0
+    },
+    "broad_sweep_72_files_touching_cost_fields_xdist_n8": {"passed": 1184, "skipped": 1, "failed": 0},
+    "after_last_edit_long_run_message_precision": {"files": ["test_long_run_profile.py", "test_b05_cloud_hardening.py", "test_jeff_manual_cloud_fallback.py", "test_paid_rounding_all_paths_20261101.py", "test_paid_reservation_complete_20261101.py"], "passed": 125, "failed": 0},
+    "repo_root_fable_budget": {"files": ["tests/test_fable_budget_pricing.py", "bossman-core/tests/test_fable_budget_hard.py"], "passed": 20, "failed": 0},
+    "negative_control": {
+      "how": "product files reverted to c0f6d2e4 (paid_money.py kept so the tests import); the three new/candidate test files run",
+      "failed": 35, "passed": 20,
+      "passing_under_control_are": "positive controls, unknown-price refusals that already worked, paid_money unit tests"
+    }
+  },
+  "not_proven": [
+    "real provider bill: NOT_RUN (no paid call); the reservation does not limit or guarantee what a provider charges",
+    "live owner-PC path (pult/chat -> cloud.ask -> ledger) on this SHA: NOT_RUN",
+    "CI on the branch SHA: NOT_RUN at time of writing",
+    "coding_tasks paid OpenRouter workers have no USD reservation (outside the rounding class, not fixed)",
+    "agent_opencode paid tiers blocked only at remaining <= 0, estimate not compared (not fixed)",
+    "engine._cost treats an unknown price as 0 (cloud models guarded by GovernedAdapter; not changed)",
+    "provider-reported usage.cost == 0 on a paid call is accepted as known 0 (long_run.actual_eur, cloud.ask)",
+    "spend_meter before_run and autonomy budget checks are not under a lock (advisory / no USD caller)",
+    "long_run per-day files: a reservation before midnight committed after midnight keeps its worst case on the old day (code-read, no dedicated test)"
+  ]
+}

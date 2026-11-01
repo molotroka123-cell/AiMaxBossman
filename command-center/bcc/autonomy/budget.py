@@ -11,12 +11,14 @@ no per-token money, so the USD cap only matters for a paid route, which stays of
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from ..paid_money import ceil_micro
 from .journal import atomic_write_bytes, file_lock
 
 DEFAULT_LIMITS = {"cycles_per_day": 3, "turns_per_day": 30, "usd_per_day": 0.0}
@@ -79,7 +81,10 @@ class DailyBudget:
             u = self.usage()
             u.cycles += int(cycles)
             u.turns += int(turns)
-            u.usd = round(u.usd + float(usd), 6)
+            total = float(u.usd) + float(usd)
+            # 01.11: round(x, 6) dropped every sub-micro charge; a positive total is rounded UP to the micro-dollar,
+            # a non-finite one fails closed (cap reached), never silently 0.
+            u.usd = (ceil_micro(total) if total > 0 else 0.0) if math.isfinite(total) else float("inf")
             atomic_write_bytes(self.usage_path, json.dumps(asdict(u), sort_keys=True).encode("utf-8"))
             return u
 

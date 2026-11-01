@@ -29,7 +29,11 @@ to be reopened with a larger one: `total_usd` in a stored ledger can only ever
 be lowered, never raised. So no setting, endpoint, environment variable, retry,
 second process or restart can widen it.
 
-Two things honestly fall outside that claim, and neither is a defence this
+This is Bossman's LOCAL reservation ledger: it bounds what Bossman itself sends.
+It is not a limit the provider enforces on its bill; the provider's own usage
+page is the record of the actual charge.
+
+Two more things honestly fall outside that claim, and neither is a defence this
 module pretends to mount. Editing this file raises the cap — but whoever can
 edit it can delete the cap outright. And the ledger lives under the user's home
 directory, so a process started with a different HOME gets a fresh ledger and a
@@ -39,12 +43,36 @@ from __future__ import annotations
 
 import contextlib
 import json
+import math
 import os
 import threading
 import time
 import uuid
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_EVEN, Decimal
 from pathlib import Path
 from typing import Any, Iterator
+
+_MICRO = Decimal("0.000001")
+_NOISE = Decimal("0.000000000001")
+
+
+def _ceil_micro(value: float) -> float:
+    """Positive amount -> rounded UP to the micro-dollar, at least 1e-6 (01.11: round(x, 6) turned a sub-micro
+    paid amount into 0). 0, negative and non-finite values pass through unchanged so the callers' own checks
+    (``amount <= 0`` refusal, ``actual > worst`` refusal) still see them. Same rule as ``bcc.paid_money``; kept
+    local because bossman_shared does not import bcc."""
+    if not math.isfinite(value) or value <= 0:
+        return value
+    trimmed = Decimal(repr(value)).quantize(_NOISE, rounding=ROUND_HALF_EVEN)
+    return float(max(trimmed.quantize(_MICRO, rounding=ROUND_CEILING), _MICRO))
+
+
+def _floor_micro(value: float) -> float:
+    """What is left of the cap -> rounded DOWN to the micro-dollar: rounding never creates headroom."""
+    if not math.isfinite(value):
+        return value
+    trimmed = Decimal(repr(value)).quantize(_NOISE, rounding=ROUND_HALF_EVEN)
+    return float(trimmed.quantize(_MICRO, rounding=ROUND_FLOOR))
 
 # USD per 1M tokens: (input, output, cache_read, cache_write). Unknown model => refuse.
 # TR-01: the table must contain every model the product can actually route to;
@@ -148,7 +176,7 @@ def estimate_worst_case_usd(model: str, prompt_chars: int, max_output_tokens: in
     else:
         tokens_in = prompt_chars / _CHARS_PER_TOKEN_UPPER_BOUND + _PER_MESSAGE_OVERHEAD_TOKENS * max(1, messages)
     worst = tokens_in / 1_000_000 * max(p_in, p_cache_write) + max(0, max_output_tokens) / 1_000_000 * p_out
-    return round(worst, 6)
+    return _ceil_micro(worst)
 
 
 def actual_usd(model: str, *, input_tokens: int, output_tokens: int,
@@ -162,10 +190,10 @@ def actual_usd(model: str, *, input_tokens: int, output_tokens: int,
     rates = PRICE_TABLE.get(model)
     if rates is None:
         raise BudgetExhausted(f"unknown model {model!r}: cannot price reported usage")
-    return round(max(0, input_tokens) / 1e6 * rates[0]
+    return _ceil_micro(max(0, input_tokens) / 1e6 * rates[0]
                  + max(0, output_tokens) / 1e6 * rates[1]
                  + max(0, cache_read_tokens) / 1e6 * rates[2]
-                 + max(0, cache_write_tokens) / 1e6 * rates[3], 6)
+                 + max(0, cache_write_tokens) / 1e6 * rates[3])
 
 
 class _CrossProcessFileLock:
@@ -226,7 +254,7 @@ class DirectApiBudget:
 
     def __init__(self, path: str | Path, *, total_usd: float, mission_id: str = "mission",
                  owner_id: str = "owner") -> None:
-        self.path, self.total = Path(path), round(float(total_usd), 6)
+        self.path, self.total = Path(path), _floor_micro(float(total_usd))
         self.mission_id, self.owner_id = mission_id, owner_id
         self._inproc = threading.Lock()
         self._records: list[dict] = []
@@ -259,7 +287,7 @@ class DirectApiBudget:
                     if stored is not None:
                         # ratchet: the cap only ever goes down
                         with contextlib.suppress(TypeError, ValueError):
-                            self.total = min(self.total, round(float(stored), 6))
+                            self.total = min(self.total, _floor_micro(float(stored)))
                     self._records = data["reservations"]
             except json.JSONDecodeError:
                 # corrupted ledger fails CLOSED: spend nothing new
@@ -297,12 +325,12 @@ class DirectApiBudget:
         return sum(float(r["worst_case_usd"]) for r in self._records if r["status"] in ("RESERVED", "RECONCILING"))
 
     def remaining(self) -> float:
-        return round(max(0.0, self.total - self._committed_total() - self._hold_total()), 6)
+        return max(0.0, _floor_micro(self.total - self._committed_total() - self._hold_total()))
 
     # ------------------------------------------------------------ operations
     def reserve(self, amount: float, *, purpose: str = "") -> str:
         with self._transaction():
-            amount = round(float(amount), 6)
+            amount = _ceil_micro(float(amount))
             if amount <= 0:
                 raise BudgetExhausted("reservation amount must be positive")
             if amount > self.remaining():
@@ -331,7 +359,7 @@ class DirectApiBudget:
                 raise BudgetExhausted(f"reservation {reservation_id} already committed; double commit refused")
             if rec["status"] not in ("RESERVED", "RECONCILING"):
                 raise BudgetExhausted(f"reservation {reservation_id} is {rec['status']}; cannot commit")
-            actual = round(float(actual_usd), 6)
+            actual = _ceil_micro(float(actual_usd))
             if actual > float(rec["worst_case_usd"]) + 1e-9:
                 raise BudgetExhausted(f"actual {actual:.2f} USD exceeds reserved {rec['worst_case_usd']:.2f} USD")
             rec["status"], rec["actual_usd"], rec["request_id"] = "COMMITTED", actual, str(request_id or rec.get("request_id", ""))[:120]
@@ -359,7 +387,7 @@ class DirectApiBudget:
             if actual_usd is None:
                 rec["status"], rec["actual_usd"] = "RELEASED", 0.0
             else:
-                actual = round(float(actual_usd), 6)
+                actual = _ceil_micro(float(actual_usd))
                 if actual > float(rec["worst_case_usd"]) + 1e-9:
                     raise BudgetExhausted(f"reconciled actual {actual:.2f} USD exceeds reserved {rec['worst_case_usd']:.2f} USD")
                 rec["status"], rec["actual_usd"] = "COMMITTED", actual
