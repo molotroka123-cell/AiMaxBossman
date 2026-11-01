@@ -1663,7 +1663,8 @@ class OrderBook:
             "measurement": measured,
             "thresholds": {"min_sharpness": QC_MIN_SHARPNESS, "max_flicker": QC_MAX_FLICKER,
                            "min_non_black": QC_MIN_NON_BLACK, "resolution": ">=1080 long side and >=720 short side",
-                           "duration_s": [0.5, 10.0], "moving": "distinct frames >= 2 and motion_mean > 0"},
+                           "duration_s": [0.5, 10.0],
+                           "moving": f"distinct frames >= 2 and motion_mean >= {measured['motion_min_threshold']}"},
             # informational second opinion bound to this file (bcc.art_v2.vlm_critic); not a gate here
             "art_critic": {"status": critic.status, "score": critic.score, "refusal": critic.refusal,
                            "non_black_pass": critic.non_black_pass, "sharpness_pass": critic.sharpness_pass,

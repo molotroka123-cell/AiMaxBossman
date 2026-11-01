@@ -36,6 +36,7 @@ FONT_CANDIDATES = ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/segoeui.ttf",
                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf")
 WATERMARK_BAND = 0.16          # bottom share of the frame where the caption is drawn
 WATERMARK_MIN_GAIN = 2.0       # band must change >= 2 luma levels more than the rest of the frame
+WATERMARK_EDGE = 0.02          # outer 2 % columns of the band must stay unchanged (the caption is not clipped)
 
 
 def _font() -> str | None:
@@ -45,8 +46,9 @@ def _font() -> str | None:
 def _drawtext(text: str, font: str | None) -> str:
     safe = text.replace("\\", "\\\\").replace("'", "").replace(":", "\\:")
     face = "fontfile='" + font.replace(":", "\\:") + "':" if font else ""
-    return (f"drawtext={face}text='{safe}':fontcolor=white@0.9:fontsize=h/26:box=1:boxcolor=black@0.45:"
-            f"boxborderw=8:x=(w-text_w)/2:y=h-text_h-h/30")
+    # min(h/26, w/24): at h/26 alone the caption overflowed a 288 px wide portrait frame (live run 01.11)
+    return (f"drawtext={face}text='{safe}':fontcolor=white@0.9:fontsize='min(h/26\\,w/24)':box=1:"
+            f"boxcolor=black@0.45:boxborderw=8:x=(w-text_w)/2:y=h-text_h-h/30")
 
 
 class DirectGenStudioEngine:
@@ -149,12 +151,18 @@ class DirectGenStudioEngine:
         cut = int(a.shape[0] * (1 - WATERMARK_BAND))
         band = float(abs(b[cut:] - a[cut:]).mean())
         rest = float(abs(b[:cut] - a[:cut]).mean())
+        # the caption must be WHOLE: the outer columns of the band stay as they were (a clipped caption touches them)
+        edge = max(2, int(a.shape[1] * WATERMARK_EDGE))
+        edges = float(max(abs(b[cut:, :edge] - a[cut:, :edge]).mean(), abs(b[cut:, -edge:] - a[cut:, -edge:]).mean()))
         rec = {"mark": DISCLOSURE, "method": "ffmpeg drawtext (libx264 crf 16)", "checked_frame_index": i,
                "band_mean_abs_diff": round(band, 3), "rest_mean_abs_diff": round(rest, 3),
-               "min_gain": WATERMARK_MIN_GAIN}
+               "band_edge_mean_abs_diff": round(edges, 3), "min_gain": WATERMARK_MIN_GAIN}
         if band < rest + WATERMARK_MIN_GAIN:
             out.unlink(missing_ok=True)
             return {"burned": False, "reason": "caption_not_visible_in_decoded_frame", **rec}
+        if edges > rest + WATERMARK_MIN_GAIN:
+            out.unlink(missing_ok=True)
+            return {"burned": False, "reason": "caption_clipped_at_frame_edge", **rec}
         return {"burned": True, **rec}
 
     def __call__(self, job: dict, result_dir: Path) -> dict:

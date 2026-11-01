@@ -1497,6 +1497,25 @@ def test_dg_engine_unfinished_or_failed_direct_gen_job_is_never_completed(book, 
 
 
 @needs_ffmpeg
+def test_dg_engine_clipped_caption_is_not_declared_as_a_watermark(tmp_path, monkeypatch, loop_thread):
+    """Live run 01.11: at 288 px width the h/26 caption ran off both edges and the band check still said "burned".
+    The fixed size fits; the old size is now refused as clipped (negative control) and nothing is declared."""
+    from bcc.direct_gen import studio_engine
+    src = tmp_path / "src.webm"
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=288x480:rate=16", "-frames:v",
+                    "9", "-c:v", "libvpx-vp9", "-b:v", "1M", str(src)], check=True, timeout=120)
+    engine = DirectGenStudioEngine(FakeDirectGen(tmp_path, JobStore(tmp_path / "d")), loop_thread)
+    ok = engine._burn_watermark(src, tmp_path / "ok.mp4")
+    assert ok["burned"] is True and ok["band_edge_mean_abs_diff"] <= ok["rest_mean_abs_diff"] + 2.0
+    real = studio_engine._drawtext
+    monkeypatch.setattr(studio_engine, "_drawtext",
+                        lambda text, font: real(text, font).replace("fontsize='min(h/26\\,w/24)'", "fontsize=h/26"))
+    clipped = engine._burn_watermark(src, tmp_path / "clipped.mp4")
+    assert clipped["burned"] is False and clipped["reason"] == "caption_clipped_at_frame_edge"
+    assert not (tmp_path / "clipped.mp4").exists()
+
+
+@needs_ffmpeg
 def test_dg_engine_still_image_video_fails_qc_as_not_moving(book, tmp_path, loop_thread):
     dg = FakeDirectGen(tmp_path, book.jobs, source="still")
     oid, jid = _dg_order(book, width=720, height=1280, duration_s=1.0)
