@@ -56,3 +56,15 @@ async def test_audit_all_skills_and_tools_and_teach_antigravity(tmp_path: Path) 
     assert t_res.data["all_verified"] is True
 
     await db.close()
+
+
+def test_run_without_receipt_path_never_writes_into_the_repo(tmp_path: Path) -> None:
+    """02.11.2026: the default receipt overwrote a tracked repo file and made /health UNHEALTHY (dirty checkout)."""
+    from bcc.features.antigravity_skills_audit import _repo_root, default_receipt_path
+
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path))
+    target = default_receipt_path(svc)
+    assert target == tmp_path / "audits" / "skills-tools" / "receipt.json"
+    assert _repo_root() not in target.parents
+    no_settings = default_receipt_path(object())
+    assert _repo_root() not in no_settings.parents

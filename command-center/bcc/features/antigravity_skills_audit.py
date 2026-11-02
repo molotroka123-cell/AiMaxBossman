@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
@@ -267,6 +268,19 @@ async def audit_all_registered_tools(svc: Any = None) -> dict[str, Any]:
     }
 
 
+def default_receipt_path(db_or_svc: Any) -> Path:
+    """Where a run WITHOUT an explicit receipt_path writes (02.11.2026 fix).
+
+    It used to overwrite the tracked docs/audits/2026-11-01-skills-tools-3h-audit/receipt.json in the repo, so any
+    call of this «read» tool (an agent, a smoke test) dirtied the checkout and /health went UNHEALTHY
+    (source_identity: «рабочее дерево не является чистым git-чекаутом»). Runtime receipts now live in the data dir;
+    a deliberate repo receipt passes receipt_path explicitly."""
+    settings = getattr(db_or_svc, "settings", None)
+    data_dir = getattr(settings, "data_dir", None)
+    base = Path(data_dir) if data_dir else Path(tempfile.gettempdir()) / "bossman-runtime"
+    return base / "audits" / "skills-tools" / "receipt.json"
+
+
 async def run_skills_and_tools_audit_session(
     db_or_svc: Any,
     *,
@@ -342,9 +356,7 @@ async def run_skills_and_tools_audit_session(
             }
         )
 
-    target_receipt = receipt_path or (
-        _repo_root() / "docs" / "audits" / "2026-11-01-skills-tools-3h-audit" / "receipt.json"
-    )
+    target_receipt = receipt_path or default_receipt_path(db_or_svc)
     target_receipt.parent.mkdir(parents=True, exist_ok=True)
     expected_post = ExpectedState(
         kind="file",
