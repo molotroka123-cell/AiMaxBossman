@@ -1,0 +1,70 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pump.fun Projector</title>
+<style>
+:root{--bg:#111216;--card:#1b1c22;--line:#2a2b33;--text:#ecebf1;--dim:#9b99a8;--low:#3ec46d;--mid:#f0b63a;--high:#ff5c5c;--sim:#7aa7ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;padding:16px}
+h1{font-size:20px;margin:0}.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.meta{color:var(--dim);font-size:13px}.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--line)}
+.LIVE{color:var(--low)}.SIM{color:var(--sim)}.RULES{color:var(--mid)}
+button,select,input{background:#25262e;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font:inherit}
+button{cursor:pointer}button:disabled{opacity:.5}
+.cards{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin:12px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.card b{display:block;font-size:20px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:760px}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600;font-size:12px;background:#17181d;position:sticky;top:0}
+.lvl-LOW{color:var(--low);font-weight:700}.lvl-MEDIUM{color:var(--mid);font-weight:700}.lvl-HIGH{color:var(--high);font-weight:700}
+.reasons{color:var(--dim);font-size:12px}.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.warn{background:#3a1d1d;color:#ffb3b3;padding:10px 12px;border-radius:10px;margin:8px 0}
+h2{font-size:15px;margin:18px 0 8px}a{color:#9cc2ff}
+</style></head><body>
+<div class="top">
+  <div><h1>Pump.fun Projector</h1>
+  <div class="meta">Только чтение и бумажная торговля. Реальных сделок, ключей и подписей нет. Риск-скор — индикаторы, не детектор мошенничества и не совет.</div></div>
+  <div><label class="meta"><input type="checkbox" id="pump"> только pump.fun/PumpSwap</label>
+  <select id="lvl"><option value="">все уровни</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option></select>
+  <button id="refresh">Обновить (1 цикл)</button></div>
+</div>
+<div class="meta" id="stamp">—</div>
+<div class="warn" id="err" hidden></div>
+<div class="cards" id="cards"></div>
+<h2>Токены <span class="badge LIVE">LIVE · DexScreener</span> <span class="badge RULES">риск: правила</span></h2>
+<div class="wrap"><table><thead><tr><th>Токен</th><th>Риск</th><th>Цена $</th><th>Ликвидность $</th><th>Возраст</th><th>Δ5м / Δ1ч</th><th>Покупки/продажи 5м</th><th>Причины</th></tr></thead><tbody id="rows"></tbody></table></div>
+<h2>Бумажная книга <span class="badge SIM">SIMULATED</span></h2>
+<div class="wrap"><table><thead><tr><th>Время</th><th>Событие</th><th>Токен</th><th>$</th><th>Детали</th></tr></thead><tbody id="journal"></tbody></table></div>
+<script>
+const $=id=>document.getElementById(id);
+const fmt=(v,d=2)=>v==null?'—':Number(v).toLocaleString('ru-RU',{maximumFractionDigits:d});
+const csrf=()=>{try{return localStorage.getItem('bcc.csrf')||''}catch(e){return ''}};
+let data=null;
+function render(){
+  if(!data){return}
+  $('stamp').textContent=data.status==='NOT_RUN'?'Ещё не обновлялось — нажмите «Обновить».':`Снимок: ${new Date(data.fetched_at).toLocaleString('ru-RU')} · статус ${data.status} · источник: ${data.source||'—'}`;
+  $('err').hidden=!(data.errors&&data.errors.length);$('err').textContent=(data.errors||[]).join(' · ');
+  const p=data.paper||{};
+  $('cards').innerHTML=[['Equity $',fmt(p.equity_usd)],['Cash $',fmt(p.cash_usd)],['P&L реализ. $',fmt(p.realized_pnl_usd,4)],['Просадка %',fmt(p.drawdown_pct)],['Сделок закрыто',p.closed_trades??'—'],['Открыто',p.open_positions??'—']]
+    .map(([k,v])=>`<div class="card"><span class="meta">${k}</span><b>${v}</b></div>`).join('');
+  const lvl=$('lvl').value;
+  $('rows').innerHTML=(data.tokens||[]).filter(t=>!lvl||t.risk.level===lvl).map(t=>`<tr>
+    <td><a href="${t.url||'#'}" target="_blank" rel="noopener">${t.symbol}</a><div class="meta">${t.dex_id||''}</div></td>
+    <td class="lvl-${t.risk.level}">${t.risk.level} · ${t.risk.score}</td>
+    <td class="num">${fmt(t.price_usd,10)}</td><td class="num">${fmt(t.liq_usd,0)}</td>
+    <td class="num">${t.age_min==null?'—':(t.age_min<120?fmt(t.age_min,0)+' мин':fmt(t.age_min/60,1)+' ч')}</td>
+    <td class="num">${fmt(t.chg_m5,1)}% / ${fmt(t.chg_h1,1)}%</td><td class="num">${t.buys_m5}/${t.sells_m5}</td>
+    <td class="reasons">${(t.risk.reasons||[]).join('; ')||'—'}</td></tr>`).join('')||'<tr><td colspan="8" class="meta">нет данных</td></tr>';
+  const acts=(data.paper_actions||[]);
+  $('journal').innerHTML=acts.map(a=>`<tr><td class="num">${new Date(a.at).toLocaleTimeString('ru-RU')}</td><td>${a.kind}</td><td>${a.symbol||''}</td><td class="num">${fmt(a.usd,4)}</td><td class="reasons">${a.note}</td></tr>`).join('')||'<tr><td colspan="5" class="meta">в этом цикле сделок нет</td></tr>';
+}
+async function load(){
+  try{const r=await fetch('/api/projector',{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw new Error(r.status);data=await r.json();render()}
+  catch(e){$('err').hidden=false;$('err').textContent='Нет связи или нет сессии Command Center ('+e.message+'). Войдите в Command Center на этом же адресе.'}
+}
+$('refresh').onclick=async()=>{
+  $('refresh').disabled=true;$('refresh').textContent='Обновляю…';
+  try{const r=await fetch('/api/projector/refresh?pump_only='+($('pump').checked?'true':'false'),{method:'POST',credentials:'same-origin',headers:{'X-BCC-CSRF':csrf()}});
+    if(!r.ok)throw new Error(r.status);data=await r.json();render()}
+  catch(e){$('err').hidden=false;$('err').textContent='Обновление не удалось: '+e.message}
+  finally{$('refresh').disabled=false;$('refresh').textContent='Обновить (1 цикл)'}
+};
+$('lvl').onchange=render;load();
+</script></body></html>
