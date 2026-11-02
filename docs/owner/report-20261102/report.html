@@ -1,0 +1,118 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Bossman · SwapMe — 60 дней, реальный прогресс</title>
+<style>
+@page{size:A4;margin:11mm 12mm}
+*{box-sizing:border-box}body{font:9.4pt/1.32 "Segoe UI",Arial,sans-serif;color:#16161a;margin:0}
+.page{page-break-after:always;height:274mm;overflow:hidden;position:relative}.page:last-child{page-break-after:auto}
+h1{font-size:16pt;margin:0 0 2px;color:#111}h2{font-size:11.5pt;margin:9px 0 4px;color:#c2410c;border-bottom:1px solid #f1d2bf;padding-bottom:2px}
+.sub{color:#555;font-size:8.6pt;margin-bottom:6px}
+table{border-collapse:collapse;width:100%;font-size:8.4pt;margin:3px 0}th,td{border:1px solid #ddd;padding:2.5px 5px;text-align:left;vertical-align:top}th{background:#f6f2ee}
+.ok{color:#15803d;font-weight:700}.no{color:#b91c1c;font-weight:700}.mid{color:#a16207;font-weight:700}
+.kpis{display:flex;gap:6px;margin:4px 0 6px}.k{flex:1;border:1px solid #e5ded7;border-radius:6px;padding:5px 7px;background:#fbf8f5}.k b{display:block;font-size:13pt;color:#111}.k span{font-size:7.8pt;color:#555}
+ul{margin:2px 0 4px 16px;padding:0}li{margin:1px 0}
+.imgs{display:flex;gap:6px;margin:4px 0}.imgs figure{flex:1;margin:0}.imgs img{width:100%;height:118px;object-fit:cover;border:1px solid #ccc;border-radius:4px}.imgs figcaption{font-size:7.6pt;color:#555}
+.foot{position:absolute;bottom:0;left:0;right:0;font-size:7.4pt;color:#777;border-top:1px solid #eee;padding-top:2px}
+.note{font-size:8pt;color:#444;background:#f7f7f9;border-left:3px solid #c2410c;padding:4px 6px;margin:4px 0}
+</style></head><body>
+
+<div class="page">
+<h1>AiMaxBossman — что реально построено и проверено</h1>
+<div class="sub">Отчёт Claude, 02.11.2026. Только проверенные данные: БД Command Center, git, живые прогоны. Нет данных — так и написано (NOT_AVAILABLE / NOT_VERIFIED).</div>
+<div class="kpis">
+<div class="k"><b>4 210</b><span>коммитов в main с 01.09 (сен 2 529 · окт 1 635 · ноя 46)</span></div>
+<div class="k"><b>1 083</b><span>задач с 21.09; прогонов: 709 завершено · 189 упало · 183 остановлено</span></div>
+<div class="k"><b>$2.04</b><span>учтённые облачные затраты Bossman (окт $1.48 · ноя $0.56) по журналу прогонов</span></div>
+<div class="k"><b>71 · 17 · 110</b><span>агентов · провайдеров · моделей в реестре</span></div>
+</div>
+<h2>Рантайм и релиз-кандидат</h2>
+<table><tr><th>Проверка</th><th>Результат</th></tr>
+<tr><td>Ветка <b>release/rc-20261102</b> = main 4a8c68f3 + 15 коммитов</td><td>HEAD <b>84cc6ab6</b>; рантайм :8801 запущен ровно с неё, source_identity <span class="ok">PASS</span>, git_clean <span class="ok">true</span></td></tr>
+<tr><td>Полный набор тестов (command-center + bossman-core)</td><td>17 119 прошли; упавшие перепроверены на чистом main — <span class="ok">набор падений идентичен</span>: 20 старых UI/браузерных + 3 core + 10 ошибок импорта. Новых поломок релиз не вносит</td></tr>
+<tr><td>Регрессии, найденные полным прогоном и исправленные</td><td>/key компаньона (2 теста) — исправлено 1317d40c</td></tr>
+<tr><td>Секреты в диффе к main</td><td>скан ключей (sk-or, nvapi, gsk_, AIza, PRIVATE KEY) — <span class="ok">0 находок</span></td></tr>
+</table>
+<h2>Что Bossman умеет как harness-агент (проверено вживую)</h2>
+<table><tr><th style="width:38%">Возможность</th><th style="width:12%">Статус</th><th>Доказательство / чего не хватает</th></tr>
+<tr><td>Очередь задач, агенты на local / бесплатном облаке / платном облаке</td><td class="ok">PROVEN</td><td>задачи 1019–1083; агенты 25 (NIM), 70 Jev, 71 Kev, 73 Gemini Flash free</td></tr>
+<tr><td>Облачные агенты пишут код только в папке проекта</td><td class="ok">PROVEN</td><td>Kev записал World/HQ.luau; качество 30B низкое — нужен гейт до записи</td></tr>
+<tr><td>Учёт денег и счётчик остатков</td><td class="ok">PROVEN</td><td>/api/funds + funds.html: OpenRouter 50/50 USD live; у 7API/Outrun/NIM баланс по API — NOT_AVAILABLE</td></tr>
+<tr><td>Ключи через пульт /key</td><td class="mid">FIXED</td><td>ключ уходил только в файл → теперь сразу в vault (0ee8d234 + 1317d40c)</td></tr>
+<tr><td>Защита «сделал без доказательств» (action_contract / router)</td><td class="mid">FIXED</td><td>текст из видео считался командой → 5/8 задач падали; de311164 + df86e765, 175 тестов</td></tr>
+<tr><td>Локальная расшифровка NVIDIA Nemotron‑3.5 (AMD, Vulkan)</td><td class="mid">FIXED</td><td>длинный файл = галлюцинация; нарезка 30 с → 0.89–0.97 совпадения с субтитрами</td></tr>
+<tr><td>Пул бесплатных облачных моделей</td><td class="mid">PARTIAL</td><td>NIM Ultra 503 ночью, kimi-k3 410, Gemini free 429 после ~15 вызовов; авто-ротации нет</td></tr>
+<tr><td>Память: урок применяется на новой задаче</td><td class="no">NOT PROVEN</td><td>10 уроков записаны; до/после (1041/1077/1081) — не применены; найден дефект ранжирования (частично исправлен ea60736d)</td></tr>
+<tr><td>Управление ПК: Roblox Studio, 2 игрока, скриншоты</td><td class="mid">PARTIAL</td><td>сделано Claude Code; тот же сценарий через pc.* Bossman — NOT_RUN</td></tr>
+<tr><td>Чистота рантайма (не пишет в репозиторий)</td><td class="mid">FIXED</td><td>2 фоновых писателя портили чекаут → /health UNHEALTHY; ed731bea, 84cc6ab6 + guard-тест</td></tr>
+</table>
+<div class="note">Модели по прогонам с 01.09: локальная Gemma4 (276+99+46), Strata Qwen3.8 (66), GLM‑5.3 Flash через 7API (75, $0.08), DeepSeek через Outrun (62, $1.74), NIM Nemotron Ultra (48, $0). Бенчмарк 70B-кодера на этом ПК — NOT_RUN (в реестре нет 70B-кодера; r1-70b-abliterated есть, но не кодер).</div>
+<div class="foot">Источники: bcc.db (tasks, task_runs, agents, models, facts), git origin/main и release/rc-20261102, docs/audits/2026-11-02-harness-capability-log. Подписано: Claude.</div>
+</div>
+
+<div class="page">
+<h1>SwapMe Fox City (Roblox) — что играбельно</h1>
+<div class="sub">Репозиторий SwapmeGame, ветка roblox/fox-city (main репо — старая Telegram-игра, не трогали). 14 коммитов Claude + ассеты Argon. Проверено в Roblox Studio 0.745 (F5 и Сервер + 2 игрока).</div>
+<div class="imgs">
+<figure><img src="city.jpg"><figcaption>Город: площадь, Старый город (33 дома), Пражский Град, мост, HQ, река</figcaption></figure>
+<figure><img src="trade.jpg"><figcaption>Обмен между двумя игроками: предложение и подтверждение</figcaption></figure>
+<figure><img src="rebirth.jpg"><figcaption>Ребёрф: «Ребёрфов: 1 · x1.25», сброс Свапов</figcaption></figure>
+</div>
+<h2>Петля игры — статус на 02.11</h2>
+<table><tr><th>Шаг</th><th>Статус</th><th>Как проверено</th></tr>
+<tr><td>Спавн, HUD</td><td class="ok">PASS</td><td>F5, Output без ошибок</td></tr>
+<tr><td>Магазин → покупка сейфа (бросок на сервере)</td><td class="ok">PASS</td><td>100 → 0 Свапов, монеты в инвентаре</td></tr>
+<tr><td>Будка: постановка монет, доход</td><td class="ok">PASS</td><td>+3/сек, 0 → 593 Свапов</td></tr>
+<tr><td>Ребёрф (с подтверждением)</td><td class="ok">PASS</td><td>тест-сборка с ценой 300, Config не тронут</td></tr>
+<tr><td>Обмен между 2 игроками</td><td class="ok">PASS</td><td>Squeaky Seal ушла от Player2 к Player1 (квитанция docs/receipts/2026-11-02-trade)</td></tr>
+<tr><td>Мультиплеер (2 клиента видят друг друга)</td><td class="ok">PASS</td><td>Сервер + 2 игрока</td></tr>
+<tr><td>Сохранение → перезаход</td><td class="no">BLOCKED</td><td>DataStore работает только у опубликованного места — нужна публикация владельцем</td></tr>
+<tr><td>Мобильное управление / покупки за Robux</td><td class="mid">NOT_RUN</td><td>id товаров = 0 (не созданы в Creator Dashboard)</td></tr>
+</table>
+<h2>Что было сломано и найдено именно движком</h2>
+<ul>
+<li>Магазин был заглушкой; все сейфы «пусты» (Coins.Coins вместо Coins.All); доход в HUD всегда 0 (неверное поле).</li>
+<li>Обмен не работал вообще: клиент слал другой формат, сервер — голые id, инвентаря для обмена не было; сырые ключи в интерфейсе.</li>
+<li>Неверный материал Shingle, неверные пути модулей, спавн внутри фонтана, трава поверх дорог, гейт selene пропускал ошибки.</li>
+</ul>
+<h2>Мир</h2>
+<div class="note">Claude: площадь, мост с башней, река, HQ, кольцо улиц, Старый город, Пражский Град на холме, холмы, дороги, трамвай. Argon: 56 моделей Blender (2 импортированы в Studio: касса и статуя лиса), бюро архитектора, вывески, Fox Fun Park за мостом. Все районы грузятся через WorldBootstrap с pcall — сломанный модуль не роняет игру.</div>
+<h2>Монетизация (по 10 разобранным роликам) — гипотезы к тесту</h2>
+<ul><li>Стартовый набор ~49 R$ в первые 10 минут; «+» у Свапов; магазин при нехватке денег.</li>
+<li>Расходники (x5 доход, офлайн x2, автосбор) важнее разовых пассов; оффер рядом с будкой.</li>
+<li>Случайные монеты — только за Свапы, шансы открыты; за Robux — только гарантированный результат.</li></ul>
+<div class="foot">Следующая играбельная веха: публикация места (владелец) → Save/Rejoin PASS → стартовый набор и «+» → закрытый тест с друзьями.</div>
+</div>
+
+<div class="page">
+<h1>Крипто-аналитика, эффективность, план</h1>
+<div class="sub">Реальных сделок нет и не включалось. Всё ниже — чтение рынка и бумажная торговля.</div>
+<h2>Pump.fun Projector — новый модуль (fafe5c35)</h2>
+<table><tr><th>Часть</th><th>Статус</th><th>Факт</th></tr>
+<tr><td>Discovery (DexScreener, только чтение)</td><td class="ok">LIVE</td><td>02.11 04:20 UTC: 50 токенов Solana за 3.6 с, ошибок 0</td></tr>
+<tr><td>Риск-скор с причинами</td><td class="ok">PASS</td><td>LOW 17 · MEDIUM 24 · HIGH 9; причины видны (ликвидность, возраст, давление продаж, FDV/ликвидность)</td></tr>
+<tr><td>Бумажная книга (комиссия, проскальзывание, отказ при impact > 3%)</td><td class="ok">PASS</td><td>вход в LOW-токен $10, повтор того же — отклонён; P&amp;L проверен тестами (6 + 1)</td></tr>
+<tr><td>Экран /projector.html</td><td class="mid">BUILT</td><td>LIVE/RULES/SIMULATED помечены; доходность не заявляется — истории мало</td></tr>
+</table>
+<div class="note"><b>Риск:</b> в main уже есть «5-кошельковый генезис» Argon для запуска своего токена. Скоординированные первые покупки своего токена с нескольких кошельков — схема манипуляции рынком. Код сейчас только симулирует; развивать его я не стал. Реальная отправка транзакций должна оставаться выключенной.</div>
+<h2>Прямой Claude vs Bossman-агенты — что измерено (не бенчмарк)</h2>
+<table><tr><th>Задача</th><th>Bossman-агент</th><th>Claude напрямую</th></tr>
+<tr><td>Модуль реки (Luau)</td><td>Jev/GLM: 20+ мин, файл обрезан/битый → остановлен</td><td>переписано за ~2 мин, гейт PASS, Studio PASS</td></tr>
+<tr><td>Здание HQ (Luau)</td><td>Kev/30B: 50 с, но неверный API (SurfaceGui.Size)</td><td>переписано, Studio PASS</td></tr>
+<tr><td>Дашборд остатков (HTML)</td><td>Kev/GLM: инструменты «текстом», файл не создан</td><td>сделано и опубликовано</td></tr>
+<tr><td>Разбор 15 видео</td><td>бесплатное облако: 15 PASS за $0 (после 3 фиксов Bossman)</td><td>—</td></tr>
+</table>
+<div class="note">Вывод по данным этих задач: код, проверенный в движке, сейчас быстрее и надёжнее пишет Claude напрямую; Bossman выгоден на массовой дешёвой работе (расшифровка, разбор, аналитика за $0) и как рантайм/память/пульт. Подписки/биллинг: счета — NOT_AVAILABLE (в БД только стоимость прогонов, $2.04 с октября).</div>
+<h2>План</h2>
+<table><tr><th style="width:50%">7 дней</th><th>30 дней</th></tr>
+<tr><td><ul>
+<li>Владелец: одобрить PR release/rc-20261102 → main; опубликовать место Roblox.</li>
+<li>Save/Rejoin PASS; стартовый набор, «+» у валюты, магазин при нехватке.</li>
+<li>Парсер инструментов «текстом» для Kev/7API; авто-ротация бесплатных моделей.</li>
+<li>Межслойное ранжирование памяти + повтор до/после.</li>
+</ul></td><td><ul>
+<li>Fox Fun Park: Fox Flight (навык, без ставок) — играбельный.</li>
+<li>Закрытый тест 10–20 игроков, метрики D1/D7 и Robux/визит.</li>
+<li>Projector: 2 недели бумажной истории, только потом обсуждать стратегию.</li>
+<li>Dashboard владельца: LIVE BUILD-панель на шине событий.</li>
+</ul></td></tr></table>
+<div class="foot">Подписки: оставить те, что дали проверенный результат (Claude, бесплатные NIM/Gemini, OpenRouter с лимитом $50); 7API/Outrun — по учёту прогонов. Подписано: Claude, 02.11.2026.</div>
+</div>
+</body></html>
