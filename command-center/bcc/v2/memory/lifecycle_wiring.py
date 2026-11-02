@@ -23,6 +23,8 @@ ImportError.
 """
 from __future__ import annotations
 
+import re
+
 from pathlib import Path
 from typing import Any
 
@@ -143,7 +145,8 @@ class FactsSnapshot:
         # Rank BEFORE truncating (02.11.2026): «any term matches» + first-N kept the OLDEST rows — a Russian
         # question shares common words with almost every fact, so 10 fresh Roblox lessons (facts 116–125) never
         # reached BM25 and recall returned unrelated notes. Score = distinct query terms present; ties -> newer row.
-        terms = sorted({t for t in str(query).lower().split() if len(t) > 2})
+        # Words without punctuation (02.11.2026): «Roblox:» / «освещение,» from a task prompt never matched a fact.
+        terms = sorted({t for t in re.findall(r"\w+", str(query).lower()) if len(t) > 2})
         scored = []
         for idx, row in enumerate(self.rows):
             blob = " ".join(str(row.get(k) or "") for k in

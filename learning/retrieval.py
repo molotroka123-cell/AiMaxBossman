@@ -336,7 +336,7 @@ class UnifiedRetriever:
                 degraded.append(f"semantic retrieval failed ({type(exc).__name__}); exact+BM25 only")
 
         considered = len(candidates)
-        ranked = self._dedup_and_rank(candidates)[:cfg.candidates]
+        ranked = _reserve_cross_layer(self._dedup_and_rank(candidates), cfg.candidates)
         self._expand(ranked[:cfg.expand], cfg)
         conflicts = _fmt.conflicts([c.meta.get("lesson") for c in ranked
                                     if c.layer == "lesson" and c.meta.get("lesson")])
@@ -481,6 +481,25 @@ class UnifiedRetriever:
             if full:
                 cand.text = full
                 cand.expanded = True
+
+
+#: Slots at the head of the pack kept for the best relevant facts/lessons (02.11.2026). Vault notes score by the
+#: vault-wide BM25 (+5 for an exact hit) and the first ones are expanded to the per-item budget; facts and API
+#: lessons score by BM25 over a ~20-row pool. The scales are not comparable, so in one sorted list a relevant lesson
+#: never made the cut: 36 recorded Roblox lessons, recall 0/36, 98 of 98 context items were notes in 22 runs.
+RESERVED_FACT_SLOTS = 3
+#: A fact keeps a reserved slot only if it matched the query (BM25 > 0); the +0.5 "current" bonus alone is not relevance.
+_FACT_RELEVANCE_FLOOR = 0.5
+
+
+def _reserve_cross_layer(ranked: list[Candidate], limit: int) -> list[Candidate]:
+    """Up to RESERVED_FACT_SLOTS relevant fact/lesson candidates first (in their own score order), then the rest
+    in the usual order. The head of the list is also what `_render` fits into the token budget first."""
+    reserved = [c for c in ranked if c.layer in ("fact", "lesson") and c.score > _FACT_RELEVANCE_FLOOR
+                ][:min(RESERVED_FACT_SLOTS, max(0, limit - 1))]
+    chosen = {id(c) for c in reserved}
+    rest = [c for c in ranked if id(c) not in chosen]
+    return (reserved + rest)[:limit]
 
 
 # ---------------------------------------------------------------- rendering
