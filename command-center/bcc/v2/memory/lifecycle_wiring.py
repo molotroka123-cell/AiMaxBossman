@@ -140,14 +140,19 @@ class FactsSnapshot:
     def search(self, query: str, *, limit: int) -> list[dict]:
         if not query:
             return self.rows[:limit]
-        terms = [t for t in str(query).lower().split() if len(t) > 2]
-        hits = []
-        for row in self.rows:
+        # Rank BEFORE truncating (02.11.2026): «any term matches» + first-N kept the OLDEST rows — a Russian
+        # question shares common words with almost every fact, so 10 fresh Roblox lessons (facts 116–125) never
+        # reached BM25 and recall returned unrelated notes. Score = distinct query terms present; ties -> newer row.
+        terms = sorted({t for t in str(query).lower().split() if len(t) > 2})
+        scored = []
+        for idx, row in enumerate(self.rows):
             blob = " ".join(str(row.get(k) or "") for k in
                             ("subject", "predicate", "object", "statement")).lower()
-            if any(t in blob for t in terms):
-                hits.append(row)
-        return hits[:limit]
+            score = sum(1 for t in terms if t in blob)
+            if score:
+                scored.append((score, idx, row))
+        scored.sort(key=lambda item: (-item[0], -item[1]))
+        return [row for _, _, row in scored[:limit]]
 
     def state_token(self) -> str:
         return f"{len(self.rows)}:{self.rows[-1].get('id') if self.rows else ''}"
