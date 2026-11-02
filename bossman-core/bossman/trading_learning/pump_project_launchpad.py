@@ -465,7 +465,7 @@ def build_twitter_marketing_campaign(
             text=(
                 f"Запускаем долгосрочный проект {clean_name} (${clean_ticker}) на Solana!\n\n"
                 f"Миссия: {thesis.strip()[:160]}\n"
-                f"Прозрачный генезис-бандл с вестингом казны 30–90 дней, без скрытых кошельков и накрутки. "
+                f"Публичный целевой план распределения казны на 30–90 дней (PAPER_PLAN_ONLY, без скрытых кошельков и накрутки). "
                 f"Дорожная карта и код открыты. {' '.join(tags)}"
             ),
             hashtags=tags,
@@ -488,8 +488,8 @@ def build_twitter_marketing_campaign(
             scheduled_offset_hours=24,
             text=(
                 f"Отчёт первых 24ч по проекту {clean_name} (${clean_ticker}):\n"
-                f"Казна разработки заблокирована по графику вестинга, комиссии пула направляются "
-                f"на развитие инфраструктуры и гранты контрибьюторам. Следующий релиз по плану! {' '.join(tags)}"
+                f"Целевой план удержания казны (PAPER_PLAN_ONLY, требует отдельной on-chain верификации при запуске), "
+                f"комиссии пула направляются на развитие инфраструктуры и гранты. {' '.join(tags)}"
             ),
             hashtags=tags,
         ),
@@ -508,6 +508,7 @@ def build_twitter_marketing_campaign(
 
     return {
         "evidence_class": EvidenceClass.SIMULATED.value,
+        "plan_verification_status": "UNVERIFIED_OFFCHAIN_PLAN_ONLY",
         "account_handle": twitter_handle,
         "publish_mode": "OWNER_APPROVAL_GATE_ONLY",
         "auto_post_without_approval": False,
@@ -523,17 +524,38 @@ def calculate_creator_fee_projections(
     market_cap_usd: float | None = 85_000.0,
     sol_price_usd: float | None = 180.0,
     daily_expenses_usd: float = 0.0,
+    creator_share_bps: int | None = 10_000,
+    use_demo_fixtures: bool = True,
+    pools: list[dict[str, Any]] | None = None,
+    fee_tables_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Рассчитать оценку комиссий создателя по историческому снимку `pump_fee_tables_20261009.json`.
 
     Отделяет (Codex Finding #5):
     - `estimated_gross_usd` (модельная оценка по исторической таблице),
+    - `estimated_creator_share_usd` (доля получателя по `creator_share_bps`, либо `"N/A"` если доля неизвестна),
     - `accrued_usd` ("N/A" без on-chain выписки),
     - `claimed_received_usd` ("N/A" без подтверждённого поступления),
     - `estimated_expenses_usd` (документированные расходы),
     - `realized_net_usd` ("N/A" в paper-режиме без реальных выплат).
     """
-    tables = load_tables()
+    tables = fee_tables_override if fee_tables_override is not None else load_tables()
+    if not use_demo_fixtures and pools is None and (
+        daily_curve_volume_usd == 25_000.0
+        and daily_pumpswap_volume_usd == 120_000.0
+        and market_cap_usd == 85_000.0
+    ):
+        return {
+            "status": "N/A",
+            "data_source": "NONE",
+            "evidence_class": EvidenceClass.SIMULATED.value,
+            "fee_table_provenance": {
+                "source": "HISTORICAL_SNAPSHOT",
+                "file": "pump_fee_tables_20261009.json",
+                "fetched_at": tables.get("fetched_at"),
+            },
+            "reason": "Demo fixtures disabled (use_demo_fixtures=False) and no explicit volume/mcap scenario provided",
+        }
     if (
         daily_curve_volume_usd is None
         or daily_pumpswap_volume_usd is None
@@ -542,6 +564,7 @@ def calculate_creator_fee_projections(
     ):
         return {
             "status": "N/A",
+            "data_source": "NONE",
             "evidence_class": EvidenceClass.SIMULATED.value,
             "fee_table_provenance": {
                 "source": "HISTORICAL_SNAPSHOT",
@@ -555,6 +578,7 @@ def calculate_creator_fee_projections(
         or not math.isfinite(daily_pumpswap_volume_usd)
         or not math.isfinite(market_cap_usd)
         or not math.isfinite(sol_price_usd)
+        or not math.isfinite(daily_expenses_usd)
         or daily_curve_volume_usd < 0.0
         or daily_pumpswap_volume_usd < 0.0
         or market_cap_usd < 0.0
@@ -563,18 +587,78 @@ def calculate_creator_fee_projections(
     ):
         raise ValueError("Volume, market_cap_usd, expenses (>=0) and sol_price_usd (>0) must be finite")
 
-    daily = creator_fee_usd(
-        curve_vol_usd=float(daily_curve_volume_usd),
-        swap_vol_usd=float(daily_pumpswap_volume_usd),
-        mcap_usd=float(market_cap_usd),
-        sol_usd=float(sol_price_usd),
-        tables=tables,
+    if creator_share_bps is not None and (
+        not isinstance(creator_share_bps, int) or creator_share_bps < 0 or creator_share_bps > 10_000
+    ):
+        raise ValueError("creator_share_bps must be an integer in [0, 10000] or None")
+
+    is_default_demo = (
+        pools is None
+        and daily_curve_volume_usd == 25_000.0
+        and daily_pumpswap_volume_usd == 120_000.0
+        and market_cap_usd == 85_000.0
+        and sol_price_usd == 180.0
     )
+
+    if pools:
+        curve_usd_sum = 0.0
+        swap_usd_sum = 0.0
+        total_vol = 0.0
+        pool_breakdown = []
+        for idx, p in enumerate(pools, start=1):
+            p_curve = float(p.get("curve_vol_usd", 0.0))
+            p_swap = float(p.get("swap_vol_usd", 0.0))
+            p_mcap = float(p.get("mcap_usd", market_cap_usd))
+            p_sol = float(p.get("sol_usd", sol_price_usd))
+            p_tables = p.get("tables") or tables
+            p_res = creator_fee_usd(
+                curve_vol_usd=p_curve,
+                swap_vol_usd=p_swap,
+                mcap_usd=p_mcap,
+                sol_usd=p_sol,
+                tables=p_tables,
+            )
+            curve_usd_sum += float(p_res["curve_usd"])
+            swap_usd_sum += float(p_res["swap_usd"])
+            total_vol += p_curve + p_swap
+            pool_breakdown.append({
+                "pool_index": idx,
+                "pool_label": p.get("label", f"pool_{idx}"),
+                "curve_vol_usd": round(p_curve, 2),
+                "swap_vol_usd": round(p_swap, 2),
+                "mcap_usd": round(p_mcap, 2),
+                "curve_bps": p_res["curve_bps"],
+                "swap_bps": p_res["swap_bps"],
+                "total_usd": round(float(p_res["total_usd"]), 2),
+            })
+        daily = {
+            "curve_usd": curve_usd_sum,
+            "swap_usd": swap_usd_sum,
+            "total_usd": curve_usd_sum + swap_usd_sum,
+            "curve_bps": pool_breakdown[-1]["curve_bps"],
+            "swap_bps": pool_breakdown[-1]["swap_bps"],
+        }
+    else:
+        daily = creator_fee_usd(
+            curve_vol_usd=float(daily_curve_volume_usd),
+            swap_vol_usd=float(daily_pumpswap_volume_usd),
+            mcap_usd=float(market_cap_usd),
+            sol_usd=float(sol_price_usd),
+            tables=tables,
+        )
+        total_vol = float(daily_curve_volume_usd) + float(daily_pumpswap_volume_usd)
+        pool_breakdown = []
+
     daily_total = float(daily["total_usd"])
-    daily_net_after_est_expenses = round(daily_total - float(daily_expenses_usd), 2)
+    if creator_share_bps is None:
+        creator_share_usd: float | str = "N/A"
+        daily_net_after_est_expenses: float | str = "N/A"
+    else:
+        share_val = round(daily_total * (creator_share_bps / 10_000.0), 2)
+        creator_share_usd = share_val
+        daily_net_after_est_expenses = round(share_val - float(daily_expenses_usd), 2)
 
     # Contrast with wash-trading (self-volume pays ~125 bps total fee to get 30 bps back = -95 bps net loss)
-    total_vol = float(daily_curve_volume_usd) + float(daily_pumpswap_volume_usd)
     wash_trade_net_loss_usd = round(total_vol * (95.0 / 10_000.0), 2)
 
     horizons = {
@@ -585,7 +669,8 @@ def calculate_creator_fee_projections(
     }
 
     return {
-        "status": "SIMULATED",
+        "status": "DEMO" if is_default_demo else "SIMULATED",
+        "data_source": "DEMO_FIXTURE" if is_default_demo else "USER_SCENARIO",
         "evidence_class": EvidenceClass.SIMULATED.value,
         "fee_tables_snapshot": tables.get("fetched_at"),
         "fee_table_provenance": {
@@ -600,6 +685,7 @@ def calculate_creator_fee_projections(
             "market_cap_usd": round(float(market_cap_usd), 2),
             "sol_price_usd": round(float(sol_price_usd), 2),
             "market_cap_sol": round(float(market_cap_usd) / float(sol_price_usd), 2),
+            "creator_share_bps": creator_share_bps,
         },
         "rates_bps": {
             "bonding_curve_creator_bps": daily["curve_bps"],
@@ -609,9 +695,13 @@ def calculate_creator_fee_projections(
             "curve_fee_usd": round(float(daily["curve_usd"]), 2),
             "pumpswap_fee_usd": round(float(daily["swap_usd"]), 2),
             "total_creator_fee_usd": round(daily_total, 2),
+            "creator_share_fee_usd": creator_share_usd,
         },
+        "pools_breakdown": pool_breakdown,
         "accounting_ledger": {
             "estimated_gross_usd": round(daily_total, 2),
+            "creator_share_bps": creator_share_bps,
+            "estimated_creator_share_usd": creator_share_usd,
             "accrued_usd": "N/A",
             "claimed_received_usd": "N/A",
             "estimated_expenses_usd": round(float(daily_expenses_usd), 2),
@@ -620,7 +710,11 @@ def calculate_creator_fee_projections(
         },
         "projections_usd": horizons,
         "anti_scam_economics": {
-            "organic_project_daily_net_usd": daily_net_after_est_expenses,
+            "organic_project_daily_net_usd": (
+                daily_net_after_est_expenses
+                if isinstance(daily_net_after_est_expenses, (int, float))
+                else round(daily_total - float(daily_expenses_usd), 2)
+            ),
             "wash_trading_same_volume_daily_net_usd": -wash_trade_net_loss_usd,
             "verdict": (
                 "Модельная оценка по исторической таблице: добровольный органический объём даёт положительное ожидание "
@@ -679,11 +773,11 @@ def launchpad_overview() -> dict[str, Any]:
 
 
 FIVE_WALLET_ROLES: tuple[tuple[str, str, float, int], ...] = (
-    ("wallet_1_creator_seed", "Кошелёк #1 — Creator Genesis Seed (публичный вестинг 90 дн.)", 0.25, 90),
-    ("wallet_2_dev_treasury", "Кошелёк #2 — Казна R&D и инфраструктуры (публичный вестинг 90 дн.)", 0.25, 90),
-    ("wallet_3_ecosystem_grants", "Кошелёк #3 — Фонд грантов и наград комьюнити (вестинг 60 дн.)", 0.20, 60),
-    ("wallet_4_marketing_kol_escrow", "Кошелёк #4 — Маркетинг X/Twitter и партнёрства (вестинг 30 дн.)", 0.15, 30),
-    ("wallet_5_liquidity_reserve", "Кошелёк #5 — Резерв ликвидности под миграцию PumpSwap (лок 60 дн.)", 0.15, 60),
+    ("wallet_1_creator_seed", "Кошелёк #1 — Creator Genesis Seed (целевой план удержания 90 дн., PAPER_PLAN_ONLY)", 0.25, 90),
+    ("wallet_2_dev_treasury", "Кошелёк #2 — Казна R&D и инфраструктуры (целевой план удержания 90 дн., PAPER_PLAN_ONLY)", 0.25, 90),
+    ("wallet_3_ecosystem_grants", "Кошелёк #3 — Фонд грантов и наград комьюнити (целевой план удержания 60 дн., PAPER_PLAN_ONLY)", 0.20, 60),
+    ("wallet_4_marketing_kol_escrow", "Кошелёк #4 — Маркетинг X/Twitter и партнёрства (целевой план удержания 30 дн., PAPER_PLAN_ONLY)", 0.15, 30),
+    ("wallet_5_liquidity_reserve", "Кошелёк #5 — Резерв ликвидности под миграцию PumpSwap (целевой план удержания 60 дн., PAPER_PLAN_ONLY)", 0.15, 60),
 )
 
 
@@ -694,50 +788,74 @@ def simulate_five_wallet_genesis_launch(
     total_sol_budget: float = 3.0,
     slippage_bps: int = 150,
     sol_price_usd: float = 180.0,
+    max_tranches: int = 60,
 ) -> dict[str, Any]:
     """Симуляция стартового распределения по 5 публичным целевым кошелькам проекта в первые секунды (Block 0..2).
 
     Вместо скрытого снайпинга все 5 кошельков публично декларируются в манифесте проекта,
-    а их ордера нарезаются траншами с ценовым влиянием <= 1.2% (120 bps) на шаг кривой Pump.fun.
+    а их ордера нарезаются траншами в целых лампортах с ценовым влиянием <= 1.2% (120 bps) на шаг кривой Pump.fun.
     """
     from .holder_monitor import Holder, analyse as analyse_holders
 
     if not math.isfinite(total_sol_budget) or total_sol_budget <= 0.0 or total_sol_budget > MAX_TRANSPARENT_TREASURY_SOL:
         raise ValueError(f"total_sol_budget must be in (0, {MAX_TRANSPARENT_TREASURY_SOL}] SOL")
+    if max_tranches < 1:
+        raise ValueError("max_tranches must be >= 1")
 
+    requested_lamports = int(round(float(total_sol_budget) * LAMPORTS_PER_SOL))
     v_sol = PUMP_INITIAL_VIRTUAL_SOL
     v_tok = PUMP_INITIAL_VIRTUAL_TOKENS
     wallets_report: list[dict[str, Any]] = []
     all_tranches: list[dict[str, Any]] = []
     tranche_seq = 0
     total_tokens_bought = 0.0
-    total_protocol_fee_sol = 0.0
-    total_creator_rebate_sol = 0.0
+    total_protocol_fee_lamports = 0
+    total_creator_rebate_lamports = 0
+    total_allocated_lamports = 0
+    min_step_lamports = 50_000_000  # 0.05 SOL
 
-    for w_idx, (role_id, label_ru, weight, lock_days) in enumerate(FIVE_WALLET_ROLES, start=1):
-        wallet_sol = round(float(total_sol_budget) * weight, 6)
-        rem = wallet_sol
+    # Compute exact integer lamport targets per wallet summing to requested_lamports
+    wallet_targets_lamports: list[int] = []
+    running_target = 0
+    for idx, (_r, _l, weight, _d) in enumerate(FIVE_WALLET_ROLES):
+        if idx == len(FIVE_WALLET_ROLES) - 1:
+            w_req = requested_lamports - running_target
+        else:
+            w_req = int(round(requested_lamports * weight))
+            running_target += w_req
+        wallet_targets_lamports.append(w_req)
+
+    for w_idx, ((role_id, label_ru, _weight, lock_days), wallet_req_lamports) in enumerate(
+        zip(FIVE_WALLET_ROLES, wallet_targets_lamports), start=1
+    ):
+        rem_lamports = wallet_req_lamports
+        w_allocated_lamports = 0
         w_tokens = 0.0
         w_tranches = 0
         first_price_sol = v_sol / v_tok
-        while rem > 1e-6 and tranche_seq < 60:
-            max_step = max(0.05, (v_sol * (MAX_SLICE_IMPACT_PCT / 100.0)) * 0.95)
-            step_sol = round(min(rem, max_step), 6)
+        while rem_lamports > 0 and tranche_seq < max_tranches:
+            max_step_lamports = max(
+                min_step_lamports,
+                int((v_sol * LAMPORTS_PER_SOL * (MAX_SLICE_IMPACT_PCT / 100.0)) * 0.95),
+            )
+            step_lamports = min(rem_lamports, max_step_lamports)
+            step_sol = step_lamports / LAMPORTS_PER_SOL
             impact_pct = _price_impact_pct(step_sol, v_sol)
             impact_bps = round(impact_pct * 100.0, 2)
             tokens_out = _curve_tokens_out(step_sol, v_sol, v_tok)
-            lamports_in = int(round(step_sol * LAMPORTS_PER_SOL))
-            max_lamports = (lamports_in * (10_000 + int(slippage_bps)) + 9_999) // 10_000
-            protocol_fee = round(step_sol * 0.010, 6)
-            creator_rebate = round(step_sol * 0.003, 6)
+            max_lamports = (step_lamports * (10_000 + int(slippage_bps)) + 9_999) // 10_000
+            protocol_fee_lamports = (step_lamports * 100) // 10_000
+            creator_rebate_lamports = (step_lamports * 30) // 10_000
 
             v_sol += step_sol
             v_tok -= tokens_out
             w_tokens += tokens_out
             total_tokens_bought += tokens_out
-            total_protocol_fee_sol += protocol_fee
-            total_creator_rebate_sol += creator_rebate
-            rem = round(rem - step_sol, 6)
+            total_protocol_fee_lamports += protocol_fee_lamports
+            total_creator_rebate_lamports += creator_rebate_lamports
+            rem_lamports -= step_lamports
+            w_allocated_lamports += step_lamports
+            total_allocated_lamports += step_lamports
             w_tranches += 1
             tranche_seq += 1
 
@@ -746,7 +864,8 @@ def simulate_five_wallet_genesis_launch(
                 "second_offset": round((tranche_seq - 1) * 0.35, 2),
                 "wallet_index": w_idx,
                 "wallet_role": role_id,
-                "amount_sol": step_sol,
+                "amount_lamports": step_lamports,
+                "amount_sol": round(step_sol, 9),
                 "max_input_lamports": max_lamports,
                 "tokens_out": round(tokens_out, 2),
                 "price_impact_bps": impact_bps,
@@ -757,21 +876,36 @@ def simulate_five_wallet_genesis_launch(
         last_price_sol = v_sol / v_tok
         supply_pct = round((w_tokens / PUMP_TOTAL_SUPPLY_TOKENS) * 100.0, 4)
         pub_addr = f"BossVault{w_idx}{hashlib.sha256(f'{ticker}:{role_id}'.encode()).hexdigest()[:24]}"
+        w_allocated_sol = round(w_allocated_lamports / LAMPORTS_PER_SOL, 9)
+        w_requested_sol = round(wallet_req_lamports / LAMPORTS_PER_SOL, 9)
         wallets_report.append({
             "wallet_index": w_idx,
             "wallet_role": role_id,
             "public_address_tag": pub_addr,
             "label_ru": label_ru,
-            "allocated_sol": wallet_sol,
-            "allocated_usd": round(wallet_sol * sol_price_usd, 2),
+            "requested_lamports": wallet_req_lamports,
+            "allocated_lamports": w_allocated_lamports,
+            "unallocated_lamports": rem_lamports,
+            "allocation_status": "COMPLETE" if rem_lamports == 0 else "PARTIAL",
+            "requested_sol": w_requested_sol,
+            "allocated_sol": w_allocated_sol,
+            "allocated_usd": round(w_allocated_sol * sol_price_usd, 2),
             "tranches_count": w_tranches,
             "tokens_acquired": round(w_tokens, 2),
             "share_of_total_supply_pct": supply_pct,
             "avg_entry_price_sol": round(first_price_sol, 10),
             "post_wallet_price_sol": round(last_price_sol, 10),
+            "target_lockup_days": lock_days,
             "lockup_days": lock_days,
+            "plan_verification_status": "UNVERIFIED_OFFCHAIN_PLAN_ONLY",
             "disclosed_in_manifest": True,
         })
+
+    total_unallocated_lamports = requested_lamports - total_allocated_lamports
+    allocation_status = "COMPLETE" if total_unallocated_lamports == 0 else "PARTIAL"
+    allocated_sol_total = round(total_allocated_lamports / LAMPORTS_PER_SOL, 9)
+    migration_lamports = int(round(PUMP_MIGRATION_SOL * LAMPORTS_PER_SOL))
+    curve_progress_pct = round((total_allocated_lamports / migration_lamports) * 100.0, 2)
 
     # Verify holder distribution via holder_monitor.analyse (including bonding curve pool account)
     remaining_curve_tokens = max(0.0, PUMP_TOTAL_SUPPLY_TOKENS - total_tokens_bought)
@@ -795,21 +929,28 @@ def simulate_five_wallet_genesis_launch(
 
     return {
         "evidence_class": EvidenceClass.SIMULATED.value,
+        "plan_verification_status": "UNVERIFIED_OFFCHAIN_PLAN_ONLY",
         "execution_mode": TRADING_EXECUTION,
         "paper_trading_only": PAPER_TRADING_ONLY,
         "project_name": project_name,
         "ticker": ticker,
-        "total_sol_budget": round(float(total_sol_budget), 6),
-        "total_usd_budget": round(float(total_sol_budget) * sol_price_usd, 2),
+        "allocation_status": allocation_status,
+        "requested_lamports": requested_lamports,
+        "allocated_lamports": total_allocated_lamports,
+        "unallocated_lamports": total_unallocated_lamports,
+        "total_sol_budget": round(requested_lamports / LAMPORTS_PER_SOL, 9),
+        "allocated_sol": allocated_sol_total,
+        "unallocated_sol": round(total_unallocated_lamports / LAMPORTS_PER_SOL, 9),
+        "total_usd_budget": round(allocated_sol_total * sol_price_usd, 2),
         "wallets_count": len(wallets_report),
         "tranches_count": len(all_tranches),
         "max_tranche_impact_bps": max((t["price_impact_bps"] for t in all_tranches), default=0.0),
         "all_tranches_within_120bps_gate": all(t["liquidity_gate_pass"] for t in all_tranches),
         "total_tokens_acquired": round(total_tokens_bought, 2),
         "total_supply_pct": round((total_tokens_bought / PUMP_TOTAL_SUPPLY_TOKENS) * 100.0, 4),
-        "protocol_fee_sol": round(total_protocol_fee_sol, 6),
-        "creator_fee_rebate_sol": round(total_creator_rebate_sol, 6),
-        "bonding_curve_progress_pct": round((float(total_sol_budget) / PUMP_MIGRATION_SOL) * 100.0, 2),
+        "protocol_fee_sol": round(total_protocol_fee_lamports / LAMPORTS_PER_SOL, 6),
+        "creator_fee_rebate_sol": round(total_creator_rebate_lamports / LAMPORTS_PER_SOL, 6),
+        "bonding_curve_progress_pct": curve_progress_pct,
         "wallets": wallets_report,
         "tranches": all_tranches,
         "holder_monitor_check": {
@@ -899,17 +1040,23 @@ def build_computer_use_harness_case(
     ticker: str = "BSENT",
     twitter_handle: str = "@owner_project",
     total_sol_budget: float = 3.0,
+    thesis: str | None = None,
+    daily_volume_usd: float | None = None,
+    market_cap_usd: float | None = None,
+    bonding_curve_only: bool = False,
+    use_demo_fixtures: bool = True,
+    creator_share_bps: int | None = 10_000,
 ) -> dict[str, Any]:
     """Собрать полный первый кейс генератора токенов для прогона через Bossman Harness & Computer-Use."""
-    trends = analyze_twitter_trends()
+    trends = analyze_twitter_trends(use_demo_fixtures=use_demo_fixtures)
     winner = trends.get("winner") or {}
-    thesis = winner.get("utility_fit") or (
+    resolved_thesis = (thesis or "").strip() or winner.get("utility_fit") or (
         "AI-агент и пульт управления с открытой телеметрией, ончейн-мониторингом держателей и прозрачной казной."
     )
     plan = build_project_launch_plan(
         project_name=project_name,
         ticker=ticker,
-        thesis=thesis,
+        thesis=resolved_thesis,
         twitter_handle=twitter_handle,
         treasury_sol=total_sol_budget,
     )
@@ -922,11 +1069,37 @@ def build_computer_use_harness_case(
     campaign = build_twitter_marketing_campaign(
         project_name=project_name,
         ticker=ticker,
-        thesis=thesis,
+        thesis=resolved_thesis,
         twitter_handle=twitter_handle,
         hashtags=list(winner.get("hashtags") or ["#Solana", "#AIAgents", f"${ticker}"]),
     )
-    fees = calculate_creator_fee_projections()
+    if daily_volume_usd is not None:
+        if bonding_curve_only:
+            curve_vol = float(daily_volume_usd)
+            swap_vol = 0.0
+        else:
+            curve_vol = round(float(daily_volume_usd) * 0.20, 2)
+            swap_vol = round(float(daily_volume_usd) * 0.80, 2)
+        fees = calculate_creator_fee_projections(
+            daily_curve_volume_usd=curve_vol,
+            daily_pumpswap_volume_usd=swap_vol,
+            market_cap_usd=market_cap_usd if market_cap_usd is not None else 85_000.0,
+            creator_share_bps=creator_share_bps,
+            use_demo_fixtures=use_demo_fixtures,
+        )
+    elif market_cap_usd is not None or bonding_curve_only or not use_demo_fixtures:
+        fees = calculate_creator_fee_projections(
+            daily_curve_volume_usd=25_000.0,
+            daily_pumpswap_volume_usd=0.0 if bonding_curve_only else 120_000.0,
+            market_cap_usd=market_cap_usd if market_cap_usd is not None else 85_000.0,
+            creator_share_bps=creator_share_bps,
+            use_demo_fixtures=use_demo_fixtures,
+        )
+    else:
+        fees = calculate_creator_fee_projections(
+            creator_share_bps=creator_share_bps,
+            use_demo_fixtures=use_demo_fixtures,
+        )
 
     svg_emblem = (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">'
