@@ -675,8 +675,16 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         try:
             keys = key_intake.parse_key_command(text)
             out = await asyncio.to_thread(key_intake.store_keys, keys)
+            core = getattr(self, "core", None)
+            apply = getattr(core, "apply_provider_key", None)
             for name, value in keys.items():   # backend first-class providers get the key now, not «at next start»
-                applied[name] = await self.core.apply_provider_key(name, value)
+                if apply is None:
+                    applied[name] = "file_only"  # no backend link in this companion: file + next start, as before
+                    continue
+                try:
+                    applied[name] = await apply(name, value)
+                except Exception as exc:  # noqa: BLE001 — the file is already written; never lose the reply
+                    applied[name] = f"error:{type(exc).__name__}"
             keys = {k: "" for k in keys}       # names only from here on
         except key_intake.KeyIntakeError as exc:
             await self.telegram.send(person, f"🔐 Ключ не принят: {exc}. Ничего не сохранено." + suffix)
