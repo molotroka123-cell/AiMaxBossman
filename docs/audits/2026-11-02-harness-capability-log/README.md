@@ -17,3 +17,7 @@
 | 10 | Управление ПК (Roblox Studio): запуск, F5, мультиплеер 2 клиента, скриншоты, импорт 3D | PROVEN (через Claude Code, не через PC-Agent Bossman) | s33–s69, коммиты игры 8380247…84fd899 | тот же сценарий через pc.* инструменты Bossman не прогонялся — NOT_RUN |
 | 11 | Память/уроки (`/api/memory/lessons`) | PARTIAL | lesson 108 (правило Jev/Kev) записан | доказательство «урок применён» — см. до/после в отчёте видео-обучения |
 | 12 | Перезапуски из одного checkout (backend / pult / companion) | PROVEN | restart_backend.ps1 (ALIVE de311164be8b PASS), restart_companion.ps1 | companion падал с TELEGRAM_NOT_CONFIGURED при BCC_DATA_DIR — исправлено 8b0d2f93 |
+| 13 | action_router: данные в промпте (URL/«go to website» из видео) = браузерное действие | DEFECT → исправлен | эскалации 1028/1042/1063/1067; df86e765, 175 тестов | — |
+| 14 | Память: recall уроков на новой задаче | DEFECT (частично) | уроки 116–125 записаны; ДО/ПОСЛЕ (1041/1077/1081) — уроки не применены, recall поднял нерелевантные заметки; ea60736d чинит отсечение фактов | межслойная нормализация BM25 (notes vs facts) — NOT_DONE |
+| 15 | Бесплатные облачные модели как пул | PARTIAL | NIM: kimi-k3 410, многие 404/таймаут, Ultra 503; Gemini Flash free 11 PASS, потом 429 | авто-ротация бесплатных моделей по живому пробу; сейчас при 503 молча уходит в локальную demon-70b (видно только в model_alias) |
+| 16 | Privacy gateway на публичных данных | PARTIAL | ролик «earn Robux» помечен как «финансы» (1046) | разметка «public data» для источников с публичным URL — решение владельца (security) |
