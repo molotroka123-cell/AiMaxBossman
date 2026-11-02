@@ -151,6 +151,11 @@ async def pump_launchpad(
     ticker: str = "BSENT",
     twitter_handle: str = "@owner_project",
     total_sol_budget: float = 3.0,
+    thesis: str | None = None,
+    daily_volume_usd: float | None = None,
+    market_cap_usd: float | None = None,
+    bonding_curve_only: bool = False,
+    use_demo_fixtures: bool = True,
 ) -> dict:
     """Долгосрочный Pump.fun лаунчпад: X/Twitter тренды, 5-кошельковый генезис, контроль объёма и комиссии."""
     from .pump_project_launchpad import build_computer_use_harness_case
@@ -159,6 +164,11 @@ async def pump_launchpad(
         ticker=ticker,
         twitter_handle=twitter_handle,
         total_sol_budget=total_sol_budget,
+        thesis=thesis,
+        daily_volume_usd=daily_volume_usd,
+        market_cap_usd=market_cap_usd,
+        bonding_curve_only=bonding_curve_only,
+        use_demo_fixtures=use_demo_fixtures,
     )
 
 

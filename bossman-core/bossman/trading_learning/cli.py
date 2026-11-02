@@ -159,6 +159,11 @@ def cmd_pump_launchpad(args) -> int:
         ticker=args.ticker,
         twitter_handle=args.twitter_handle,
         total_sol_budget=args.sol_budget,
+        thesis=args.utility_thesis,
+        daily_volume_usd=args.daily_volume_usd,
+        market_cap_usd=args.market_cap_usd,
+        bonding_curve_only=bool(args.bonding_curve_only),
+        use_demo_fixtures=not bool(getattr(args, "no_demo", False)),
     )
     _emit(case)
     return EXIT_OK
@@ -216,10 +221,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--utility-thesis", dest="utility_thesis",
                    default=("Long-term AI agent telemetry, on-chain holder risk monitor, and "
                             "automated creator-fee buyback & ecosystem grant vault powered by Bossman."))
-    p.add_argument("--sol-budget", dest="sol_budget", type=float, default=15.0)
-    p.add_argument("--daily-volume-usd", dest="daily_volume_usd", type=float, default=125_000.0)
-    p.add_argument("--market-cap-usd", dest="market_cap_usd", type=float, default=140_000.0)
+    p.add_argument("--sol-budget", dest="sol_budget", type=float, default=3.0)
+    p.add_argument("--daily-volume-usd", dest="daily_volume_usd", type=float, default=None)
+    p.add_argument("--market-cap-usd", dest="market_cap_usd", type=float, default=None)
     p.add_argument("--bonding-curve-only", dest="bonding_curve_only", action="store_true")
+    p.add_argument("--no-demo", dest="no_demo", action="store_true")
     p.set_defaults(func=cmd_pump_launchpad)
     return parser
 

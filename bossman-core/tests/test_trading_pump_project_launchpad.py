@@ -198,3 +198,136 @@ def test_codex_invariants_lamport_conservation_partial_and_na():
     na_fees = calculate_creator_fee_projections(market_cap_usd=None)
     assert na_fees["status"] == "N/A"
 
+
+def test_codex_five_wallet_lamport_conservation_and_partial_curve_progress():
+    full_5w = simulate_five_wallet_genesis_launch(
+        project_name="Bossman Sentinel",
+        ticker="BSENT",
+        total_sol_budget=15.0,
+        max_tranches=60,
+    )
+    assert full_5w["allocation_status"] == "COMPLETE"
+    assert full_5w["requested_lamports"] == 15_000_000_000
+    assert full_5w["allocated_lamports"] == 15_000_000_000
+    assert full_5w["unallocated_lamports"] == 0
+    assert sum(t["amount_lamports"] for t in full_5w["tranches"]) == full_5w["allocated_lamports"]
+    assert sum(w["requested_lamports"] for w in full_5w["wallets"]) == full_5w["requested_lamports"]
+    assert sum(w["allocated_lamports"] for w in full_5w["wallets"]) == full_5w["allocated_lamports"]
+    assert full_5w["plan_verification_status"] == "UNVERIFIED_OFFCHAIN_PLAN_ONLY"
+
+    partial_5w = simulate_five_wallet_genesis_launch(
+        project_name="Bossman Sentinel",
+        ticker="BSENT",
+        total_sol_budget=15.0,
+        max_tranches=5,
+    )
+    assert partial_5w["allocation_status"] == "PARTIAL"
+    assert partial_5w["tranches_count"] == 5
+    assert partial_5w["unallocated_lamports"] > 0
+    assert (
+        partial_5w["allocated_lamports"] + partial_5w["unallocated_lamports"]
+        == partial_5w["requested_lamports"]
+    )
+    expected_progress = round((partial_5w["allocated_lamports"] / (85.0 * 1_000_000_000)) * 100.0, 2)
+    assert partial_5w["bonding_curve_progress_pct"] == expected_progress
+    assert partial_5w["bonding_curve_progress_pct"] < full_5w["bonding_curve_progress_pct"]
+
+
+def test_codex_cli_flag_passthrough_and_honest_offchain_labels(capsys):
+    from bossman.trading_learning.cli import EXIT_OK, main
+
+    rc = main([
+        "pump_launchpad",
+        "--project-name", "Custom Utility Token",
+        "--ticker", "CUST",
+        "--utility-thesis", "Custom verifiable utility thesis for CLI passthrough test",
+        "--sol-budget", "4.5",
+        "--daily-volume-usd", "50000",
+        "--market-cap-usd", "95000",
+        "--bonding-curve-only",
+    ])
+    assert rc == EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["token_generator"]["metadata_manifest"]["description"] == (
+        "Custom verifiable utility thesis for CLI passthrough test"
+    )
+    assert payload["five_wallet_genesis"]["requested_lamports"] == 4_500_000_000
+    fees = payload["creator_fee_projections"]
+    assert fees["status"] == "SIMULATED"
+    assert fees["data_source"] == "USER_SCENARIO"
+    assert fees["inputs"]["daily_curve_volume_usd"] == 50_000.0
+    assert fees["inputs"]["daily_pumpswap_volume_usd"] == 0.0
+    assert fees["inputs"]["market_cap_usd"] == 95_000.0
+    assert fees["daily_breakdown_usd"]["pumpswap_fee_usd"] == 0.0
+
+    # Verify honest off-chain wording in Twitter drafts
+    campaign = payload["twitter_marketing"]
+    assert campaign["plan_verification_status"] == "UNVERIFIED_OFFCHAIN_PLAN_ONLY"
+    for draft in campaign["drafts"]:
+        assert "заблокирована по графику вестинга" not in draft["text"]
+
+    # Verify --no-demo returns N/A when no explicit scenario is given
+    rc_nodemo = main(["pump_launchpad", "--no-demo"])
+    assert rc_nodemo == EXIT_OK
+    payload_nodemo = json.loads(capsys.readouterr().out)
+    assert payload_nodemo["trend_analysis"]["status"] == "N/A"
+    assert payload_nodemo["creator_fee_projections"]["status"] == "N/A"
+
+
+def test_codex_fee_sharing_multi_pool_and_negative_controls():
+    # 50% creator share (5000 bps)
+    shared = calculate_creator_fee_projections(
+        daily_curve_volume_usd=20_000.0,
+        daily_pumpswap_volume_usd=80_000.0,
+        market_cap_usd=90_000.0,
+        sol_price_usd=180.0,
+        daily_expenses_usd=50.0,
+        creator_share_bps=5_000,
+    )
+    gross = shared["accounting_ledger"]["estimated_gross_usd"]
+    share = shared["accounting_ledger"]["estimated_creator_share_usd"]
+    assert share == pytest.approx(round(gross * 0.5, 2), abs=0.01)
+    assert shared["accounting_ledger"]["estimated_net_model_usd"] == pytest.approx(round(share - 50.0, 2), abs=0.01)
+
+    # Unknown recipient share (None -> "N/A")
+    unknown_share = calculate_creator_fee_projections(
+        daily_curve_volume_usd=20_000.0,
+        daily_pumpswap_volume_usd=80_000.0,
+        market_cap_usd=90_000.0,
+        sol_price_usd=180.0,
+        creator_share_bps=None,
+    )
+    assert unknown_share["accounting_ledger"]["estimated_creator_share_usd"] == "N/A"
+    assert unknown_share["accounting_ledger"]["estimated_net_model_usd"] == "N/A"
+
+    # Multi-pool / tariff schedule change within the same day
+    multi = calculate_creator_fee_projections(
+        market_cap_usd=90_000.0,
+        sol_price_usd=180.0,
+        pools=[
+            {"label": "bonding_curve_morning", "curve_vol_usd": 30_000.0, "swap_vol_usd": 0.0, "mcap_usd": 45_000.0},
+            {"label": "pumpswap_Canonical_afternoon", "curve_vol_usd": 0.0, "swap_vol_usd": 100_000.0, "mcap_usd": 110_000.0},
+        ],
+    )
+    assert len(multi["pools_breakdown"]) == 2
+    assert multi["accounting_ledger"]["estimated_gross_usd"] == pytest.approx(
+        sum(p["total_usd"] for p in multi["pools_breakdown"]), abs=0.02
+    )
+
+    # Negative controls: invalid inputs must raise ValueError
+    with pytest.raises(ValueError):
+        calculate_creator_fee_projections(daily_curve_volume_usd=-1.0)
+    with pytest.raises(ValueError):
+        calculate_creator_fee_projections(sol_price_usd=0.0)
+    with pytest.raises(ValueError):
+        calculate_creator_fee_projections(market_cap_usd=float("nan"))
+    with pytest.raises(ValueError):
+        calculate_creator_fee_projections(creator_share_bps=12_000)
+    with pytest.raises(ValueError):
+        simulate_five_wallet_genesis_launch(total_sol_budget=0.0)
+    with pytest.raises(ValueError):
+        simulate_five_wallet_genesis_launch(total_sol_budget=25.0)
+    with pytest.raises(ValueError):
+        simulate_five_wallet_genesis_launch(total_sol_budget=3.0, max_tranches=0)
+
+
