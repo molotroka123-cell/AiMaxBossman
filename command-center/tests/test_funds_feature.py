@@ -22,12 +22,14 @@ class _Resp:
             raise RuntimeError(f"http {self.status_code}")
 
 
-def _patch_client(monkeypatch, resp: _Resp, seen: dict):
+def _patch_client(monkeypatch, resp: _Resp, seen: dict, credits: _Resp | None = None):
     class FakeClient:
         def __init__(self, *a, **k): pass
         async def __aenter__(self): return self
         async def __aexit__(self, *a): return False
         async def get(self, url, headers=None):
+            if url.endswith("/credits"):
+                return credits or _Resp(404, {})
             seen["url"] = url
             seen["auth"] = (headers or {}).get("Authorization")
             return resp
@@ -38,9 +40,19 @@ def test_openrouter_probe_reads_limit_remaining(monkeypatch):
     seen: dict = {}
     _patch_client(monkeypatch, _Resp(200, {"data": {"limit": 10.0, "limit_remaining": 4.25}}), seen)
     out = asyncio.run(funds.probe_openrouter("https://openrouter.ai/api/v1", "sk-secret"))
-    assert out == {"balance": 4.25, "limit": 10.0, "status": "ok", "note": ""}
+    assert out == {"balance": 4.25, "limit": 10.0, "status": "ok", "note": "",
+                   "key_remaining": 4.25, "account_remaining": None}
     assert seen["url"].endswith("/auth/key") and seen["auth"] == "Bearer sk-secret"
     assert "sk-secret" not in json.dumps(out)
+
+
+def test_openrouter_balance_is_the_account_when_it_is_lower_than_the_key_limit(monkeypatch):
+    """02.11.2026: key limit $46 left, account had ~$0.6 -> paid designers got 402 and silently ran on local Qwen."""
+    _patch_client(monkeypatch, _Resp(200, {"data": {"limit": 50.0, "limit_remaining": 45.99}}), {},
+                  credits=_Resp(200, {"data": {"total_credits": 5.0, "total_usage": 4.4}}))
+    out = asyncio.run(funds.probe_openrouter("https://openrouter.ai/api/v1", "sk-secret"))
+    assert out["balance"] == 0.6 and out["account_remaining"] == 0.6 and out["key_remaining"] == 45.99
+    assert "пополните" in out["note"] and "sk-secret" not in json.dumps(out)
 
 
 def test_openrouter_probe_401_is_reported_not_raised(monkeypatch):

@@ -30,17 +30,37 @@ def _is_local(base_url: str) -> bool:
 
 
 async def probe_openrouter(base_url: str, key: str) -> dict:
-    """OpenRouter: /auth/key отдаёт limit (USD или null) и limit_remaining."""
+    """OpenRouter: /auth/key отдаёт limit/limit_remaining КЛЮЧА, /credits — деньги АККАУНТА.
+    02.11.2026: дашборд показывал $46 (лимит ключа), а аккаунт отвечал 402 «can only afford 10477 tokens» —
+    реальный остаток = min(остаток ключа, total_credits - total_usage)."""
+    base = base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {key}"}
     async with httpx.AsyncClient(timeout=PROBE_TIMEOUT) as client:
-        r = await client.get(base_url.rstrip("/") + "/auth/key", headers={"Authorization": f"Bearer {key}"})
-    if r.status_code == 401:
-        return {"balance": None, "limit": None, "status": "key_invalid", "note": "ключ отклонён (401) — обновите через /key"}
-    r.raise_for_status()
-    data = r.json().get("data", {})
+        r = await client.get(base + "/auth/key", headers=headers)
+        if r.status_code == 401:
+            return {"balance": None, "limit": None, "status": "key_invalid", "note": "ключ отклонён (401) — обновите через /key"}
+        r.raise_for_status()
+        data = r.json().get("data", {})
+        account = None
+        try:
+            c = await client.get(base + "/credits", headers=headers)
+            if c.status_code == 200:
+                cd = c.json().get("data", {})
+                total, used = cd.get("total_credits"), cd.get("total_usage")
+                if isinstance(total, (int, float)) and isinstance(used, (int, float)):
+                    account = round(total - used, 4)
+        except Exception:  # noqa: BLE001 - account probe is best-effort; the key probe already answered
+            account = None
     remaining = data.get("limit_remaining")
     limit = data.get("limit")
-    return {"balance": remaining if isinstance(remaining, (int, float)) else None,
-            "limit": limit if isinstance(limit, (int, float)) else None, "status": "ok", "note": ""}
+    key_left = remaining if isinstance(remaining, (int, float)) else None
+    balances = [b for b in (key_left, account) if b is not None]
+    note = ""
+    if account is not None and (key_left is None or account < key_left):
+        note = f"остаток аккаунта ${account:.2f} меньше лимита ключа — пополните кредиты OpenRouter"
+    return {"balance": min(balances) if balances else None,
+            "limit": limit if isinstance(limit, (int, float)) else None, "status": "ok", "note": note,
+            "key_remaining": key_left, "account_remaining": account}
 
 
 PROBES = {"openrouter.ai": probe_openrouter}
