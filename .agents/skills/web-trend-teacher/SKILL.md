@@ -28,7 +28,7 @@ Use this skill whenever Bossman needs to go out onto the internet like a student
    - Convert each trend into a self-contained `И-1` temporal fact (`15..80` words, `0` pronouns, anchored ISO date, exact proper tokens from `subject` and `object`).
    - Run the Teacher Mastery Exam (`mastery_score >= 0.85` required to pass).
 4. **Verify & Commit to Temporal Memory (`run_web_trend_teacher_session`)**:
-   - Enforce `StepStateGuard` before writing the curriculum digest (`data/learning/web_trend_curriculum/latest_digest.json`).
+   - Enforce `StepStateGuard` before writing the curriculum digest (`<data_dir>/web_trend_teacher_runs/latest_digest.json (runtime; the repo copy is a frozen sample)`).
    - Verify the written curriculum via `verify_criterion_with_proof` (`apb-2026.10.31-trend-teacher-v1`).
    - Record verified facts in `FactStore` with `replace_current=True` so superseded trends are automatically closed with `status_ru="заменённый"`.
 

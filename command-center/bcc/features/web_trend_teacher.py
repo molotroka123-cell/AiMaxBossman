@@ -686,9 +686,11 @@ async def run_web_trend_teacher_session(
             json.dumps(curriculum_payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        # Также обновляем канонический дайджест в data/learning/web_trend_curriculum/latest_digest.json
+        # «Последний дайджест» живёт рядом с прогонами в data_dir (02.11.2026): запись в отслеживаемый
+        # data/learning/web_trend_curriculum/latest_digest.json репозитория делала чекаут «грязным» при каждом
+        # тике, и /health терял идентичность сборки (SOURCE_IDENTITY_UNKNOWN, ready=False).
         try:
-            latest_dir = _repo_root() / "data" / "learning" / "web_trend_curriculum"
+            latest_dir = r_dir
             latest_dir.mkdir(parents=True, exist_ok=True)
             (latest_dir / "latest_digest.json").write_text(
                 json.dumps(curriculum_payload, indent=2, ensure_ascii=False),
