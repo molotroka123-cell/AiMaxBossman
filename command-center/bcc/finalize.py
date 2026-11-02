@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import timezone
+import json
 import re
 from typing import Any
 
@@ -197,6 +198,24 @@ def _superseded(failed_index: int, rows: list[dict], expected: list, roots: list
 
 
 _BENIGN_REDIRECT_RE = re.compile(r"(?i)(?<![\w>])(?:[0-9]?>&[0-9]|[0-9]?>{1,2}\s*(?:/dev/null|nul|\$null)(?![\w./\\]))")
+
+
+_FENCE_RE = re.compile(r"^\s*```[a-zA-Z]*\s*\n(.*)\n\s*```\s*$", re.S)
+
+
+def _error_only_answer(answer: str | None) -> bool:
+    """The whole answer is one JSON object whose only key is "error" (optionally inside a ``` fence)."""
+    text = str(answer or "").strip()
+    m = _FENCE_RE.match(text)
+    if m:
+        text = m.group(1).strip()
+    if not (text.startswith("{") and text.endswith("}")):
+        return False
+    try:
+        obj = json.loads(text)
+    except ValueError:
+        return False
+    return isinstance(obj, dict) and set(obj) == {"error"}
 
 
 def _effectful(row: dict) -> bool:
@@ -491,6 +510,13 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
         checks["failure_status"] = "failed"
         return FinalizeDecision(False, "EMPTY_RESULT: модель не вернула ни текста, ни проверенного "
                                        "эффекта — пустой ответ не является результатом", checks)
+    elif not expected and not _executed_effect(rows) and _error_only_answer(answer):
+        # Task 1088 (02.11.2026): a local agent with NO tools was asked to read local folders and answered with a
+        # self-made `{"error": {"type": "llm_call_failed", ...}}` block (38 generated tokens, no HTTP error, no tool
+        # call). The run was recorded as completed. An answer that is only an error object is a failure report.
+        checks["failure_status"] = "failed"
+        return FinalizeDecision(False, "ERROR_SHAPED_RESULT: ответ модели — только объект ошибки, а не результат "
+                                       "задачи (проверьте, есть ли у агента инструменты для этой задачи)", checks)
 
     # The verifier awaited real I/O. Its result belongs to the exact obligation
     # and run read above, not a changed owner objective, newer attempt or paused
