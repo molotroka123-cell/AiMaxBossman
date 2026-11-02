@@ -2559,10 +2559,6 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     projects_mod.register(app, call=call, session=session, fail=fail, bm=bm)   # projects, files, memory browser
 
-    @app.api_route("/m/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-    async def m_api_unknown(rest: str):
-        raise fail(404, "нет такого вызова", "BM_NOT_ALLOWED")
-
     @app.get("/m/api/trading-lab/pump-launchpad")
     async def m_trading_lab_pump_launchpad(
         project_name: str = "Bossman Neural Sentinel",
@@ -2587,6 +2583,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                 twitter_handle=twitter_handle,
                 total_sol_budget=total_sol_budget,
             )
+
+    @app.api_route("/m/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+    async def m_api_unknown(rest: str):
+        raise fail(404, "нет такого вызова", "BM_NOT_ALLOWED")
 
     # ------------------------------------------------------------------ app shell
     @app.get("/m", include_in_schema=False)
