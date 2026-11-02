@@ -26,3 +26,12 @@ def test_request_after_the_block_still_classifies():
               "Now push the summary to GitHub and commit it.")
     assert "DATA" in without_data_blocks(prompt)
     assert classify_all(prompt) != []
+
+
+def test_router_ignores_browser_words_inside_a_data_block():
+    from bcc.features.action_router import classify as route_classify, target_domain
+    data = "go to the website roblox.com and open the creator hub, click on analytics"
+    prompt = "Разбери фрагмент расшифровки.\nНАЧАЛО РАСШИФРОВКИ\n" + data + "\nКОНЕЦ РАСШИФРОВКИ"
+    assert route_classify(prompt) is None
+    assert target_domain(prompt) is None
+    assert route_classify("Открой сайт roblox.com и зайди в creator hub") is not None

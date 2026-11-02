@@ -8,6 +8,8 @@ turned every later question into a failed memory action with a new approval).
 """
 from __future__ import annotations
 
+import re
+
 HEADER = "Контекст беседы (предыдущие ходы этой сессии терминала):\n"
 MARKER = "\n\nНовое сообщение владельца:\n"
 
@@ -26,3 +28,18 @@ def current_request(prompt: str) -> str:
     if not text.startswith(HEADER) or MARKER not in text:
         return text
     return text.rsplit(MARKER, 1)[1]
+
+
+# Explicitly delimited DATA is not a request (02.11.2026): a block whose START and END lines carry the SAME
+# upper-case label («НАЧАЛО РАСШИФРОВКИ … КОНЕЦ РАСШИФРОВКИ», «BEGIN TRANSCRIPT … END TRANSCRIPT»). Used by the
+# action classifiers (action_contract, action_router): words spoken in a YouTube transcript («go to the website»,
+# «push it to GitHub») are not the owner's request. Unclosed or mismatched markers hide nothing.
+_DATA_BLOCK_RE = re.compile(
+    r"^[ \t]*(?:НАЧАЛО|BEGIN)[ \t]+(?P<label>[A-ZА-ЯЁ][A-ZА-ЯЁ_ ]{2,40}?)[ \t]*$"
+    r".*?"
+    r"^[ \t]*(?:КОНЕЦ|END)[ \t]+(?P=label)[ \t]*$",
+    re.M | re.S)
+
+
+def without_data_blocks(text: str) -> str:
+    return _DATA_BLOCK_RE.sub(" DATA ", text)

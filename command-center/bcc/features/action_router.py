@@ -49,7 +49,7 @@ import re
 
 import sqlalchemy as sa
 
-from ..conversation_context import current_request
+from ..conversation_context import current_request, without_data_blocks
 from ..db import tasks as tasks_t, utcnow
 from ..tools import ROUTED_TOOLS_EXTEND_AGENT
 from . import Feature
@@ -129,7 +129,7 @@ def target_expectation(prompt: str) -> dict | None:
     domain = target_domain(prompt)
     if not domain:
         return None
-    text = current_request(prompt)
+    text = without_data_blocks(current_request(prompt))
     for site, goal_re, deep in _DEEP_GOALS:
         if domain == site and goal_re.search(text):
             return {"url_contains": deep}
@@ -141,7 +141,7 @@ def classify(prompt: str) -> str | None:
     """Детерминированная классификация запроса действия над браузером/компьютером
     владельца. Проверяется ТЕКСТ ЗАДАЧИ (в отличие от action_gate, который
     смотрит на ответ модели) — это разные, дополняющие друг друга проверки."""
-    text = current_request(prompt)
+    text = without_data_blocks(current_request(prompt))
     return CAPABILITY_BROWSER if _ACTION_RE.search(text) else None
 
 
@@ -151,7 +151,7 @@ def target_domain(prompt: str) -> str | None:
     название сайта → домен из закрытого списка; иначе — явный домен,
     буквально упомянутый в тексте. Ничего не найдено — None (см. докстринг:
     несуществующее ожидание не изобретается)."""
-    text = current_request(prompt)
+    text = without_data_blocks(current_request(prompt))
     for pattern, domain in _KNOWN_DOMAINS:
         if pattern.search(text):
             return domain
