@@ -162,3 +162,20 @@ async def test_harness_ladder_paid_fallback_when_pool_exhausted(env):
     assert status == "completed", status
     assert adapters["free-throttled"].calls == 1 and adapters["free-good"].calls == 0, "curated pool only"
     assert paid_adapter.calls >= 1
+
+
+async def test_rotate_does_not_poison_health_on_a_non_provider_error():
+    """Review 03.11 (GLM-5.3 via 7API): a LookupError from adapter_for was recorded as PROVIDER_DOWN -> cooldown."""
+    recorded = []
+
+    async def call(mid):
+        if mid == 1:
+            raise LookupError("model row gone")
+        return "ok"
+
+    async def on_failure(mid, status, detail):
+        recorded.append((mid, status))
+
+    out = await fp.rotate([1, 2], call, on_failure)
+    assert out.model_id == 2 and recorded == []
+    assert out.tried[0][1] == "skipped"

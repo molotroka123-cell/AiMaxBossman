@@ -1565,7 +1565,9 @@ class TaskEngine:
                 result = await fb_adapter.chat(fb_model["name"], messages, **kw)
             except ProviderError as fb_exc:
                 failed(fb_id, fb_exc)
-                pooled = None if perms.get("free_pool_first") else await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, fb_exc,
+                # also after free_pool_first: models already tried are in `attempts` and excluded, so this only
+                # reaches pool models the first pass did not (it may not have run at all on a non-rotatable class)
+                pooled = await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, fb_exc,
                                                       check_fallback_model, refuse_cloud_with_pc, failed)
                 if pooled is not None:
                     return pooled
@@ -2643,7 +2645,11 @@ class TaskEngine:
             if not fp.is_free_cloud(m, is_local=lambda row: is_local_url(row.get("provider_base_url") or "")
                                     or row.get("kind") == "local"):
                 continue
+            # an owner-curated list skips the capability match, never the tools check: a call that carries tools
+            # sent to a model without them is a guaranteed failure and a cooldown on a healthy model (review 03.11)
             if curated is None and not fp.caps_compatible(primary_caps, m.get("caps"), needs_tools=bool(kw.get("tools"))):
+                continue
+            if curated is not None and kw.get("tools") and not (m.get("caps") or {}).get("tools"):
                 continue
             cands.append((mid, mh.HealthRecord.from_dict(m["health"])))
         order = fp.pool_order(cands, exclude=[a[0] for a in attempts])

@@ -96,6 +96,11 @@ async def rotate(order: Sequence[int], call: Callable[[int], Awaitable[Any]],
     for model_id in list(order)[:max(0, max_tries)]:
         try:
             result = await call(model_id)
+        except (LookupError, TypeError, ValueError, PermissionError) as exc:
+            # not the provider's fault (missing row, bad config, policy refusal): skip the model WITHOUT a health
+            # record — a cooldown here would poison a healthy model (GLM-5.3 review of this diff, 03.11).
+            out.tried.append((model_id, "skipped", f"{type(exc).__name__}: {exc}"[:200]))
+            continue
         except Exception as exc:  # noqa: BLE001 - every provider failure is classified, nothing is swallowed silently
             status, detail = classify(exc)
             out.tried.append((model_id, status, detail))
