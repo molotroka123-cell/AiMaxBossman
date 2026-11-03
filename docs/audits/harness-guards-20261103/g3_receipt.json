@@ -1,0 +1,54 @@
+{
+ "guard": "G3",
+ "project": "swapme-roblox (local git roblox/fox-city)",
+ "incident_fix_commit": "532d1f5",
+ "negative_control_parent_of_fix": {
+  "ok": false,
+  "uses": 776,
+  "missing": [
+   {
+    "file": "src/server/MatchService.server.luau",
+    "line": 346,
+    "module_var": "MatchConfig",
+    "field": "MAX_PAID_WINS_PER_DAY",
+    "module_file": "src/shared/MatchConfig.luau"
+   },
+   {
+    "file": "src/server/MatchService.server.luau",
+    "line": 357,
+    "module_var": "MatchConfig",
+    "field": "DAILY_MATCH_POINT_CAP",
+    "module_file": "src/shared/MatchConfig.luau"
+   }
+  ]
+ },
+ "current_head_9a204f5_worktree": {
+  "ok": true,
+  "uses": 807,
+  "modules": 27,
+  "guarded_warnings": [
+   {
+    "file": "src/server/MonetizationService.server.luau",
+    "line": 16,
+    "module_var": "Config",
+    "field": "Products",
+    "module_file": "src/shared/Config.luau"
+   },
+   {
+    "file": "src/server/TradeService.server.luau",
+    "line": 37,
+    "module_var": "Remotes",
+    "field": "get",
+    "module_file": "src/shared/Remotes.luau"
+   },
+   {
+    "file": "src/server/TradeService.server.luau",
+    "line": 37,
+    "module_var": "Remotes",
+    "field": "get",
+    "module_file": "src/shared/Remotes.luau"
+   }
+  ]
+ },
+ "verdict": "PASS"
+}

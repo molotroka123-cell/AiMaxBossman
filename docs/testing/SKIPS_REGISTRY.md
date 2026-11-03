@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 540. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 542. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -96,6 +96,8 @@
 | `command-center/tests/test_golden_missions.py:722` | skipif | `not _mcp_sdk_available()` | официальный MCP SDK (pip install mcp) не установлен | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_golden_missions.py:862` | skipif | `not _ffmpeg_available()` | нет пути рендера видео: bossman-core video_factory или ffmpeg недоступны в этой среде | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_harness_coder_fixes.py:43` | skipif | `sys.platform != "win32"` | Windows Job Object | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_harness_guards.py:63` | skipif | `not Path("C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe").exists()` | Windows PowerShell only | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_harness_guards.py:265` | skipif | `not (media_provenance._tool("ffmpeg") and media_provenance._tool("ffprobe"))` | ffmpeg not installed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_host_shell_cmd_switch.py:29` | skipif | `os.name != "nt"` | Windows host shell only | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_host_shell_cmd_switch.py:33` | skip | `—` | no sh on PATH: cmd /c is used directly | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_images_cancel_button.py:42` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from ..guards import foreground as _fg
+
 PROCESS = "RobloxStudioBeta"
 PLACE_SUFFIXES = (".rbxl", ".rbxlx")
 #: default layout of the 02.11 SwapMe runs (1920x1080): command bar, Output pane
@@ -32,6 +34,8 @@ COMMAND_BAR_XY = (900, 970)
 OUTPUT_XY = (900, 900)
 ACTIONS = ("status", "open", "front", "play", "stop", "run_lua", "copy_output", "screenshot", "close")
 READ_ONLY = frozenset({"status", "screenshot"})
+#: G1: the only window pc.studio may type into (title of a Studio window with a place open)
+STUDIO_TITLE_RX = r"Roblox Studio|\.rbxlx?\b"
 
 _PS_INPUT = r"""
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
@@ -57,26 +61,31 @@ def _ps_quote(value: str) -> str:
 
 
 def build_script(action: str, *, hwnd: int = 0, lua: str = "", out: str = "",
-                 command_bar: tuple[int, int] = COMMAND_BAR_XY, output_xy: tuple[int, int] = OUTPUT_XY) -> str:
-    """The PowerShell for one input action (pure — unit-tested; values are single-quoted, never interpolated)."""
+                 command_bar: tuple[int, int] = COMMAND_BAR_XY, output_xy: tuple[int, int] = OUTPUT_XY,
+                 expect_rx: str = STUDIO_TITLE_RX) -> str:
+    """The PowerShell for one input action (pure — unit-tested; values are single-quoted, never interpolated).
+
+    G1 (03.11): every key batch is preceded by `AssertFg` — the foreground window must be THIS Studio hwnd and its
+    title must match `expect_rx` (and not be a chat app), otherwise the script stops before the key is sent."""
+    g = _fg.ps_assert(hwnd, expect_rx)
     body = {
         "front": f"'front=' + (Front {int(hwnd)})",
-        "play": f"Front {int(hwnd)} | Out-Null; [System.Windows.Forms.SendKeys]::SendWait('{{F5}}'); 'sent F5'",
-        "stop": f"Front {int(hwnd)} | Out-Null; [System.Windows.Forms.SendKeys]::SendWait('+{{F5}}'); 'sent Shift+F5'",
+        "play": f"Front {int(hwnd)} | Out-Null; {g}; [System.Windows.Forms.SendKeys]::SendWait('{{F5}}'); 'sent F5'",
+        "stop": f"Front {int(hwnd)} | Out-Null; {g}; [System.Windows.Forms.SendKeys]::SendWait('+{{F5}}'); 'sent Shift+F5'",
         "run_lua": (f"Front {int(hwnd)} | Out-Null; Click {int(command_bar[0])} {int(command_bar[1])}; "
                     f"Set-Clipboard -Value {_ps_quote(lua)}; "
-                    "[System.Windows.Forms.SendKeys]::SendWait('^a'); Start-Sleep -m 100; "
-                    "[System.Windows.Forms.SendKeys]::SendWait('^v'); Start-Sleep -m 200; "
-                    "[System.Windows.Forms.SendKeys]::SendWait('{ENTER}'); Start-Sleep -s 2; 'ran'"),
+                    f"{g}; [System.Windows.Forms.SendKeys]::SendWait('^a'); Start-Sleep -m 100; "
+                    f"{g}; [System.Windows.Forms.SendKeys]::SendWait('^v'); Start-Sleep -m 200; "
+                    f"{g}; [System.Windows.Forms.SendKeys]::SendWait('{{ENTER}}'); Start-Sleep -s 2; 'ran'"),
         "copy_output": (f"Front {int(hwnd)} | Out-Null; Click {int(output_xy[0])} {int(output_xy[1])}; "
-                        "[System.Windows.Forms.SendKeys]::SendWait('^a'); Start-Sleep -m 200; "
-                        "[System.Windows.Forms.SendKeys]::SendWait('^c'); Start-Sleep -m 400; "
+                        f"{g}; [System.Windows.Forms.SendKeys]::SendWait('^a'); Start-Sleep -m 200; "
+                        f"{g}; [System.Windows.Forms.SendKeys]::SendWait('^c'); Start-Sleep -m 400; "
                         f"Get-Clipboard | Out-File -Encoding utf8 {_ps_quote(out)}; 'copied'"),
         "screenshot": f"Shot {_ps_quote(out)}; 'saved'",
     }.get(action)
     if body is None:
         raise ValueError(f"no input script for action {action!r}")
-    return _PS_INPUT + "\n" + body + "\n"
+    return _PS_INPUT + _fg.PS_GUARD + "\ntry { " + body + " } catch { Write-Output $_.Exception.Message }\n"
 
 
 def make_marker() -> str:
@@ -194,6 +203,10 @@ class StudioPC:
     def _input(self, action: str, **kw: Any) -> dict[str, Any]:
         win = self._mine(action)
         out = self.ps(build_script(action, hwnd=win["hwnd"], **kw))
+        guard = _fg.refused(out)
+        if guard:
+            self._receipt(action, False, pid=win["pid"], refused=guard)
+            raise PermissionError(f"{action}: {guard}")
         return self._receipt(action, "front=False" not in out, pid=win["pid"], output=out[-300:])
 
     def front(self) -> dict[str, Any]:

@@ -1,0 +1,46 @@
+{
+ "guard": "G5",
+ "real_tree_scan": {
+  "project": "swapme-roblox HEAD 9a204f5 (tracked text files)",
+  "lines": 144711,
+  "blocking_hits": 90,
+  "by_category": {
+   "politician": 2,
+   "gambling": 6,
+   "alcohol": 18,
+   "tobacco_nicotine": 63,
+   "real_brand": 1
+  },
+  "comment_warnings": 54,
+  "first_hits": [
+   "assets/incoming/codex-youtube-world-20261102/studied-transcripts/5uXLixtTgJM/part-001.json:17 [politician] политик",
+   "assets/incoming/codex-youtube-world-20261102/studied-transcripts/5uXLixtTgJM/part-001.json:18 [politician] политик",
+   "assets/incoming/codex-youtube-world-20261102/studied-transcripts/JG37MoDpOTw/JG37MoDpOTw.json:3 [gambling] lottery",
+   "assets/incoming/codex-youtube-world-20261102/studied-transcripts/JG37MoDpOTw/JG37MoDpOTw.json:3686 [gambling] lottery",
+   "assets/incoming/codex-youtube-world-20261102/studied-transcripts/Me71LLo6QRk/part-001.json:23 [gambling] лутбокс",
+   "assets/incoming/codex-youtube-world-20261102/studied-transcripts/dbNA3K8lt2w/dbNA3K8lt2w.json:3 [gambling] gambling",
+   "assets/incoming/codex-youtube-world-20261102/studied-transcripts/dbNA3K8lt2w/dbNA3K8lt2w.json:6111 [gambling] gambling",
+   "assets/incoming/codex-youtube-world-20261102/studied-transcripts/dbNA3K8lt2w/part-001.json:31 [gambling] лутбокс",
+   "assets/incoming/epix-club-decor-100/manifest_100.json:4 [alcohol] cocktail",
+   "assets/incoming/epix-club-decor-100/manifest_100.json:48 [alcohol] champagne",
+   "assets/incoming/epix-club-decor-100/manifest_100.json:125 [alcohol] champagne",
+   "assets/incoming/epix-club-decor-100/manifest_100.json:136 [alcohol] champagne"
+  ]
+ },
+ "reviewer_model": "qwen3-coder:30b (local Ollama)",
+ "dodge_case": {
+  "denylist_hits": 0,
+  "reviewer": "FLAG",
+  "reason": "FLAG: real brands - Big Mac Burger stand with the golden arches logo",
+  "ok": false,
+  "seconds": 112.5
+ },
+ "clean_control": {
+  "denylist_hits": 0,
+  "reviewer": "PASS",
+  "reason": "",
+  "ok": true,
+  "seconds": 0.1
+ },
+ "verdict": "PASS"
+}

@@ -1753,6 +1753,12 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             if want and int(fg_last.get("handle") or 0) != want:
                 raise ActRefused(f"фокус ушёл перед самым вводом: впереди «{fg_last.get('title')}», "
                                  f"а не {_wdesc(before.get('window'))} — ввод не отправлен")
+            if kind in ("type", "hotkey"):
+                # G1 (03.11, paste into a 2,237-member Telegram group): a chat app in front never gets keys here,
+                # by TITLE too (a messenger inside an allowed host window); the process allowlist alone is not enough.
+                from ..guards.foreground import check_title
+                if fg_last.get("title") and (guard := check_title(fg_last.get("title"))):
+                    raise ActRefused(guard)
         # Последняя проверка «Стоп» — непосредственно перед эффектом.
         _stop_check(st, "перед эффектом", epoch)
         if kind == "type" and args.get("replace"):

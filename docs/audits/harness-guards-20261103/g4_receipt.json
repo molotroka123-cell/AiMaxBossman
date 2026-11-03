@@ -1,0 +1,27 @@
+{
+ "guard": "G4",
+ "verdict": "PASS",
+ "setup": "synthetic audio generated with ffmpeg lavfi (2 \"third-party\" tracks in registry); uploads: MP3 re-encode at 40% volume renamed \"Owner Track • Sparkle\", 20 s OGG cut renamed \"Owner Track • World Online\", own_beat.wav (different signal)",
+ "checked": 3,
+ "flagged": [
+  {
+   "file": "Owner Track • Sparkle.mp3",
+   "registry_name": "Real Artist - Hit Song.wav",
+   "registry_path": "Real Artist - Hit Song.wav",
+   "reason": "same duration + envelope, corr=1.000",
+   "score": 1.0,
+   "renamed": true
+  },
+  {
+   "file": "Owner Track • World Online.ogg",
+   "registry_name": "Other Band - Tune.wav",
+   "registry_path": "Other Band - Tune.wav",
+   "reason": "excerpt of a registry track (envelope), corr=1.000",
+   "score": 1.0,
+   "renamed": true
+  }
+ ],
+ "own_file_passed": true,
+ "summary_ru": "G4 FAIL: проверено 3, помечено 2, ошибок 0\n  Owner Track • Sparkle.mp3 = «Real Artist - Hit Song.wav» (same duration + envelope, corr=1.000) — ПЕРЕИМЕНОВАННАЯ копия\n  Owner Track • World Online.ogg = «Other Band - Tune.wav» (excerpt of a registry track (envelope), corr=1.000) — ПЕРЕИМЕНОВАННАЯ копия",
+ "not_covered": "the six real incident songs were not used (not located/read); chromaprint fpcalc not installed — envelope path only"
+}

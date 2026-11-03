@@ -1,0 +1,16 @@
+{
+ "guard": "G6",
+ "project": "swapme-roblox, local --shared clone at HEAD 47282ef (the live checkout is not rebuilt: its build/*.rbxlx is open in another Studio session)",
+ "command": "python tools/harness_guards.py publish-gate <clone> --registry <synthetic G4 registry>",
+ "gate_ok": false,
+ "steps": {
+  "Рабочее дерево закоммичено": true,
+  "Сборочная проверка": true,
+  "G3 ссылки на поля конфигов": true,
+  "G4 происхождение медиа": true,
+  "G5 политика контента": false
+ },
+ "report_ru": "Проверка публикации: ОТКАЗ — публикация запрещена\n✔ Рабочее дерево закоммичено: чисто, HEAD 47282ef\n✔ Сборочная проверка: bash tools/check.sh -> код 0, маркер «GATE PASS» есть\n✔ G3 ссылки на поля конфигов: G3 PASS: 807 обращений к полям 27 модулей — все поля определены; предупреждений (поля нет, но обращение терпит nil): 3\n✔ G4 происхождение медиа: G4 PASS: 10 медиафайлов, совпадений с реестром чужих файлов нет\n✘ G5 политика контента: G5 FAIL: строк 144711, совпадений в коде/строках 88, в комментариях/с отрицанием 54 (предупреждение), ревьюер-модель NOT_RUN\n      [tobacco_nicotine] «velo» — src/server/ArgonWave6.luau:45: velo_peppermint_storm_sky_deck = 0,\n      [tobacco_nicotine] «velo» — src/server/ArgonWave6.luau:277: velo_peppermint_storm_sky_deck = {\n      [tobacco_nicotine] «VELO» — src/server/Carnival.server.luau:2893: local VELO_POS = O + Vector3.new(38, 48, 42)\n      [tobacco_nicotine] «velo» — src/server/Carnival.server.luau:2897: local veloModel = Instance.new(\"Model\")\n      [tobacco_nicotine] «velo» — src/server/Carnival.server.luau:2898: veloModel.Name = \"CarnivalFoxFrostSkyDeck\"\n      [tobacco_nicotine] «velo» — src/server/Carnival.server.luau:2899: veloModel.Parent = skyFolder\n      [tobacco_nicotine] «velo» — src/server/Carnival.server.luau:2907: disc(veloModel, \"VeloLaunchBase\", 3.8, 0.7, PAD_POS + Vector3.new(0, 0.35, 0), BLACK_CAN, Enum.Mater",
+ "verdict": "PASS",
+ "meaning": "the gate REFUSED publishing the current build: build gate, G3 and G4 pass, G5 finds VELO (nicotine brand) in src/server/Carnival.server.luau + ArgonWave6.luau and alcohol decor names"
+}

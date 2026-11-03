@@ -1397,6 +1397,8 @@ class TaskEngine:
                 result, model = await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
                                                               model_override=model_override,
                                                               on_delta=on_delta)
+                result, model = await self._empty_recovery(task, agent, messages, run_id, result, model,
+                                                           tools=tools, model_override=model_override)
             await self._record_runtime_success(model)
             return result, model
         finally:
@@ -1408,6 +1410,39 @@ class TaskEngine:
                                 f"память владельца не отправлена в облачную модель {last['model']} "
                                 f"(локальные данные; разрешить: meta.memory_to_cloud=true)",
                                 {"calls": withheld[:5]})
+
+    async def _empty_recovery(self, task: dict, agent: dict, messages: list[dict], run_id: int,
+                              result: ChatResult, model: dict, *, tools: list[dict] | None = None,
+                              model_override: int | None = None) -> tuple[ChatResult, dict]:
+        """G2 (03.11, Jev empty on 40k code, answered on a 13k excerpt): an EMPTY answer on a long input is retried
+        ONCE on relevant excerpts (<=12k) with a strict short format. Records which variant answered."""
+        from .guards import long_input as li
+        if not li.enabled_for(agent) or not li.is_empty_answer(result):
+            return result, model
+        reduced = li.reduce_messages(messages)
+        if reduced is None:
+            return result, model
+        small, info = reduced
+        await self._log(run_id, "warn", "model.empty_recovery",
+                        f"пустой ответ на длинный ввод ({info['chars_before']} симв.) — повтор на фрагментах "
+                        f"({info['chars_after']} симв.) в строгом формате", info)
+        try:
+            retry, retry_model = await self._call_model_scoped(task, agent, small, run_id, tools=tools,
+                                                               model_override=model_override)
+        except ProviderError as exc:
+            await self._log(run_id, "warn", "model.empty_recovery_failed", f"повтор на фрагментах упал: {exc}", info)
+            return result, model
+        ok = not li.is_empty_answer(retry)
+        meta = {**info, "variant": "reduced" if ok else "none", "model": (retry_model or {}).get("alias")}
+        retry.provider_meta = {**(retry.provider_meta or {}), "empty_recovery": meta}
+        await self._log(run_id, "info" if ok else "warn", "model.empty_recovery_result",
+                        f"G2: ответил вариант {'reduced (фрагменты)' if ok else '— никакой'}", meta)
+        if not ok:
+            result.provider_meta = {**(result.provider_meta or {}), "empty_recovery": meta}
+            return result, model
+        retry.tokens_in += result.tokens_in
+        retry.tokens_out += result.tokens_out
+        return retry, retry_model
 
     async def _call_model_scoped(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None,
