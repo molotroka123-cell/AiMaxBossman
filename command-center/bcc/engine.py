@@ -1028,9 +1028,13 @@ class TaskEngine:
             recalled = None
             if await self._memory_stays_local(run_id, task, agent):
                 recalled = await self._recall_memory(run_id, task)
+            checklist = ""
             if recalled:
+                recalled, checklist = _split_checklist(recalled)
                 messages.append({"role": "system", "content": recalled})
-            messages.append({"role": "user", "content": task["prompt"]})
+            # Harness A/B 03.11: the same recalled rules as a system DATA block moved nothing (0/9 on 3 lessons), the
+            # rules attached to the task itself did. Rule-only items; provider_governance cuts this span for cloud.
+            messages.append({"role": "user", "content": task["prompt"] + (("\n\n" + checklist) if checklist else "")})
         step = int(checkpoint.get("step") or 0)
         # owner 29.10: «убрать лимиты» — max_steps <= 0 means no step cap; STOP, approvals and $ budget still end a run
         _ms = agent.get("max_steps")
@@ -3233,6 +3237,17 @@ _RECOVERY_CHECKPOINT_KEYS = ("recovery_ladder", "recovery_model_id", "recovery_d
 #: Failure classes that say something about the MODEL rather than the request
 #: or our own gates; only these are written into its measured health.
 _RUNTIME_HEALTH_CLASSES = frozenset({"transient", "throttled", "unauthorized", "silent"})
+
+
+def _split_checklist(recalled: str) -> tuple[str, str]:
+    """(memory DATA block, engineering checklist span) — the span goes to the task's user turn (harness 03.11)."""
+    start = recalled.find("\n\n[ENGINEERING CHECKLIST")
+    end_mark = "[/ENGINEERING CHECKLIST]"
+    end = recalled.find(end_mark, start + 1) if start >= 0 else -1
+    if start < 0 or end < 0:
+        return recalled, ""
+    end += len(end_mark)
+    return recalled[:start] + recalled[end:], recalled[start:end].strip()
 
 
 def _fallback_failure(label: str, exc: ProviderError, fb_label: str,

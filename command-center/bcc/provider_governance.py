@@ -29,15 +29,31 @@ def _is_memory_context(message) -> bool:
             and message["content"].lstrip().startswith(MEMORY_CONTEXT_MARKER))
 
 
+#: recalled lessons the engine attaches to the task's user turn (harness 03.11) — the same owner memory, so the same
+#: cloud rule: the span is cut out of the message before any cloud call
+CHECKLIST_SPAN = re.compile(r"\n*\[ENGINEERING CHECKLIST.*?\[/ENGINEERING CHECKLIST\]", re.S)
+
+
+def _strip_checklist(messages: list) -> tuple[list, int]:
+    out, cut = [], 0
+    for m in messages or []:
+        content = m.get("content") if isinstance(m, dict) else None
+        if isinstance(content, str) and "[/ENGINEERING CHECKLIST]" in content:
+            m = {**m, "content": CHECKLIST_SPAN.sub("", content)}
+            cut += 1
+        out.append(m)
+    return out, cut
+
+
 def withhold_local_memory(args: tuple, kwargs: dict) -> tuple[tuple, dict, int]:
-    """(args, kwargs) of adapter.chat(model, messages, ...) without recalled memory."""
+    """(args, kwargs) of adapter.chat(model, messages, ...) without recalled memory (system block + task checklist)."""
     if "messages" in kwargs:
         msgs = kwargs["messages"]
-        kept = [m for m in msgs or [] if not _is_memory_context(m)]
-        return args, {**kwargs, "messages": kept}, len(msgs or []) - len(kept)
+        kept, cut = _strip_checklist([m for m in msgs or [] if not _is_memory_context(m)])
+        return args, {**kwargs, "messages": kept}, len(msgs or []) - len(kept) + cut
     if len(args) >= 2 and isinstance(args[1], list):
-        kept = [m for m in args[1] if not _is_memory_context(m)]
-        return (args[0], kept, *args[2:]), kwargs, len(args[1]) - len(kept)
+        kept, cut = _strip_checklist([m for m in args[1] if not _is_memory_context(m)])
+        return (args[0], kept, *args[2:]), kwargs, len(args[1]) - len(kept) + cut
     return args, kwargs, 0
 
 
