@@ -1547,6 +1547,13 @@ class TaskEngine:
                     return pooled
                 exc.failed_models = attempts            # type: ignore[attr-defined]
                 raise
+            perms = agent.get("permissions") if isinstance(agent.get("permissions"), dict) else {}
+            if perms.get("free_pool_first"):
+                # Harness ladder (03.11): local -> FREE pool -> the configured (paid, capped) fallback last.
+                pooled = await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, exc,
+                                                      check_fallback_model, refuse_cloud_with_pc, failed)
+                if pooled is not None:
+                    return pooled
             await self._log(run_id, "warn", "model.fallback",
                             f"модель {label} недоступна ({exc}) — пробуем fallback")
             fb_id = agent["fallback_model_id"]
@@ -1558,7 +1565,7 @@ class TaskEngine:
                 result = await fb_adapter.chat(fb_model["name"], messages, **kw)
             except ProviderError as fb_exc:
                 failed(fb_id, fb_exc)
-                pooled = await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, fb_exc,
+                pooled = None if perms.get("free_pool_first") else await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, fb_exc,
                                                       check_fallback_model, refuse_cloud_with_pc, failed)
                 if pooled is not None:
                     return pooled

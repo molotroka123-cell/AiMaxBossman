@@ -553,6 +553,25 @@ def _render(query: str, items: list[Candidate], conflicts: list[dict], degraded:
 CHECKLIST_MAX_ITEMS = 3
 
 
+#: sentences that carry the rule of a lesson (the rest is the incident story)
+_RULE_MARK = re.compile(r"(?:Правило|Исправление|Решение|Фикс|Rule|Fix|Solution)\s*:\s*", re.I)
+
+
+def _actionable(body: str, limit: int = 420) -> str:
+    """The rule part of a lesson body. Harness A/B 03.11: the first 260 chars were the incident story, the fix
+    («BindableEvent …», «claimProp раз в сутки») was cut, and the model with the lesson in context still wrote the
+    bug in 9 of 9 runs. Prefer «Правило:/Исправление:/Решение:» sentences; fall back to the body head."""
+    marks = list(_RULE_MARK.finditer(body))
+    if not marks:
+        return body[:limit].strip()
+    parts = []
+    for i, m in enumerate(marks):
+        end = marks[i + 1].start() if i + 1 < len(marks) else len(body)
+        parts.append(body[m.end():end].strip())
+    # the last mark first: «Правило» closes a lesson and is the generalised rule, the fix before it is its instance
+    return " | ".join(parts[-1:] + parts[:-1])[:limit].strip()
+
+
 def _lesson_checklist(kept: list[Candidate]) -> str:
     items: list[str] = []
     for cand in kept:
@@ -567,8 +586,8 @@ def _lesson_checklist(kept: list[Candidate]) -> str:
                 break
         if not title and cand.layer != "lesson":
             continue
-        rule = " ".join(l for l in text.splitlines() if not l.startswith(("lesson:", "valid_at:")))[:260].strip()
-        items.append(f"- {title or cand.ref}: {rule}")
+        body = " ".join(l for l in text.splitlines() if not l.startswith(("lesson:", "valid_at:"))).strip()
+        items.append(f"- {title or cand.ref}: DO {_actionable(body)}")
         if len(items) >= CHECKLIST_MAX_ITEMS:
             break
     if not items:

@@ -120,3 +120,45 @@ def test_caps_and_curated_pool():
     assert not fp.caps_compatible({}, {"coding": True}, needs_tools=True)
     assert fp.pool_ids([3, "5", "x"]) == {3, 5}
     assert fp.pool_ids(True) is None
+
+
+async def _with_paid_fallback(env, adapters, *, perms):
+    stack, ids, _, _ = adapters
+    prov = (await env.client.post("/api/providers", json={
+        "name": "paid", "kind": "openai_compat", "base_url": "https://paid.example/v1", "api_key": "sk-test-paid"})).json()
+    paid = (await env.client.post("/api/models", json={
+        "provider_id": prov["id"], "name": "paid-glm", "alias": "paid-glm", "kind": "cloud",
+        "price_in": 0.028, "price_out": 0.028})).json()
+    async with env.svc.db.session() as s:
+        await s.execute(sa.update(models_t).where(models_t.c.id == paid["id"]).values(pricing_known=True))
+        await s.execute(sa.update(agents_t).where(agents_t.c.id == stack["agent"]["id"]).values(
+            fallback_model_id=paid["id"], permissions=perms))
+        await s.commit()
+    return paid
+
+
+async def test_harness_ladder_free_pool_before_paid_fallback(env):
+    """Harness ladder: local -> free pool -> paid capped fallback. The paid model is not called while a free one answers."""
+    built = await _stack(env, perms={}, primary_exc=ProviderError("503 down", kind="http", status_code=503))
+    stack, ids, adapters, primary = built
+    await _with_paid_fallback(env, built, perms={"free_pool": True, "free_pool_first": True})
+    paid_adapter = _Text("ответ платной модели")
+    factory = env.svc.registry.adapter_factory
+    env.svc.registry.adapter_factory = lambda m, p: paid_adapter if m.get("name") == "paid-glm" else factory(m, p)
+    status = await _run_task(env, stack["task"]["id"], timeout=10, until=FINISHED)
+    assert status == "completed", status
+    assert adapters["free-good"].calls >= 1
+    assert paid_adapter.calls == 0, "the paid fallback must wait until the free pool is exhausted"
+
+
+async def test_harness_ladder_paid_fallback_when_pool_exhausted(env):
+    built = await _stack(env, perms={}, primary_exc=ProviderError("503 down", kind="http", status_code=503))
+    stack, ids, adapters, primary = built
+    await _with_paid_fallback(env, built, perms={"free_pool": [ids["free-throttled"]], "free_pool_first": True})
+    paid_adapter = _Text("ответ платной модели")
+    factory = env.svc.registry.adapter_factory
+    env.svc.registry.adapter_factory = lambda m, p: paid_adapter if m.get("name") == "paid-glm" else factory(m, p)
+    status = await _run_task(env, stack["task"]["id"], timeout=10, until=FINISHED)
+    assert status == "completed", status
+    assert adapters["free-throttled"].calls == 1 and adapters["free-good"].calls == 0, "curated pool only"
+    assert paid_adapter.calls >= 1

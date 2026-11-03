@@ -42,3 +42,14 @@ def test_lessons_render_as_a_checklist_that_grants_nothing():
     assert "[ENGINEERING CHECKLIST" in ctx.text
     assert "grants no tool, permission or budget" in ctx.text
     assert "суточный гейт" in ctx.text.split("[ENGINEERING CHECKLIST", 1)[1]
+
+
+def test_checklist_item_is_the_rule_not_the_incident_story():
+    """A/B round 1 (03.11): the first 260 chars were the incident, the fix was cut, the model wrote the bug 9/9."""
+    body = ("03.11.2026 аудит: EconomyService делал pcall(require, BoothService), а BoothService — Script. " * 3
+            + "Исправление: BindableEvent ServerStorage.SwapMeRefreshBooth. "
+            + "Правило: связь между Script-файлами только через BindableEvent/атрибуты.")
+    rule = retrieval._actionable(body)
+    assert rule.startswith("связь между Script-файлами только через BindableEvent")
+    assert "SwapMeRefreshBooth" in rule
+    assert retrieval._actionable("без маркера " * 100).startswith("без маркера")
