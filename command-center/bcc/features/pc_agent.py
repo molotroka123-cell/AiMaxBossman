@@ -1112,6 +1112,17 @@ def _classify_pc_step_with_autonomy(
 
     if tool == "pc.ui_read_window":
         verdict = PolicyVerdict("T0", "auto", "ui_read_window", "Чтение окна через UI Automation + скриншот (T0).")
+    elif tool == "pc.studio":
+        # Harness 03.11: Roblox Studio on a LOCAL build. Read-only actions T0; input actions T1 and, inside the tool,
+        # only on a Studio this module launched (busy guard — never another session's play-test).
+        from . import studio_pc as _studio
+        st_act = str(args.get("action") or "status").strip().lower()
+        if st_act not in _studio.ACTIONS:
+            verdict = PolicyVerdict("T3", "deny", "studio_unknown_action", f"pc.studio: неизвестное действие `{st_act}` (T3).", True)
+        elif st_act in _studio.READ_ONLY:
+            verdict = PolicyVerdict("T0", "auto", f"studio_{st_act}", f"Roblox Studio: {st_act} (только чтение, T0).")
+        else:
+            verdict = PolicyVerdict("T1", "auto", f"studio_{st_act}", f"Roblox Studio: {st_act} на локальной сборке (T1).")
     elif tool == "pc.scheduled_tasks":
         act_st = str(args.get("action") or "list").strip().lower()
         tname = str(args.get("task_name") or args.get("name") or "").strip()
@@ -1318,6 +1329,31 @@ async def execute_pc_step(
                        + (f", скриншот: {Path(shot).name}" if shot else ""),
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
+
+    if tool == "pc.studio":
+        from . import studio_pc as _studio
+        st_act = str(args.get("action") or "status").strip().lower()
+        out_dir = Path(rt.data_dir) / "studio"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        studio = _studio.StudioPC(state_file=out_dir / "owned.json")
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        calls = {
+            "status": lambda: studio.status(),
+            "open": lambda: studio.open(str(args.get("place") or "")),
+            "front": studio.front, "play": studio.play, "stop": studio.stop,
+            "run_lua": lambda: studio.run_lua(str(args.get("lua") or ""), out_file=str(out_dir / f"output-{stamp}.txt")),
+            "copy_output": lambda: studio.copy_output(str(out_dir / f"output-{stamp}.txt")),
+            "screenshot": lambda: studio.screenshot(str(out_dir / f"shot-{stamp}.png")),
+            "close": studio.close,
+        }
+        try:
+            rec = await asyncio.to_thread(calls[st_act])
+        except (PermissionError, RuntimeError, ValueError, FileNotFoundError, KeyError) as exc:
+            return {"ok": False, "verified": False, "tainted": False, "action": st_act,
+                    "summary": f"pc.studio {st_act}: {exc}", "duration_ms": round((time.perf_counter() - t0) * 1000)}
+        return {"ok": bool(rec.get("ok")), "verified": bool(rec.get("ok")), "tainted": False, "receipt": rec,
+                "summary": f"pc.studio {st_act}: {'OK' if rec.get('ok') else 'не подтверждено'}",
+                "duration_ms": round((time.perf_counter() - t0) * 1000)}
 
     if tool == "pc.ui_read_window":
         obs = await tc.observe(svc)
