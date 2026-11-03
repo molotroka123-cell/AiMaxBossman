@@ -29,3 +29,14 @@ def test_query_punctuation_does_not_hide_a_fact():
     snap = FactsSnapshot([{"id": 148, "subject": "Roblox environment lighting readability", "predicate": "lesson",
                            "object": "", "statement": "освещение будки на телефоне"}])
     assert [r["id"] for r in snap.search("Мир SwapMe в Roblox: освещение, карта", limit=5)] == [148]
+
+
+def test_inflected_russian_query_finds_the_lesson_and_title_terms_count_double():
+    """Harness proof 03.11: «+35 Лисьих Очков ... злоупотреблений» missed lesson 238 («фарм очков») by exact forms."""
+    rows = [{"id": i, "subject": "lesson:ops", "predicate": f"заметка {i}", "statement": "игроки любят друзей и ивенты"}
+            for i in range(30)]
+    rows.append({"id": 238, "subject": "lesson:ops", "predicate": "Кулдаун награды в атрибуте = бесконечный фарм очков",
+                 "statement": "статуя платила очки каждые 30 с; нужен суточный гейт на сервере"})
+    snap = FactsSnapshot(rows)
+    hits = snap.search("Статуя на площади: игрок получает +35 Лисьих Очков, защищённо от злоупотреблений", limit=5)
+    assert hits[0]["id"] == 238

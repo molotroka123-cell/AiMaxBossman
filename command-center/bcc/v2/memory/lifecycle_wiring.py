@@ -139,20 +139,42 @@ class FactsSnapshot:
     def __init__(self, rows: list[dict]) -> None:
         self.rows = [dict(r) for r in rows]
 
+    @staticmethod
+    def _stems(text: str) -> set[str]:
+        """Crude stems for Russian/English inflection: «Очков»/«Очки», «станция»/«станцию» share a 5-char prefix.
+        Harness proof 03.11: raw substring matching missed lesson 238 for «+35 Лисьих Очков ... злоупотреблений» and
+        lesson 600 for «колесо ... станция ... много игроков», so the model never saw the rule it needed."""
+        words = re.findall(r"\w+", str(text).lower().replace("ё", "е"))
+        return {w[:5] if len(w) > 5 else w for w in words if len(w) > 2}
+
     def search(self, query: str, *, limit: int) -> list[dict]:
         if not query:
             return self.rows[:limit]
         # Rank BEFORE truncating (02.11.2026): «any term matches» + first-N kept the OLDEST rows — a Russian
         # question shares common words with almost every fact, so 10 fresh Roblox lessons (facts 116–125) never
-        # reached BM25 and recall returned unrelated notes. Score = distinct query terms present; ties -> newer row.
-        # Words without punctuation (02.11.2026): «Roblox:» / «освещение,» from a task prompt never matched a fact.
-        terms = sorted({t for t in re.findall(r"\w+", str(query).lower()) if len(t) > 2})
-        scored = []
+        # reached BM25 and recall returned unrelated notes. Words without punctuation (02.11.2026).
+        # 03.11.2026 (harness proof): stems instead of exact substrings, IDF weights so «roblox»/«игрок» that every
+        # lesson shares count little, and the lesson TITLE (predicate) weighs double — the title states the rule.
+        import math  # noqa: WPS433
+        terms = self._stems(query)
+        docs = []
         for idx, row in enumerate(self.rows):
-            blob = " ".join(str(row.get(k) or "") for k in
-                            ("subject", "predicate", "object", "statement")).lower()
-            score = sum(1 for t in terms if t in blob)
-            if score:
+            title = self._stems(row.get("predicate") or "")
+            body = self._stems(" ".join(str(row.get(k) or "") for k in ("subject", "object", "statement")))
+            docs.append((idx, row, title, body))
+        n = max(1, len(docs))
+        df: dict[str, int] = {}
+        for _, _, title, body in docs:
+            for t in (title | body) & terms:
+                df[t] = df.get(t, 0) + 1
+        scored = []
+        for idx, row, title, body in docs:
+            score = 0.0
+            for t in terms:
+                if t in title or t in body:
+                    w = math.log(1.0 + n / (1 + df.get(t, 0)))
+                    score += w * (2.0 if t in title else 1.0)
+            if score > 0:
                 scored.append((score, idx, row))
         scored.sort(key=lambda item: (-item[0], -item[1]))
         return [row for _, _, row in scored[:limit]]
