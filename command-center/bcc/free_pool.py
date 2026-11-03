@@ -8,7 +8,8 @@ observation, so the model goes into its exponential cooldown (model_health.coold
 call until it recovers. Owner-action failures (401/403 auth) are not rotated through — a rejected key is not fixed by
 asking a different model, and re-sending keys gets them blocked.
 
-Pure helpers here; the engine hook is `Engine._free_pool_rotate`. Opt-in per agent: permissions.free_pool is True."""
+Pure helpers here; the engine hook is `Engine._free_pool_rotate`. Opt-in per agent: permissions.free_pool is True (any compatible free model) or a list of
+model ids (owner-curated pool, tried in health order)."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -30,6 +31,33 @@ def is_free_cloud(row: Mapping[str, Any], *, is_local: Callable[[Mapping[str, An
     if not row.get("pricing_known"):
         return False
     return float(row.get("price_in") or 0) == 0.0 and float(row.get("price_out") or 0) == 0.0
+
+
+#: capabilities a substitute must share with the agent's own model (a coder must not be replaced by a translator)
+MATCH_CAPS = ("coding", "tools", "vision")
+
+
+def caps_compatible(primary: Mapping[str, Any] | None, candidate: Mapping[str, Any] | None,
+                    *, needs_tools: bool = False) -> bool:
+    """The candidate has every capability the agent's model has (coding/tools/vision) and tools when the call sends them."""
+    p = primary if isinstance(primary, Mapping) else {}
+    c = candidate if isinstance(candidate, Mapping) else {}
+    if needs_tools and not c.get("tools"):
+        return False
+    return all(bool(c.get(k)) for k in MATCH_CAPS if p.get(k))
+
+
+def pool_ids(setting: Any) -> set[int] | None:
+    """permissions.free_pool: True = any compatible free model; a list = only these model ids (owner-curated pool)."""
+    if isinstance(setting, (list, tuple)):
+        out = set()
+        for x in setting:
+            try:
+                out.add(int(x))
+            except (TypeError, ValueError):
+                continue
+        return out
+    return None
 
 
 def should_rotate(status: str) -> bool:

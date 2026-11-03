@@ -112,3 +112,11 @@ def test_pool_order_skips_cooling_and_broken():
     unmeasured = mh.HealthRecord()
     order = fp.pool_order([(1, cooling), (2, unmeasured), (3, healthy)])
     assert order == [3, 2], order
+
+
+def test_caps_and_curated_pool():
+    assert fp.caps_compatible({"coding": True}, {"coding": True, "tools": True})
+    assert not fp.caps_compatible({"coding": True}, {"vision": True}), "a coder is not replaced by a non-coder"
+    assert not fp.caps_compatible({}, {"coding": True}, needs_tools=True)
+    assert fp.pool_ids([3, "5", "x"]) == {3, 5}
+    assert fp.pool_ids(True) is None

@@ -2605,7 +2605,8 @@ class TaskEngine:
         agent's configured fallback (routed tasks: cloud consent/price), the PC-tools cloud refusal, and never for a
         private/local_only task."""
         perms = agent.get("permissions") if isinstance(agent.get("permissions"), dict) else {}
-        if perms.get("free_pool") is not True or not attempts:
+        setting = perms.get("free_pool")
+        if not (setting is True or isinstance(setting, list)) or not attempts:
             return None
         meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
         if meta.get("privacy") in ("private", "local_only"):
@@ -2620,17 +2621,24 @@ class TaskEngine:
             async with self.db.session() as s:
                 rows = (await s.execute(sa.select(
                     models_t.c.id, models_t.c.health, models_t.c.kind, models_t.c.pricing_known,
-                    models_t.c.price_in, models_t.c.price_out,
+                    models_t.c.price_in, models_t.c.price_out, models_t.c.caps,
                     providers_t.c.base_url.label("provider_base_url")).select_from(
                     models_t.join(providers_t, models_t.c.provider_id == providers_t.c.id)))).fetchall()
         except Exception:  # noqa: BLE001 - telemetry must not break the call path
             return None
+        curated = fp.pool_ids(setting)
+        by_id = {int(r._mapping["id"]): dict(r._mapping) for r in rows}
+        primary_caps = (by_id.get(int(agent["model_id"])) or {}).get("caps") if agent.get("model_id") else None
         cands = []
-        for r in rows:
-            m = dict(r._mapping)
-            if fp.is_free_cloud(m, is_local=lambda row: is_local_url(row.get("provider_base_url") or "")
-                                or row.get("kind") == "local"):
-                cands.append((int(m["id"]), mh.HealthRecord.from_dict(m["health"])))
+        for mid, m in by_id.items():
+            if curated is not None and mid not in curated:
+                continue
+            if not fp.is_free_cloud(m, is_local=lambda row: is_local_url(row.get("provider_base_url") or "")
+                                    or row.get("kind") == "local"):
+                continue
+            if curated is None and not fp.caps_compatible(primary_caps, m.get("caps"), needs_tools=bool(kw.get("tools"))):
+                continue
+            cands.append((mid, mh.HealthRecord.from_dict(m["health"])))
         order = fp.pool_order(cands, exclude=[a[0] for a in attempts])
         allowed: list[int] = []
         for mid in order:
