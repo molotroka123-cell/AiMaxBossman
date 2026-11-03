@@ -1541,6 +1541,10 @@ class TaskEngine:
             failed(agent.get("model_id"), exc)
             label = model["alias"] if model else f"#{agent.get('model_id')}"
             if not agent.get("fallback_model_id"):
+                pooled = await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, exc,
+                                                      check_fallback_model, refuse_cloud_with_pc, failed)
+                if pooled is not None:
+                    return pooled
                 exc.failed_models = attempts            # type: ignore[attr-defined]
                 raise
             await self._log(run_id, "warn", "model.fallback",
@@ -1554,6 +1558,10 @@ class TaskEngine:
                 result = await fb_adapter.chat(fb_model["name"], messages, **kw)
             except ProviderError as fb_exc:
                 failed(fb_id, fb_exc)
+                pooled = await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, fb_exc,
+                                                      check_fallback_model, refuse_cloud_with_pc, failed)
+                if pooled is not None:
+                    return pooled
                 raise _fallback_failure(label, exc, fb_model["alias"] if fb_model else f"#{fb_id}",
                                         fb_exc, attempts) from fb_exc
             if model is not None:
@@ -2586,6 +2594,82 @@ class TaskEngine:
             return out
         except Exception:  # noqa: BLE001
             return []
+
+    async def _free_pool_rotate(self, task: dict, agent: dict, messages: list[dict], kw: dict, run_id: int,
+                                attempts: list, last_exc: BaseException, check_model: Any,
+                                refuse_cloud_with_pc: Any, failed: Any) -> tuple[ChatResult, dict] | None:
+        """Free cloud pool rotation (bcc/free_pool): after the agent's model and its fallback failed, try the next
+        healthy FREE cloud model instead of failing the run. Opt-in: agent permissions.free_pool is True. Only when
+        the last failure is a class another model can fix (429/5xx/410/timeout/empty), never on auth. Each pool
+        failure records health (cooldown), so a throttled model is skipped by the next call. Same policy gates as the
+        agent's configured fallback (routed tasks: cloud consent/price), the PC-tools cloud refusal, and never for a
+        private/local_only task."""
+        perms = agent.get("permissions") if isinstance(agent.get("permissions"), dict) else {}
+        if perms.get("free_pool") is not True or not attempts:
+            return None
+        meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
+        if meta.get("privacy") in ("private", "local_only"):
+            return None
+        from . import free_pool as fp
+        from . import model_health as mh
+        last_status, _ = mh.classify_exception(last_exc)
+        if not fp.should_rotate(last_status):
+            return None
+        try:
+            from .providers import is_local_url
+            async with self.db.session() as s:
+                rows = (await s.execute(sa.select(
+                    models_t.c.id, models_t.c.health, models_t.c.kind, models_t.c.pricing_known,
+                    models_t.c.price_in, models_t.c.price_out,
+                    providers_t.c.base_url.label("provider_base_url")).select_from(
+                    models_t.join(providers_t, models_t.c.provider_id == providers_t.c.id)))).fetchall()
+        except Exception:  # noqa: BLE001 - telemetry must not break the call path
+            return None
+        cands = []
+        for r in rows:
+            m = dict(r._mapping)
+            if fp.is_free_cloud(m, is_local=lambda row: is_local_url(row.get("provider_base_url") or "")
+                                or row.get("kind") == "local"):
+                cands.append((int(m["id"]), mh.HealthRecord.from_dict(m["health"])))
+        order = fp.pool_order(cands, exclude=[a[0] for a in attempts])
+        allowed: list[int] = []
+        for mid in order:
+            try:
+                # The owner opted this agent into the free pool (permissions.free_pool): the same gate as the
+                # agent's configured fallback — routed tasks keep cloud consent/price checks, PC data never leaves.
+                await check_model(mid, configured_agent_model=True)
+                await refuse_cloud_with_pc(mid)
+                allowed.append(mid)
+            except (ProviderError, LookupError, PermissionError):
+                continue
+        if not allowed:
+            return None
+        models_seen: dict[int, dict] = {}
+
+        async def call(mid: int) -> ChatResult:
+            adapter, model = await self.registry.adapter_for(int(mid))
+            models_seen[mid] = model
+            return await adapter.chat(model["name"], messages, **kw)
+
+        async def on_failure(mid: int, status: str, detail: str) -> None:
+            failed(mid, ProviderError(detail, kind=status))
+            try:
+                await self.registry.record_model_health(mid, status, f"free_pool: {detail}"[:300])
+            except Exception:  # noqa: BLE001
+                pass
+
+        await self._log(run_id, "warn", "free_pool.rotate",
+                        f"модель агента и fallback недоступны — пробуем бесплатный пул: {allowed[:fp.MAX_POOL_TRIES]}")
+        out = await fp.rotate(allowed, call, on_failure,
+                              answered_ok=lambda r: bool((getattr(r, "text", "") or "").strip()
+                                                         or getattr(r, "tool_calls", None)))
+        if not out.answered:
+            return None
+        await self._log(run_id, "info", "free_pool.answered",
+                        f"ответила бесплатная модель {out.model_id} после {len(out.tried)} сбоев")
+        await self.bus.emit("free_pool.answered", task_id=task.get("id"), run_id=run_id,
+                            model_id=out.model_id, tried=[t[0] for t in out.tried])
+        return out.result, models_seen[int(out.model_id)]
 
     RUNTIME_SUCCESS_EVERY_S = 300.0
 
