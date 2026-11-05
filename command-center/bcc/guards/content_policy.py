@@ -2,14 +2,16 @@
 
 Incidents 03.11.2026: a politician-caricature pilot; VELO (nicotine pouch / snus) branding in a game asset.
 Roblox (all-ages) and the owner's rules forbid: real people / politicians and their likeness, real brands — above
-all tobacco/nicotine/vape, crypto, alcohol, gambling.
+all tobacco/nicotine/vape, crypto, alcohol, gambling, and undisclosed/unrestricted Paid Random Items (including
+random rewards bought with in-game currency that can be purchased for Robux).
 
 Two layers:
-  1. deterministic denylist (word-boundary regexes, RU + EN) over the ADDED lines of a diff or a text — a hit is a
-     FAIL on its own;
+  1. deterministic denylist (word-boundary regexes, RU + EN) + Paid Random Items compliance check over the ADDED lines
+     of a diff or a text — a hit is a FAIL on its own;
   2. a reviewer model (injected async callable, local by default — game text never needs the cloud) that sees the
      same lines and answers PASS or FLAG:<reason>; FLAG is a FAIL («needs owner review»). Reviewer unavailable ->
-     its layer is NOT_RUN and said so; the denylist verdict stands.
+     its layer is NOT_RUN and said so; the denylist verdict stands. Model PASS is advisory and never replaces owner
+     or policy compliance review.
 Pure: the reviewer is a parameter; no network here."""
 from __future__ import annotations
 
@@ -68,6 +70,19 @@ _COMPILED = {cat: re.compile("|".join(f"{_B}(?:{p}){_E if p[-1].isascii() and p[
                                       for p in pats), re.I)
              for cat, pats in DENYLIST.items()}
 
+#: Paid Random Items (Roblox policy 04.11): random chest/spin/box bought with Robux or Robux-purchased currency (Swaps)
+#: without PolicyService:GetPolicyInfoForPlayerAsync().ArePaidRandomItemsRestricted and odds disclosure.
+_PAID_RANDOM_TRIGGER_RX = re.compile(
+    r"(?:PromptProductPurchase\s*\([^)]*(?:chest|crate|spin|wheel|mystery|gacha|random)"
+    r"|(?:buy|open|roll|purchase)[\w_]{0,24}\(\s*[\"'][^\"'\n]{0,40}(?:paid|robux|swaps)[^\"'\n]{0,40}(?:random|chest|crate|mystery|gacha|loot)"
+    r"|(?:buy|open|roll|purchase)_?(?:paid|robux|swaps)_?(?:random|chest|crate|mystery|gacha|loot)"
+    r"|paid_random_without_odds"
+    r"|ArePaidRandomItemsRestricted\s*==\s*true\s*then\s*--\s*ignore)",
+    re.I,
+)
+_PAID_RANDOM_GUARD_RX = re.compile(r"ArePaidRandomItemsRestricted|GetPolicyInfoForPlayerAsync", re.I)
+_PAID_RANDOM_ODDS_RX = re.compile(r"\b(?:odds|chance|probabilities|weight|шанс\w*|вероятност\w*)\b", re.I)
+
 
 @dataclass
 class Hit:
@@ -86,6 +101,7 @@ class PolicyResult:
     reviewer: str = "NOT_RUN"           # PASS | FLAG | NOT_RUN
     reviewer_reason: str = ""
     lines_checked: int = 0
+    reviewer_advisory_only: bool = True
 
     @property
     def blocking(self) -> list[Hit]:
@@ -96,14 +112,29 @@ class PolicyResult:
         return not self.blocking and self.reviewer != "FLAG"
 
     def as_dict(self) -> dict:
-        return {"ok": self.ok, "lines_checked": self.lines_checked, "reviewer": self.reviewer,
-                "reviewer_reason": self.reviewer_reason, "hits": [h.__dict__ for h in self.hits]}
+        return {
+            "ok": self.ok,
+            "lines_checked": self.lines_checked,
+            "reviewer": self.reviewer,
+            "reviewer_advisory_only": self.reviewer_advisory_only,
+            "reviewer_reason": self.reviewer_reason,
+            "hits": [h.__dict__ for h in self.hits],
+            "limitations": (
+                "Static denylist + Paid Random Items trigger scan; LLM reviewer is advisory and never replaces "
+                "live Studio verification or owner review."
+            ),
+        }
 
     def summary_ru(self) -> str:
         warn = len(self.hits) - len(self.blocking)
+        rev_note = (
+            f"{self.reviewer} (консультативно, не заменяет ревью владельца)"
+            if self.reviewer == "PASS"
+            else self.reviewer
+        )
         head = (f"G5 {'PASS' if self.ok else 'FAIL'}: строк {self.lines_checked}, совпадений в коде/строках "
                 f"{len(self.blocking)}, в комментариях/с отрицанием {warn} (предупреждение), "
-                f"ревьюер-модель {self.reviewer}"
+                f"ревьюер-модель {rev_note}"
                 + (f" ({self.reviewer_reason[:160]})" if self.reviewer_reason else ""))
         return "\n".join([head] + [f"  [{h.category}] «{h.term}» — {h.file}:{h.line}"
                                    f"{' (комментарий)' if h.in_comment else ' (отрицание)' if h.negated else ''}: "
@@ -157,8 +188,46 @@ def comment_start(file: str, text: str) -> int:
     return len(text)
 
 
+def scan_paid_random_items(lines: list[tuple[str, int, str]]) -> list[Hit]:
+    """Check that any paid random item / Robux-purchased currency random box in the scanned files is accompanied by
+    `ArePaidRandomItemsRestricted` (`GetPolicyInfoForPlayerAsync`) and odds disclosure."""
+    by_file: dict[str, list[tuple[int, str]]] = {}
+    for file, ln, text in lines:
+        if not str(file).lower().endswith((".luau", ".lua")):
+            continue
+        by_file.setdefault(file, []).append((ln, text))
+    hits: list[Hit] = []
+    for file, flines in by_file.items():
+        full_code = "\n".join(t[:comment_start(file, t)] for _, t in flines)
+        has_guard = bool(_PAID_RANDOM_GUARD_RX.search(full_code))
+        has_odds = bool(_PAID_RANDOM_ODDS_RX.search("\n".join(t for _, t in flines)))
+        for ln, text in flines:
+            cut = comment_start(file, text)
+            code_part = text[:cut]
+            m = _PAID_RANDOM_TRIGGER_RX.search(code_part)
+            if m and not (has_guard and has_odds):
+                is_neg = negated(code_part, m.start(), m.end())
+                missing = []
+                if not has_guard:
+                    missing.append("ArePaidRandomItemsRestricted")
+                if not has_odds:
+                    missing.append("раскрытие шансов (odds)")
+                hits.append(
+                    Hit(
+                        category="paid_random_items",
+                        term=f"{m.group(0)} (нет {', '.join(missing)})",
+                        file=file,
+                        line=ln,
+                        text=text.strip(),
+                        in_comment=False,
+                        negated=is_neg,
+                    )
+                )
+    return hits
+
+
 def scan_lines(lines: list[tuple[str, int, str]], *, allow: tuple[str, ...] = DEFAULT_ALLOW) -> list[Hit]:
-    """Every denylist hit; a hit inside a source comment is marked `in_comment` (not shipped to players)."""
+    """Every denylist hit + Paid Random Items compliance hit; a hit inside a source comment is marked `in_comment`."""
     hits: list[Hit] = []
     for file, ln, text in lines:
         low = text.lower()
@@ -177,6 +246,7 @@ def scan_lines(lines: list[tuple[str, int, str]], *, allow: tuple[str, ...] = DE
             m = (live or code or ms)[0]
             hits.append(Hit(cat, m.group(0), file, ln, orig.strip(), in_comment=not code,
                             negated=bool(code) and not live))
+    hits.extend(scan_paid_random_items(lines))
     return hits
 
 
@@ -199,7 +269,9 @@ def scan_text(text: str, *, name: str = "<text>", allow: tuple[str, ...] = DEFAU
 
 REVIEW_PROMPT = (
     "You review text and asset names added to an all-ages Roblox game. Forbidden: real people or politicians or their "
-    "likeness/caricature; real brands (especially tobacco, nicotine, snus, vape); crypto; alcohol; gambling. "
+    "likeness/caricature; real brands (especially tobacco, nicotine, snus, vape); crypto; alcohol; gambling; "
+    "paid random items (including random rewards bought with currency purchased for Robux) without PolicyService "
+    "ArePaidRandomItemsRestricted and odds disclosure. "
     "Fictional names are fine. Answer with exactly one line: PASS, or FLAG: <category> — <the offending words>.\n\n"
     "Added lines:\n")
 

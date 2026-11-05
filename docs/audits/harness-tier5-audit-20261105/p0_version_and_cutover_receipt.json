@@ -1,0 +1,56 @@
+{
+  "at": "2026-11-05T19:51:39Z",
+  "runtime_matches_checkout": false,
+  "runtime_health_live": {
+    "app": "bossman-command-center",
+    "version": "2.6.0",
+    "alive": true,
+    "liveness": true,
+    "status": "ALIVE",
+    "build_sha": "4fade03df51140b66bbcafab575c7ee7156051df",
+    "build_sha_short": "4fade03df511",
+    "release_version": "2.6.0",
+    "source_identity": "SOURCE_IDENTITY_STALE",
+    "git_clean": true,
+    "source": "checkout",
+    "detail": "источник кода изменился после запуска; перезапустите Bossman",
+    "checkout_sha": "18a39b457a067dadddbc59acb204a6f5b98e27ae"
+  },
+  "checkout_identity": {
+    "build_sha": "342893795e844cb32d12f1ffbc27721cb9e56fa3",
+    "build_sha_short": "342893795e84",
+    "release_version": "2.6.0",
+    "source_identity": "PASS",
+    "git_clean": true,
+    "source": "checkout",
+    "detail": ""
+  },
+  "port_8801_pid": 36704,
+  "can_terminate_pid_in_current_shell": true,
+  "terminate_permission_detail": "PROCESS_TERMINATE granted",
+  "active_work": {
+    "running_tasks": [],
+    "direct_gen_busy": false,
+    "direct_gen": {
+      "queue_running": null,
+      "queue_waiting": 0,
+      "resident_busy": false
+    },
+    "safe_to_restart": true
+  },
+  "pult_companion": {
+    "running": true,
+    "processes": [
+      {
+        "ProcessId": 3780,
+        "CommandLine": "C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe -X utf8 -m bcc.telegram_companion --config C:\\Users\\asd\\AppData\\Local\\Bossman\\telegram-companion\\config.json"
+      }
+    ]
+  },
+  "backup_db_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\backups\\bcc-pre-cutover-20261105-115139.db",
+  "backup_db_size_bytes": 271818752,
+  "execute_requested": false,
+  "rollback_script": "C:\\Users\\asd\\Bossman\\wt-harness-guards\\tools\\restart_backend.ps1",
+  "cutover_verdict": "PREFLIGHT_READY",
+  "cutover_detail": "Preflight and DB backup complete; pass --execute to restart :8801."
+}

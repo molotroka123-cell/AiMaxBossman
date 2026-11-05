@@ -142,6 +142,16 @@ def main() -> int:
     ap.add_argument("--expect", default=publish_gate.DEFAULT_EXPECT)
     ap.add_argument("--review-ollama", default="")
     ap.add_argument("--apply", action="store_true", help="profile: write the new tool list (default: dry run)")
+    ap.add_argument("--require-release-gates", action="store_true",
+                    help="publish-gate: also enforce STOP, owner approval, tests, Studio receipt, and rollback")
+    ap.add_argument("--assert-publishable", action="store_true",
+                    help="publish-gate: invoke publish_gate.assert_publishable (raises PublishRefused if not can_publish)")
+    ap.add_argument("--test-cmd", default="", help="publish-gate: test command to run")
+    ap.add_argument("--expected-sha", default="", help="publish-gate: expected git HEAD SHA")
+    ap.add_argument("--studio-receipt", default="", help="publish-gate: path to live Studio playtest receipt JSON")
+    ap.add_argument("--rollback-ref", default="", help="publish-gate: git commit/tag for rollback")
+    ap.add_argument("--owner-approved", action="store_true", help="publish-gate: explicit owner sign-off")
+    ap.add_argument("--licenses-verified", action="store_true", help="publish-gate: media licenses verified")
     a = ap.parse_args()
     reviewer = ollama_reviewer(a.review_ollama) if a.review_ollama else None
     if a.cmd == "fg-proof":
@@ -166,8 +176,28 @@ def main() -> int:
         _print({**res, "summary_ru": media_provenance.summary_ru(res)})
         return 0 if res["ok"] else 1
     registry = media_provenance.load_registry(a.registry) if a.registry else None
-    res = asyncio.run(publish_gate.evaluate(a.args[0], check_cmd=shlex.split(a.check), expect=a.expect,
-                                            registry=registry, base=a.base or None, reviewer=reviewer))
+    kw = dict(
+        check_cmd=shlex.split(a.check),
+        expect=a.expect,
+        registry=registry,
+        base=a.base or None,
+        reviewer=reviewer,
+        require_release_gates=bool(a.require_release_gates or a.assert_publishable),
+        test_cmd=shlex.split(a.test_cmd) if a.test_cmd else None,
+        expected_sha=a.expected_sha or None,
+        studio_receipt=a.studio_receipt or None,
+        rollback_ref=a.rollback_ref or None,
+        owner_approved=bool(a.owner_approved),
+        licenses_verified=True if a.licenses_verified else None,
+    )
+    if a.assert_publishable:
+        try:
+            res = asyncio.run(publish_gate.assert_publishable(a.args[0], **kw))
+        except publish_gate.PublishRefused as exc:
+            _print({"ok": False, "can_publish": False, "report_ru": str(exc)})
+            return 1
+    else:
+        res = asyncio.run(publish_gate.evaluate(a.args[0], **kw))
     _print(res.as_dict())
     return 0 if res.ok else 1
 

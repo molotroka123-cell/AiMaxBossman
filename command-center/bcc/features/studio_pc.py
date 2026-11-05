@@ -8,6 +8,10 @@ Safety rules (they are why most actions refuse instead of guessing):
   * BUSY GUARD — every acting action refuses while a Studio process exists that this module did not start
     (`launched_by_bossman`). Another session or the owner may be play-testing; stealing focus or sending keys
     there would break their work. `status` and `screenshot` are read-only and always allowed.
+  * STRICT CONFIRMATION (P0 fix 05.11) — an action is `ok=True` ONLY when PowerShell emits its explicit confirmation
+    token (`STUDIO_ACTION_OK:<action>`), `front=False` and `PS_ERROR:` are absent, and any expected output file / image
+    dimensions (`> 1x1`) are verified on disk. Empty stdout, focus loss, PowerShell errors or partial execution return
+    `ok=False` with `status="FAIL"` or `"UNKNOWN"`.
   * Only local place files (.rbxl/.rbxlx) that exist; Studio from the newest local Versions folder.
   * `close` is graceful first (CloseMainWindow); a forced kill is only for a process this module launched — the
     place is a build artefact regenerated from source, nothing of the owner's is lost.
@@ -20,6 +24,7 @@ import asyncio
 import json
 import os
 import secrets
+import struct
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -39,6 +44,25 @@ ACTIONS = ("status", "open", "front", "play", "stop", "run_lua", "copy_output", 
 READ_ONLY = frozenset({"status", "screenshot"})
 #: G1: the only window pc.studio may type into (title of a Studio window with a place open)
 STUDIO_TITLE_RX = r"Roblox Studio|\.rbxlx?\b"
+
+EXPECTED_TOKENS: dict[str, str] = {
+    "front": "STUDIO_ACTION_OK:front",
+    "play": "STUDIO_ACTION_OK:play",
+    "stop": "STUDIO_ACTION_OK:stop",
+    "run_lua": "STUDIO_ACTION_OK:run_lua",
+    "copy_output": "STUDIO_ACTION_OK:copy_output",
+    "screenshot": "STUDIO_ACTION_OK:screenshot",
+}
+
+#: Backwards-compatible legacy tokens accepted only when explicitly accompanied by `front=True` (or `saved` for shot)
+_LEGACY_TOKENS: dict[str, tuple[str, ...]] = {
+    "front": ("front=True",),
+    "play": ("sent F5",),
+    "stop": ("sent Shift+F5",),
+    "run_lua": ("ran",),
+    "copy_output": ("copied",),
+    "screenshot": ("saved",),
+}
 
 _PS_INPUT = r"""
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
@@ -68,27 +92,33 @@ def build_script(action: str, *, hwnd: int = 0, lua: str = "", out: str = "",
                  expect_rx: str = STUDIO_TITLE_RX) -> str:
     """The PowerShell for one input action (pure — unit-tested; values are single-quoted, never interpolated).
 
-    G1 (03.11): every key batch is preceded by `AssertFg` — the foreground window must be THIS Studio hwnd and its
-    title must match `expect_rx` (and not be a chat app), otherwise the script stops before the key is sent."""
+    G1 (03.11) + P0 Strict Confirmation (05.11):
+      - Every focus-requiring action checks `Front <hwnd>` first; if `Front` returns False, emits `front=False` and
+        stops before clicking or sending keys.
+      - Every key batch is preceded by `AssertFg` — the foreground window must be THIS Studio hwnd and its title must
+        match `expect_rx` (and not be a chat app), otherwise the script throws before the key is sent.
+      - Exceptions emit `PS_ERROR: <message>` so `_input` never mistakes an exception message for success."""
     g = _fg.ps_assert(hwnd, expect_rx)
+    req_front = f"if (-not (Front {int(hwnd)})) {{ 'front=False'; return }}; 'front=True'"
+    tok = EXPECTED_TOKENS.get(action, "")
     body = {
-        "front": f"'front=' + (Front {int(hwnd)})",
-        "play": f"Front {int(hwnd)} | Out-Null; {g}; [System.Windows.Forms.SendKeys]::SendWait('{{F5}}'); 'sent F5'",
-        "stop": f"Front {int(hwnd)} | Out-Null; {g}; [System.Windows.Forms.SendKeys]::SendWait('+{{F5}}'); 'sent Shift+F5'",
-        "run_lua": (f"Front {int(hwnd)} | Out-Null; Click {int(command_bar[0])} {int(command_bar[1])}; "
+        "front": f"if (Front {int(hwnd)}) {{ 'front=True'; '{tok}' }} else {{ 'front=False' }}",
+        "play": f"{req_front}; {g}; [System.Windows.Forms.SendKeys]::SendWait('{{F5}}'); 'sent F5'; '{tok}'",
+        "stop": f"{req_front}; {g}; [System.Windows.Forms.SendKeys]::SendWait('+{{F5}}'); 'sent Shift+F5'; '{tok}'",
+        "run_lua": (f"{req_front}; {g}; Click {int(command_bar[0])} {int(command_bar[1])}; "
                     f"Set-Clipboard -Value {_ps_quote(lua)}; "
                     f"{g}; [System.Windows.Forms.SendKeys]::SendWait('^a'); Start-Sleep -m 100; "
                     f"{g}; [System.Windows.Forms.SendKeys]::SendWait('^v'); Start-Sleep -m 200; "
-                    f"{g}; [System.Windows.Forms.SendKeys]::SendWait('{{ENTER}}'); Start-Sleep -s 2; 'ran'"),
-        "copy_output": (f"Front {int(hwnd)} | Out-Null; Click {int(output_xy[0])} {int(output_xy[1])}; "
+                    f"{g}; [System.Windows.Forms.SendKeys]::SendWait('{{ENTER}}'); Start-Sleep -s 2; 'ran'; '{tok}'"),
+        "copy_output": (f"{req_front}; {g}; Click {int(output_xy[0])} {int(output_xy[1])}; "
                         f"{g}; [System.Windows.Forms.SendKeys]::SendWait('^a'); Start-Sleep -m 200; "
                         f"{g}; [System.Windows.Forms.SendKeys]::SendWait('^c'); Start-Sleep -m 400; "
-                        f"Get-Clipboard | Out-File -Encoding utf8 {_ps_quote(out)}; 'copied'"),
-        "screenshot": f"Shot {_ps_quote(out)}; 'saved'",
+                        f"Get-Clipboard | Out-File -Encoding utf8 {_ps_quote(out)}; 'copied'; '{tok}'"),
+        "screenshot": f"Shot {_ps_quote(out)}; 'saved'; '{tok}'",
     }.get(action)
     if body is None:
         raise ValueError(f"no input script for action {action!r}")
-    return _PS_INPUT + _fg.PS_GUARD + "\ntry { " + body + " } catch { Write-Output $_.Exception.Message }\n"
+    return _PS_INPUT + _fg.PS_GUARD + "\ntry { " + body + " } catch { Write-Output ('PS_ERROR: ' + $_.Exception.Message) }\n"
 
 
 def make_marker() -> str:
@@ -102,6 +132,23 @@ def marker_lua(marker: str, snippet: str = "") -> str:
 
 def output_has_marker(text: str, marker: str) -> bool:
     return f"{marker}:begin" in text and f"{marker}:end" in text
+
+
+def inspect_png(path: str | Path) -> dict[str, Any]:
+    """Read PNG dimensions from the IHDR header and verify the file is a real screenshot, not a 1x1 test stub."""
+    p = Path(path)
+    if not p.is_file():
+        return {"exists": False, "valid_png": False, "width": 0, "height": 0, "size_bytes": 0, "is_stub_1x1": False}
+    try:
+        data = p.read_bytes()
+    except OSError:
+        return {"exists": False, "valid_png": False, "width": 0, "height": 0, "size_bytes": 0, "is_stub_1x1": False}
+    size = len(data)
+    if size < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        return {"exists": True, "valid_png": False, "width": 0, "height": 0, "size_bytes": size, "is_stub_1x1": False}
+    w, h = struct.unpack(">II", data[16:24])
+    stub = (w <= 1 and h <= 1) or size <= 100
+    return {"exists": True, "valid_png": True, "width": int(w), "height": int(h), "size_bytes": size, "is_stub_1x1": stub}
 
 
 def validate_place(path: str) -> Path:
@@ -122,19 +169,45 @@ def studio_exe(versions_dir: Path | None = None) -> Path | None:
 def _run_ps(script: str, timeout: float = 60.0) -> str:
     r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
                        capture_output=True, text=True, timeout=timeout, check=False)
-    return (r.stdout or "").strip() + (("\n" + r.stderr.strip()) if r.returncode and r.stderr else "")
+    err = (r.stderr or "").strip()
+    out = (r.stdout or "").strip()
+    if r.returncode != 0:
+        tag = f"PS_ERROR: exit={r.returncode}" + (f" {err}" if err else "")
+        return (out + "\n" + tag).strip()
+    return out
 
 
 def list_studio() -> list[dict[str, Any]]:
     out = _run_ps(f"Get-Process {PROCESS} -ErrorAction SilentlyContinue | "
                   "Select-Object Id,@{n='hwnd';e={[int64]$_.MainWindowHandle}},MainWindowTitle | ConvertTo-Json -Compress",
                   timeout=20)
-    if not out.strip():
+    if not out.strip() or "PS_ERROR:" in out:
         return []
     data = json.loads(out.splitlines()[0])
     rows = data if isinstance(data, list) else [data]
     return [{"pid": int(r["Id"]), "hwnd": int(r.get("hwnd") or 0), "title": str(r.get("MainWindowTitle") or "")}
             for r in rows]
+
+
+def _output_confirmed(action: str, out: str) -> tuple[bool, str, str]:
+    """Verify PowerShell stdout for `action`. Returns `(ok, status, reason)`.
+    Never returns `ok=True` on empty stdout, PowerShell error, focus failure or missing confirmation token."""
+    text = (out or "").strip()
+    if not text:
+        return False, "UNKNOWN", "empty PowerShell output"
+    if "PS_ERROR:" in text:
+        err_line = next((ln for ln in text.splitlines() if "PS_ERROR:" in ln), text[:200])
+        return False, "FAIL", err_line
+    if "front=False" in text:
+        return False, "FAIL", "failed to bring Studio window to foreground (front=False)"
+    expected = EXPECTED_TOKENS.get(action, "")
+    if expected and expected in text:
+        return True, "PASS", ""
+    # Accept legacy test/script tokens only when non-empty and explicitly matched
+    for legacy in _LEGACY_TOKENS.get(action, ()):
+        if legacy in text:
+            return True, "PASS", ""
+    return False, "UNKNOWN", f"missing confirmation token ({expected or action})"
 
 
 @dataclass
@@ -157,7 +230,8 @@ class StudioPC:
         self.state_file.write_text(json.dumps({"pid": pid, "at": time.time()}), encoding="utf-8")
 
     def _receipt(self, action: str, ok: bool, **extra: Any) -> dict[str, Any]:
-        rec = {"action": action, "ok": ok, "at": time.strftime("%Y-%m-%dT%H:%M:%S"), **extra}
+        status = extra.pop("status", "PASS" if ok else "FAIL")
+        rec = {"action": action, "ok": ok, "status": status, "at": time.strftime("%Y-%m-%dT%H:%M:%S"), **extra}
         self.receipts.append(rec)
         return rec
 
@@ -178,6 +252,8 @@ class StudioPC:
         owned = [p for p in st["studio"] if p["pid"] == st["owned_pid"]]
         if not owned:
             raise RuntimeError(f"{action}: no Bossman-launched Studio is running; call open first")
+        if not int(owned[0].get("hwnd") or 0):
+            raise RuntimeError(f"{action}: Bossman Studio pid {owned[0]['pid']} has no main window handle (hwnd=0)")
         return owned[0]
 
     def open(self, place: str, *, wait_s: float = 45.0, exe: Path | None = None) -> dict[str, Any]:
@@ -200,17 +276,22 @@ class StudioPC:
                 break
         if win:
             self._set_owned(win["pid"])
-        return self._receipt("open", bool(win), place=str(p), pid=(win or {}).get("pid", proc.pid),
+        return self._receipt("open", bool(win), status="PASS" if win else "FAIL",
+                             place=str(p), pid=(win or {}).get("pid", proc.pid),
                              title=(win or {}).get("title", ""))
 
     def _input(self, action: str, **kw: Any) -> dict[str, Any]:
         win = self._mine(action)
-        out = self.ps(build_script(action, hwnd=win["hwnd"], **kw))
+        out = self.ps(build_script(action, hwnd=win["hwnd"], **kw)) or ""
         guard = _fg.refused(out)
         if guard:
-            self._receipt(action, False, pid=win["pid"], refused=guard)
+            self._receipt(action, False, status="FAIL", pid=win["pid"], refused=guard, output=out[-300:])
             raise PermissionError(f"{action}: {guard}")
-        return self._receipt(action, "front=False" not in out, pid=win["pid"], output=out[-300:])
+        ok, st_code, reason = _output_confirmed(action, out)
+        extra: dict[str, Any] = {"pid": win["pid"], "output": out[-300:], "status": st_code}
+        if reason:
+            extra["reason"] = reason
+        return self._receipt(action, ok, **extra)
 
     def front(self) -> dict[str, Any]:
         return self._input("front")
@@ -223,23 +304,50 @@ class StudioPC:
 
     def run_lua(self, snippet: str, *, out_file: str, command_bar: tuple[int, int] = COMMAND_BAR_XY,
                 output_xy: tuple[int, int] = OUTPUT_XY) -> dict[str, Any]:
-        """Run `snippet` in the command bar and prove it: the marker printed before/after must come back in Output."""
+        """Run `snippet` in the command bar and prove it: both input steps must succeed AND the marker must appear in Output."""
         marker = make_marker()
-        self._input("run_lua", lua=marker_lua(marker, snippet), command_bar=command_bar)
-        self._input("copy_output", out=out_file, output_xy=output_xy)
+        r_run = self._input("run_lua", lua=marker_lua(marker, snippet), command_bar=command_bar)
+        if not r_run["ok"]:
+            return self._receipt("run_lua", False, status=r_run.get("status", "FAIL"), marker=marker,
+                                 out_file=out_file, output_chars=0,
+                                 reason=r_run.get("reason") or "run_lua input step was not confirmed")
+        r_copy = self._input("copy_output", out=out_file, output_xy=output_xy)
+        if not r_copy["ok"]:
+            return self._receipt("run_lua", False, status=r_copy.get("status", "FAIL"), marker=marker,
+                                 out_file=out_file, output_chars=0,
+                                 reason=r_copy.get("reason") or "copy_output step was not confirmed")
         try:
             text = Path(out_file).read_text(encoding="utf-8-sig", errors="replace")
         except OSError:
             text = ""
-        return self._receipt("run_lua", output_has_marker(text, marker), marker=marker, out_file=out_file,
-                             output_chars=len(text))
+        has_marker = output_has_marker(text, marker)
+        return self._receipt("run_lua", has_marker, status="PASS" if has_marker else "FAIL",
+                             marker=marker, out_file=out_file, output_chars=len(text),
+                             reason="" if has_marker else "marker not found in copied Studio Output")
 
     def copy_output(self, out_file: str, *, output_xy: tuple[int, int] = OUTPUT_XY) -> dict[str, Any]:
-        return self._input("copy_output", out=out_file, output_xy=output_xy)
+        res = self._input("copy_output", out=out_file, output_xy=output_xy)
+        if not res["ok"]:
+            return res
+        if not Path(out_file).is_file():
+            res["ok"] = False
+            res["status"] = "FAIL"
+            res["reason"] = "output file was not created on disk"
+        return res
 
-    def screenshot(self, out_file: str) -> dict[str, Any]:
-        self.ps(build_script("screenshot", out=out_file))
-        return self._receipt("screenshot", Path(out_file).is_file(), out_file=out_file)
+    def screenshot(self, out_file: str, *, allow_stub: bool = False) -> dict[str, Any]:
+        out = self.ps(build_script("screenshot", out=out_file)) or ""
+        ok_ps, st_code, reason = _output_confirmed("screenshot", out)
+        info = inspect_png(out_file)
+        if not ok_ps:
+            return self._receipt("screenshot", False, status=st_code, out_file=out_file, reason=reason, image=info)
+        if not info["exists"]:
+            return self._receipt("screenshot", False, status="FAIL", out_file=out_file,
+                                 reason="screenshot file does not exist", image=info)
+        if info["valid_png"] and info["is_stub_1x1"] and not allow_stub:
+            return self._receipt("screenshot", False, status="FAIL", out_file=out_file,
+                                 reason=f"refused 1x1 stub image ({info['size_bytes']} bytes)", image=info)
+        return self._receipt("screenshot", True, status="PASS", out_file=out_file, image=info)
 
     def close(self, *, wait_s: float = 15.0) -> dict[str, Any]:
         win = self._mine("close")
@@ -252,8 +360,11 @@ class StudioPC:
             # still open (a «save changes?» dialog): the place is a regenerated build artefact and the pid is ours
             self.ps(f"Stop-Process -Id {int(win['pid'])} -Force")
             forced = True
-        self._set_owned(None)
-        return self._receipt("close", True, pid=win["pid"], forced=forced)
+        still_running = any(p["pid"] == win["pid"] for p in self.lister())
+        if not still_running:
+            self._set_owned(None)
+        return self._receipt("close", not still_running, status="PASS" if not still_running else "FAIL",
+                             pid=win["pid"], forced=forced)
 
 
 async def _studio_tool(args: dict, ctx: ToolContext) -> ToolResult:
@@ -294,7 +405,7 @@ async def setup(svc) -> None:
     REGISTRY.register(ToolSpec(
         name="pc.studio",
         description="Управление локальным Roblox Studio (status, open, front, play, stop, run_lua, copy_output, "
-                    "screenshot, close) с BUSY GUARD и G1 FOREGROUND_GUARD.",
+                    "screenshot, close) с BUSY GUARD, G1 FOREGROUND_GUARD и строгой проверкой подтверждения.",
         handler=_studio_tool,
         input_schema={
             "action": {"type": "string", "enum": list(ACTIONS), "default": "status"},
@@ -313,4 +424,3 @@ async def setup(svc) -> None:
 
 
 FEATURE = Feature(name="studio_pc", setup=setup)
-

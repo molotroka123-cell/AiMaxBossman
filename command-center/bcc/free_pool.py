@@ -30,7 +30,10 @@ def is_free_cloud(row: Mapping[str, Any], *, is_local: Callable[[Mapping[str, An
         return False
     if not row.get("pricing_known"):
         return False
-    return float(row.get("price_in") or 0) == 0.0 and float(row.get("price_out") or 0) == 0.0
+    p_in, p_out = row.get("price_in"), row.get("price_out")
+    if p_in is None or p_out is None or isinstance(p_in, bool) or isinstance(p_out, bool):
+        return False
+    return float(p_in) == 0.0 and float(p_out) == 0.0
 
 
 #: capabilities a substitute must share with the agent's own model (a coder must not be replaced by a translator)

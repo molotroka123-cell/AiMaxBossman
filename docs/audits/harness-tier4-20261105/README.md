@@ -1,9 +1,15 @@
 # AiBossman Harness Agent (Agent 80) — Tier 4 Audit & Proof Bundle (2026-11-05)
 
+> **[!IMPORTANT] Ревизия независимого аудита Tier 5 (05.11.2026, см. [`../harness-tier5-audit-20261105/README.md`](../harness-tier5-audit-20261105/README.md))**
+> При независимой перепроверке квитанций этой папки выявлены и исправлены 3 завышения статуса:
+> 1. **`live_runtime_and_agent80_receipt.json` (п. 11)**: проверял `source_identity()` внутри дочернего процесса Python (`checkout_identity`), а не живой HTTP-процесс `:8801` (`PID 36704`, запущенный `02.11.2026` на коммите `4fade03d` в сессии Администратора, который по HTTP `/health/live` возвращает `SOURCE_IDENTITY_STALE`). Статус перезапуска `:8801` без прав Администратора — **BLOCKED (`ELEVATED_PROCESS_ACCESS_DENIED`)**.
+> 2. **`studio_proof/proof_receipt.json` (п. 10)**: на машине был открыт чужой `RobloxStudioBeta.exe` (`PID 47928`, `hwnd=0`), поэтому `StudioPC` честно сработал на `BUSY GUARD`, но блок `lifecycle_steps` (`pid 48800`) и `live_screen.png` (`69 байт`, `1x1` PNG) были получены на тестовой фикстуре (симуляции). Квитанция переклассифицирована в **BLOCKED (simulated unit fixture != live Studio playtest)**, а в `studio_pc.py` добавлена проверка `IHDR`, запрещающая `1x1` заглушки и ложноположительный `ok=True`.
+> 3. **`g6_pass_receipt.json` (п. 9)**: проверял только 5 статических шагов (`tree_clean`, `fast_gate.py`, `G3`, `G4`, `G5`). В `publish_gate.py` добавлены все 10 условий релиза (`STOP`, одобрение владельца, точный SHA, автотесты, лицензии, живой Studio playtest с реальным скриншотом, точка отката); статический прогон больше никогда не пишет «можно публиковать» (`can_publish: false`).
+
 **Дата:** 2026-11-05  
-**Статус:** **PROVEN (Tier 4)** — `76/76` unit & integration tests PASS, `11/11` live receipts PASS.  
+**Статус после ревизии Tier 5:** `8/11` квитанций **PASS**, `1/11` **PASS (только статическая часть 5/5, `can_publish: false`)**, `2/11` **BLOCKED (требуется окно Администратора для перезапуска `:8801` `PID 36704` и закрытия чужого Studio `PID 47928`)**.  
 **Ветка Bossman:** `feat/harness-guards-20261103` (`C:\Users\asd\Bossman\wt-harness-guards`)  
-**Ветка SwapMe:** `argon/v10-mega` @ `b95c22c` (`C:\Users\asd\Bossman\Projects\swapme-v09`)
+**Ветка SwapMe:** `main` @ `5936304b` (`C:\Users\asd\Bossman\Projects\swapme-v09`)
 
 ---
 
@@ -31,6 +37,6 @@
 | 6 | `g3_receipt.json` | **G3 Config Reference Guard** (`2,109` ссылок в `64` модулях `swapme-v09` @ `b95c22c`, `missing: 0`) | **PASS** |
 | 7 | `g4_receipt.json` | **G4 Asset Provenance Guard** (`4/4` переименованных чужих треков пойманы по SHA-256, `9` своих + `5` озвучек пропущены) | **PASS** |
 | 8 | `g5_receipt.json` | **G5 Content Policy Guard** (`213,706` строк `swapme-v09` + локальный ревьюер `qwen3-coder:30b`, `blocking: 0`) | **PASS** |
-| 9 | `g6_pass_receipt.json` | **G6 Pre-Publish Gate** (все 5 шагов `✔` на `swapme-v09` @ `b95c22c`) | **PASS** |
-| 10 | `studio_proof/proof_receipt.json` | **G7 Studio Safe Wrapper (`pc.studio`)** (`status`, `busy_guard`, `inspect`, `shot`, `front_minimize_bug_fixed: true`) | **PASS** |
-| 11 | `live_runtime_and_agent80_receipt.json` | Живой runtime `:8801` (`source_identity: "PASS"`, `git_clean: true`) + живой прогон **Agent 80** с вызовом `guard.config_refs` | **PASS** |
+| 9 | `g6_pass_receipt.json` | **G6 Pre-Publish Gate** (5/5 статических шагов `✔` на `swapme-v09` @ `b95c22c`) | **PASS (STATIC 5/5 ONLY, `can_publish: false`)** |
+| 10 | `studio_proof/proof_receipt.json` | **G7 Studio Safe Wrapper (`pc.studio`)** (живой `BUSY GUARD` на `PID 47928` = `PASS`; полный цикл `lifecycle_steps` был симуляцией с `1x1` PNG) | **BLOCKED (live Studio занят чужим `PID 47928`)** |
+| 11 | `live_runtime_and_agent80_receipt.json` | `checkout_identity` и in-process прогон **Agent 80** = `PASS`; живой процесс `:8801` (`PID 36704`) на `4fade03d` (`SOURCE_IDENTITY_STALE`) | **BLOCKED (перезапуск `PID 36704` требует прав Администратора)** |
