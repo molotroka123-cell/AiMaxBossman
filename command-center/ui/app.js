@@ -86,7 +86,7 @@ const SECTIONS = [
 const MAIN_ORDER = ['home-v3', 'apps', 'missions', 'agents', 'approvals'];
 const SECTION_ORDER = {
   work: ['capability-tree', 'control-lab', 'mission_console', 'missions', 'builder', 'objectives', 'control'],
-  studio: ['video-studio', 'web_designer', 'browser', 'coding', 'terminal',
+  studio: ['creator-mode', 'video-studio', 'web_designer', 'browser', 'coding', 'terminal',
            'images', 'web_research', 'trading_lab', 'bossman-chat'],
   brains: ['agentmap', 'orchestras', 'skills', 'router', 'openrouter', 'benchmarks', 'self-improve'],
   system: ['resources', 'governor', 'healing', 'forks', 'overview'],
