@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-11-05T12:09:51Z",
+  "checkout_identity": {
+    "build_sha": "71975d07ad1a689d91c5dbbadc6d5d27773526e4",
+    "build_sha_short": "71975d07ad1a",
+    "release_version": "2.6.0",
+    "source_identity": "PASS",
+    "git_clean": true,
+    "source": "checkout",
+    "detail": ""
+  },
+  "note_port_8801": "PID 36704 on :8801 is owned by an elevated session (Stop-Process Access Denied); running tools/restart_backend.ps1 from an elevated shell reloads :8801 onto commit 71975d07ad1a",
+  "agent_80": {
+    "id": 80,
+    "name": "Bossman Harness",
+    "model_id": 102,
+    "chat_only_flag": false,
+    "cloud_pc_access_in_permissions": null,
+    "granted_tools_count": 8,
+    "guard_and_studio_tools": [
+      "guard.config_refs",
+      "guard.media_provenance",
+      "guard.content_policy",
+      "guard.publish_gate",
+      "pc.studio"
+    ],
+    "live_tool_call": {
+      "tool": "guard.config_refs",
+      "elapsed_ms": 7163.3,
+      "ok": true,
+      "checked": null,
+      "modules": null,
+      "missing_count": 0
+    }
+  },
+  "verdict": "PASS"
+}

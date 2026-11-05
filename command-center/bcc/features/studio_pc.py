@@ -16,6 +16,7 @@ Safety rules (they are why most actions refuse instead of guessing):
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import secrets
@@ -26,6 +27,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..guards import foreground as _fg
+from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
+from . import Feature
 
 PROCESS = "RobloxStudioBeta"
 PLACE_SUFFIXES = (".rbxl", ".rbxlx")
@@ -52,7 +55,7 @@ public class BX {
 '@
 function Click($x,$y){ [BX]::SetCursorPos($x,$y); Start-Sleep -m 150; [BX]::mouse_event(2,0,0,0,0); [BX]::mouse_event(4,0,0,0,0); Start-Sleep -m 300 }
 function Shot($out){ Start-Sleep -m 500; $b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height; $g=[System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size); $bmp.Save($out); $g.Dispose(); $bmp.Dispose() }
-function Front($h){ $t=[IntPtr][Int64]$h; $fg=[BX]::GetForegroundWindow(); if ($fg -ne $t) { [BX]::ShowWindow($fg, 6) | Out-Null }; [BX]::keybd_event(0x12,0,0,0); [BX]::keybd_event(0x12,0,2,0); [BX]::ShowWindow($t, 3) | Out-Null; [BX]::SetForegroundWindow($t) | Out-Null; Start-Sleep -m 600; return ([BX]::GetForegroundWindow() -eq $t) }
+function Front($h){ $t=[IntPtr][Int64]$h; [BX]::keybd_event(0x12,0,0,0); [BX]::keybd_event(0x12,0,2,0); [BX]::ShowWindow($t, 9) | Out-Null; [BX]::ShowWindow($t, 3) | Out-Null; [BX]::SetForegroundWindow($t) | Out-Null; Start-Sleep -m 600; return ([BX]::GetForegroundWindow() -eq $t) }
 """
 
 
@@ -251,3 +254,63 @@ class StudioPC:
             forced = True
         self._set_owned(None)
         return self._receipt("close", True, pid=win["pid"], forced=forced)
+
+
+async def _studio_tool(args: dict, ctx: ToolContext) -> ToolResult:
+    st_act = str(args.get("action") or "status").strip().lower()
+    if st_act not in ACTIONS:
+        return ToolResult(content=f"ERROR: unknown action {st_act!r}; valid: {', '.join(ACTIONS)}",
+                          error=True, one_line=f"pc.studio: unknown action {st_act}")
+    data_dir = getattr(getattr(ctx.svc, "settings", None), "data_dir", None) or (
+        Path(os.environ.get("LOCALAPPDATA", ".")) / "Bossman" / "CommandCenter")
+    out_dir = Path(data_dir) / "studio"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    studio = StudioPC(state_file=out_dir / "owned.json")
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    default_out = out_dir / (f"shot-{stamp}.png" if st_act == "screenshot" else f"output-{stamp}.txt")
+    out_path = str(args.get("out_file") or default_out)
+    calls: dict[str, Callable[[], dict[str, Any]]] = {
+        "status": studio.status,
+        "open": lambda: studio.open(str(args.get("place") or "")),
+        "front": studio.front,
+        "play": studio.play,
+        "stop": studio.stop,
+        "run_lua": lambda: studio.run_lua(str(args.get("lua") or ""), out_file=out_path),
+        "copy_output": lambda: studio.copy_output(out_path),
+        "screenshot": lambda: studio.screenshot(out_path),
+        "close": studio.close,
+    }
+    try:
+        rec = await asyncio.to_thread(calls[st_act])
+    except (PermissionError, RuntimeError, ValueError, FileNotFoundError, KeyError) as exc:
+        return ToolResult(content=f"ERROR: {exc}", error=True, one_line=f"pc.studio {st_act}: {type(exc).__name__}")
+    ok = bool(rec.get("ok"))
+    return ToolResult(content=json.dumps(rec, ensure_ascii=False),
+                      one_line=f"pc.studio {st_act}: {'OK' if ok else 'FAIL'}",
+                      data=rec, error=not ok)
+
+
+async def setup(svc) -> None:
+    REGISTRY.register(ToolSpec(
+        name="pc.studio",
+        description="Управление локальным Roblox Studio (status, open, front, play, stop, run_lua, copy_output, "
+                    "screenshot, close) с BUSY GUARD и G1 FOREGROUND_GUARD.",
+        handler=_studio_tool,
+        input_schema={
+            "action": {"type": "string", "enum": list(ACTIONS), "default": "status"},
+            "place": {"type": "string", "maxLength": 1000},
+            "lua": {"type": "string", "maxLength": 10000},
+            "out_file": {"type": "string", "maxLength": 1000},
+        },
+        required=["action"],
+        category="exec",
+        permission="computer.control",
+        source="builtin",
+        default_effect="ask",
+        timeout_seconds=120,
+        idempotent=False,
+    ))
+
+
+FEATURE = Feature(name="studio_pc", setup=setup)
+

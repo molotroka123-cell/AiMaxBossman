@@ -1,0 +1,17 @@
+{
+ "guard": "G1",
+ "verdict": "PASS",
+ "at": "2026-11-05T03:55:09",
+ "steps": {
+  "fake_chat_in_front": true,
+  "desktop_locked": true,
+  "locked_desktop_refusal": "FOREGROUND_GUARD: foreground hwnd 0 '' is not the target 54069490 - nothing typed",
+  "fake_chat_front": "SwapMe Dev Chat (2,237 members) - Telegram [harness G1 proof]",
+  "studio_regex": "FOREGROUND_GUARD: chat app in front 'SwapMe Dev Chat (2,237 members) - Telegram [harness G1 proof]' - nothing typed",
+  "chat_self_regex": "FOREGROUND_GUARD: chat app in front 'SwapMe Dev Chat (2,237 members) - Telegram [harness G1 proof]' - nothing typed",
+  "save_dialog_in_front": true,
+  "save_dialog": "GUARD_PASSED_NOTHING_TYPED",
+  "save_dialog_title": "Save As [harness G1 proof]"
+ },
+ "stderr": ""
+}

@@ -1,0 +1,39 @@
+{
+  "capability": "memory_checklist_recall",
+  "verdict": "PASS",
+  "at": "2026-11-05T03:57:07",
+  "fact_pool_limit": 2500,
+  "results": [
+    {
+      "id": "T1",
+      "expect": 238,
+      "rank": 1,
+      "top3": [
+        238,
+        599,
+        608
+      ]
+    },
+    {
+      "id": "T2",
+      "expect": 592,
+      "rank": 1,
+      "top3": [
+        592,
+        255,
+        197
+      ]
+    },
+    {
+      "id": "T3",
+      "expect": 600,
+      "rank": 2,
+      "top3": [
+        239,
+        600,
+        241
+      ]
+    }
+  ],
+  "summary": "expected lesson in top-3: 3/3"
+}

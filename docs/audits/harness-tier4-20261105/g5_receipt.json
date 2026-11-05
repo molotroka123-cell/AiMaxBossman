@@ -1,0 +1,454 @@
+{
+  "guard": "G5",
+  "verdict": "PASS",
+  "at": "2026-11-05T03:59:43",
+  "project": "C:\\Users\\asd\\Bossman\\Projects\\swapme-v09",
+  "ok": true,
+  "lines_checked": 213706,
+  "reviewer": "PASS",
+  "reviewer_reason": "",
+  "hits": [
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/argon/fox_swapme_r15_manifest.json",
+      "line": 47,
+      "text": "\"crypto_logos_present\": false",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 17,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 34,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 51,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 68,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 85,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 102,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 119,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 136,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 153,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 170,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 187,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 204,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 221,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 238,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 255,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 272,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 289,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 306,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 323,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 340,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 357,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 374,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 391,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 408,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 425,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 442,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 459,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 476,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 493,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "assets/incoming/argon-20261102/manifest.json",
+      "line": 510,
+      "text": "\"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto symbols\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "gambling",
+      "term": "gambling",
+      "file": "assets/incoming/argon-wave3-v3/manifest.json",
+      "line": 404,
+      "text": "\"purpose\": \"v3 Cosmetic Prize Display Shelf (non-gambling)\"",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "alcohol",
+      "term": "alcohol",
+      "file": "assets/incoming/decor-300-v2/manifest.json",
+      "line": 9,
+      "text": "\"no_brands_or_alcohol\": true,",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "gambling",
+      "term": "азарт",
+      "file": "assets/incoming/decor-300-v2/manifest.json",
+      "line": 2236,
+      "text": "\"name\": \"Ярмарочное колесо призов (без текста и азарта) (Классический вариант)\",",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "gambling",
+      "term": "азарт",
+      "file": "assets/incoming/decor-300-v2/manifest.json",
+      "line": 2255,
+      "text": "\"name\": \"Ярмарочное колесо призов (без текста и азарта) (Парадный позолоченный вариант)\",",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "gambling",
+      "term": "азарт",
+      "file": "assets/incoming/decor-300-v2/manifest.json",
+      "line": 2274,
+      "text": "\"name\": \"Ярмарочное колесо призов (без текста и азарта) (Увеличенный королевский вариант)\",",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "alcohol",
+      "term": "alcohol",
+      "file": "assets/incoming/epix-club-decor-100/manifest_epix_club_300.json",
+      "line": 5,
+      "text": "\"brands_or_alcohol\": false,",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "alcohol",
+      "term": "alcohol",
+      "file": "assets/incoming/hunyuan-batch1-buildings/manifest.json",
+      "line": 9,
+      "text": "\"no_brands_or_alcohol\": true,",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "alcohol",
+      "term": "alcohol",
+      "file": "assets/incoming/hunyuan-batch2-streets/manifest.json",
+      "line": 9,
+      "text": "\"no_brands_or_alcohol\": true,",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "alcohol",
+      "term": "alcohol",
+      "file": "assets/incoming/hunyuan-batch3-worlds/manifest.json",
+      "line": 9,
+      "text": "\"no_brands_or_alcohol\": true,",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "alcohol",
+      "term": "alcohol",
+      "file": "assets/incoming/hunyuan-batch4-funicular-beach-horizon/manifest.json",
+      "line": 9,
+      "text": "\"no_brands_or_alcohol\": true,",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "gambling",
+      "term": "казино",
+      "file": "src/server/Carnival.server.luau",
+      "line": 3,
+      "text": "-- бинго» + «американские горки тоже добавим»). Owner's «казино» is built as a CARNIVAL with no stake at all — Swaps",
+      "in_comment": true,
+      "negated": false
+    },
+    {
+      "category": "gambling",
+      "term": "gambling",
+      "file": "src/server/Carnival.server.luau",
+      "line": 4,
+      "text": "-- are sold for Robux and Fox Points convert to Swaps, so any paid/staked game of chance would be gambling under Roblox",
+      "in_comment": true,
+      "negated": false
+    },
+    {
+      "category": "crypto",
+      "term": "crypto",
+      "file": "src/server/EdgeBillboards.server.luau",
+      "line": 4,
+      "text": "-- crypto logos, card-table or price tags (assets/billboards). Decorative, no prompts, nothing to collide with inside.",
+      "in_comment": true,
+      "negated": false
+    },
+    {
+      "category": "real_brand",
+      "term": "Minecraft",
+      "file": "src/server/World/VersionSign.luau",
+      "line": 2,
+      "text": "-- VersionSign (02.11.2026): a Minecraft-style wooden sign in front of the spawn with the current map version and what",
+      "in_comment": true,
+      "negated": false
+    },
+    {
+      "category": "gambling",
+      "term": "лутбокс",
+      "file": "src/shared/Locale.luau",
+      "line": 68,
+      "text": "parents_card2_title = { ru = \"Без платных лутбоксов и Pay-to-Win\", en = \"No Paid Lootboxes & No Pay-to-Win\" },",
+      "in_comment": false,
+      "negated": true
+    },
+    {
+      "category": "tobacco_nicotine",
+      "term": "tobacco",
+      "file": "src/shared/VipCosmetics.luau",
+      "line": 4,
+      "text": "-- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.",
+      "in_comment": true,
+      "negated": false
+    },
+    {
+      "category": "alcohol",
+      "term": "alcohol",
+      "file": "src/shared/VipCosmetics.luau",
+      "line": 4,
+      "text": "-- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.",
+      "in_comment": true,
+      "negated": false
+    },
+    {
+      "category": "gambling",
+      "term": "gambling",
+      "file": "src/shared/VipCosmetics.luau",
+      "line": 4,
+      "text": "-- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.",
+      "in_comment": true,
+      "negated": false
+    }
+  ],
+  "summary_ru": "G5 PASS: строк 213706, совпадений в коде/строках 0, в комментариях/с отрицанием 49 (предупреждение), ревьюер-модель PASS\n  [gambling] «казино» — src/server/Carnival.server.luau:3 (комментарий): -- бинго» + «американские горки тоже добавим»). Owner's «казино» is built as a CARNIVAL with no stak\n  [gambling] «gambling» — src/server/Carnival.server.luau:4 (комментарий): -- are sold for Robux and Fox Points convert to Swaps, so any paid/staked game of chance would be ga\n  [crypto] «crypto» — src/server/EdgeBillboards.server.luau:4 (комментарий): -- crypto logos, card-table or price tags (assets/billboards). Decorative, no prompts, nothing to co\n  [real_brand] «Minecraft» — src/server/World/VersionSign.luau:2 (комментарий): -- VersionSign (02.11.2026): a Minecraft-style wooden sign in front of the spawn with the current ma\n  [gambling] «лутбокс» — src/shared/Locale.luau:68 (отрицание): parents_card2_title = { ru = \"Без платных лутбоксов и Pay-to-Win\", en = \"No Paid Lootboxes & No Pay-\n  [tobacco_nicotine] «tobacco» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [alcohol] «alcohol» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [gambling] «gambling» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [crypto] «crypto» — assets/argon/fox_swapme_r15_manifest.json:47 (отрицание): \"crypto_logos_present\": false\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:17 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:34 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:51 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:68 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:85 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:102 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:119 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:136 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:153 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:170 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:187 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:204 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:221 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:238 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:255 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:272 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:289 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:306 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:323 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:340 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:357 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym"
+}

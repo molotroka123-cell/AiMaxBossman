@@ -1097,7 +1097,8 @@ def _api_router() -> APIRouter:
         merged = {**(current or {}), **values}
         perms = values.get("permissions", (current or {}).get("permissions"))
         perms = dict(perms) if isinstance(perms, dict) else {}
-        if "cloud_pc_access" not in perms and current and isinstance(current.get("permissions"), dict) \
+        is_cloud = await _cloud_model_ids(s, merged.get("model_id"))
+        if is_cloud and "cloud_pc_access" not in perms and current and isinstance(current.get("permissions"), dict) \
                 and "cloud_pc_access" in current["permissions"] \
                 and current["permissions"]["cloud_pc_access"] is not True:
             # A PATCH that forgets the flag keeps a «no PC» flag; a True grant is never carried over silently.
@@ -1106,7 +1107,7 @@ def _api_router() -> APIRouter:
             if "permissions" in values:
                 values["permissions"] = perms
             return
-        if await _cloud_model_ids(s, merged.get("model_id")):   # a cloud FALLBACK is refused at run time (engine)
+        if is_cloud:   # a cloud FALLBACK is refused at run time (engine)
             perms["cloud_pc_access"] = False
             values["permissions"] = perms
         elif "permissions" in values:

@@ -76,3 +76,17 @@ def test_policy_tiers(tmp_path):
     assert tier("status") == "T0" and tier("screenshot") == "T0"
     assert tier("play") == "T1" and tier("run_lua") == "T1"
     assert tier("format_disk") == "T3"
+
+
+def test_front_does_not_minimize_previous_foreground_window():
+    """Audit 05.11: Front($h) must never call ShowWindow($fg, 6) (SW_MINIMIZE) on the owner's active window."""
+    assert "ShowWindow($fg, 6)" not in sp._PS_INPUT
+    assert "ShowWindow($t, 9)" in sp._PS_INPUT and "SetForegroundWindow($t)" in sp._PS_INPUT
+
+
+def test_studio_tool_registered_in_registry():
+    import asyncio
+    from bcc.tools import REGISTRY
+    asyncio.run(sp.setup(None))
+    spec = REGISTRY.get("pc.studio")
+    assert spec is not None and spec.permission == "computer.control" and spec.default_effect == "ask"

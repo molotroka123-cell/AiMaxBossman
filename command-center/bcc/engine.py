@@ -1157,6 +1157,11 @@ class TaskEngine:
             if obs is not None:
                 await self.bus.emit("cache.observation", task_id=task["id"], run_id=run_id, **obs)
 
+            if not result.has_tool_calls and tool_specs and tool_schemas is not None and (result.text or "").strip():
+                parsed_calls = parse_text_tool_calls(result.text, tool_specs, step=step)
+                if parsed_calls:
+                    result.tool_calls = parsed_calls
+
             if result.has_tool_calls:
                 messages.append(_assistant_tool_message(result))
                 await self._log(run_id, "info", "run.step",
@@ -1207,7 +1212,8 @@ class TaskEngine:
             await self._emit_stream("run.assistant_message", task_id=task["id"], run_id=run_id,
                                     step=step, model=alias, text=_clip_stream(answer),
                                     chars=len(answer or ""),
-                                    streamed=bool(result.provider_meta.get("streamed")))
+                                    streamed=bool(result.provider_meta.get("streamed")),
+                                    model_switched=result.provider_meta.get("model_switched"))
             await self._log(run_id, "info", "run.step",
                             f"шаг {step}/{max_steps}: ответ модели {alias} "
                             f"({result.tokens_out} токенов)")
@@ -1415,39 +1421,52 @@ class TaskEngine:
                               result: ChatResult, model: dict, *, tools: list[dict] | None = None,
                               model_override: int | None = None) -> tuple[ChatResult, dict]:
         """G2 (03.11, Jev empty on 40k code, answered on a 13k excerpt): an EMPTY answer on a long input is retried
-        ONCE on relevant excerpts (<=12k) with a strict short format. Records which variant answered."""
+        ONCE on relevant excerpts (<=12k) with a strict short format. Records which variant answered.
+        If still empty and free_pool is enabled, rotates to the free pool / fallback."""
         from .guards import long_input as li
-        if not li.enabled_for(agent) or not li.is_empty_answer(result):
+        if not li.is_empty_answer(result):
             return result, model
-        reduced = li.reduce_messages(messages)
-        if reduced is None:
-            return result, model
-        small, info = reduced
-        await self._log(run_id, "warn", "model.empty_recovery",
-                        f"пустой ответ на длинный ввод ({info['chars_before']} симв.) — повтор на фрагментах "
-                        f"({info['chars_after']} симв.) в строгом формате", info)
-        try:
-            retry, retry_model = await self._call_model_scoped(task, agent, small, run_id, tools=tools,
-                                                               model_override=model_override)
-        except ProviderError as exc:
-            await self._log(run_id, "warn", "model.empty_recovery_failed", f"повтор на фрагментах упал: {exc}", info)
-            return result, model
-        ok = not li.is_empty_answer(retry)
-        meta = {**info, "variant": "reduced" if ok else "none", "model": (retry_model or {}).get("alias")}
-        retry.provider_meta = {**(retry.provider_meta or {}), "empty_recovery": meta}
-        await self._log(run_id, "info" if ok else "warn", "model.empty_recovery_result",
-                        f"G2: ответил вариант {'reduced (фрагменты)' if ok else '— никакой'}", meta)
-        if not ok:
-            result.provider_meta = {**(result.provider_meta or {}), "empty_recovery": meta}
-            return result, model
-        retry.tokens_in += result.tokens_in
-        retry.tokens_out += result.tokens_out
-        return retry, retry_model
+        if li.enabled_for(agent):
+            reduced = li.reduce_messages(messages)
+            if reduced is not None:
+                small, info = reduced
+                await self._log(run_id, "warn", "model.empty_recovery",
+                                f"пустой ответ на длинный ввод ({info['chars_before']} симв.) — повтор на фрагментах "
+                                f"({info['chars_after']} симв.) в строгом формате", info)
+                try:
+                    retry, retry_model = await self._call_model_scoped(task, agent, small, run_id, tools=tools,
+                                                                       model_override=model_override)
+                except ProviderError as exc:
+                    await self._log(run_id, "warn", "model.empty_recovery_failed",
+                                    f"повтор на фрагментах упал: {exc}", info)
+                    retry, retry_model = result, model
+                ok = not li.is_empty_answer(retry)
+                meta = {**info, "variant": "reduced" if ok else "none", "model": (retry_model or {}).get("alias")}
+                retry.provider_meta = {**(retry.provider_meta or {}), "empty_recovery": meta}
+                await self._log(run_id, "info" if ok else "warn", "model.empty_recovery_result",
+                                f"G2: ответил вариант {'reduced (фрагменты)' if ok else '— никакой'}", meta)
+                if ok:
+                    retry.tokens_in += result.tokens_in
+                    retry.tokens_out += result.tokens_out
+                    return retry, retry_model
+                result.provider_meta = {**(result.provider_meta or {}), "empty_recovery": meta}
+        perms = agent.get("permissions") if isinstance(agent.get("permissions"), dict) else {}
+        if perms.get("free_pool") is True or isinstance(perms.get("free_pool"), list):
+            try:
+                rot_res, rot_model = await self._call_model_scoped(
+                    task, agent, messages, run_id, tools=tools, model_override=model_override,
+                    reject_empty_primary=True)
+                if not li.is_empty_answer(rot_res):
+                    return rot_res, rot_model
+            except ProviderError:
+                pass
+        return result, model
 
     async def _call_model_scoped(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None,
                           model_override: int | None = None,
-                          on_delta: Any = None) -> tuple[ChatResult, dict]:
+                          on_delta: Any = None,
+                          reject_empty_primary: bool = False) -> tuple[ChatResult, dict]:
         """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;
         при ошибке маршрута — модель агента; при её ошибке — fallback_model.
         `tools` — схемы ТОЛЬКО выданных этому run'у инструментов."""
@@ -1575,7 +1594,10 @@ class TaskEngine:
                 adapter, model = await self.registry.adapter_for(int(agent["model_id"]))
             except (LookupError, TypeError):
                 raise LookupError("у агента не задана рабочая модель")
-            return await adapter.chat(model["name"], messages, **kw), model
+            primary_res = await adapter.chat(model["name"], messages, **kw)
+            if reject_empty_primary and not (primary_res.text or "").strip() and not primary_res.tool_calls:
+                raise ProviderError("empty model output", kind="empty")
+            return primary_res, model
         except ProviderError as exc:
             failed(agent.get("model_id"), exc)
             label = model["alias"] if model else f"#{agent.get('model_id')}"
@@ -1583,7 +1605,7 @@ class TaskEngine:
                 pooled = await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, exc,
                                                       check_fallback_model, refuse_cloud_with_pc, failed)
                 if pooled is not None:
-                    return pooled
+                    return _mark_switched(pooled[0], agent.get("model_id"), pooled[1], "free_pool"), pooled[1]
                 exc.failed_models = attempts            # type: ignore[attr-defined]
                 raise
             perms = agent.get("permissions") if isinstance(agent.get("permissions"), dict) else {}
@@ -1592,7 +1614,7 @@ class TaskEngine:
                 pooled = await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, exc,
                                                       check_fallback_model, refuse_cloud_with_pc, failed)
                 if pooled is not None:
-                    return pooled
+                    return _mark_switched(pooled[0], agent.get("model_id"), pooled[1], "free_pool"), pooled[1]
             await self._log(run_id, "warn", "model.fallback",
                             f"модель {label} недоступна ({exc}) — пробуем fallback")
             fb_id = agent["fallback_model_id"]
@@ -1609,13 +1631,13 @@ class TaskEngine:
                 pooled = await self._free_pool_rotate(task, agent, messages, kw, run_id, attempts, fb_exc,
                                                       check_fallback_model, refuse_cloud_with_pc, failed)
                 if pooled is not None:
-                    return pooled
+                    return _mark_switched(pooled[0], agent.get("model_id"), pooled[1], "free_pool"), pooled[1]
                 raise _fallback_failure(label, exc, fb_model["alias"] if fb_model else f"#{fb_id}",
                                         fb_exc, attempts) from fb_exc
             if model is not None:
                 await self.bus.emit("model.status", id=model["id"], alias=model["alias"],
                                     status="error", detail=str(exc))
-            return result, fb_model
+            return _mark_switched(result, agent.get("model_id"), fb_model, "fallback"), fb_model
 
     # ---------- инструменты (V2.1, фаза A) ----------
 
@@ -3283,6 +3305,59 @@ def _split_checklist(recalled: str) -> tuple[str, str]:
         return recalled, ""
     end += len(end_mark)
     return recalled[:start] + recalled[end:], recalled[start:end].strip()
+
+
+def _mark_switched(result: ChatResult, from_model_id: Any, to_model: dict | None, via: str) -> ChatResult:
+    """Record explicit model switch metadata when free_pool or fallback answers instead of the primary model."""
+    result.provider_meta = {
+        **(result.provider_meta or {}),
+        "model_switched": {
+            "from_model_id": from_model_id,
+            "to_model_id": (to_model or {}).get("id"),
+            "to_alias": (to_model or {}).get("alias") or (to_model or {}).get("name"),
+            "via": via,
+        },
+    }
+    return result
+
+
+def parse_text_tool_calls(text: str, tool_specs: list[Any], *, step: int = 1) -> list[Any]:
+    """Normalize <tool_call>{...}</tool_call> or ```tool_call {...}``` text blocks from models without native
+    tool_calls into ToolCall objects — strictly limited to tools granted in `tool_specs`."""
+    import re
+    from .providers import ToolCall
+    if not text or not tool_specs:
+        return []
+    by_name: dict[str, Any] = {}
+    for t in tool_specs:
+        by_name[t.name] = t
+        by_name[t.api_name] = t
+    blocks = re.findall(r"<tool_call>\s*(\{.*?\})\s*</tool_call>|```(?:tool_call|json)\s*(\{.*?\})\s*```",
+                        text, flags=re.DOTALL)
+    out: list[ToolCall] = []
+    for idx, pair in enumerate(blocks, 1):
+        raw = (pair[0] or pair[1] or "").strip()
+        try:
+            obj = json.loads(raw)
+        except Exception:
+            continue
+        if not isinstance(obj, dict):
+            continue
+        name = str(obj.get("name") or obj.get("tool") or "").strip()
+        spec = by_name.get(name)
+        if spec is None:
+            continue
+        args = obj.get("arguments", obj.get("args", {}))
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except Exception:
+                continue
+        if not isinstance(args, dict):
+            continue
+        out.append(ToolCall(id=f"textcall_{step}_{idx}", name=spec.api_name,
+                            arguments=args, raw_arguments=json.dumps(args, ensure_ascii=False)))
+    return out
 
 
 def _fallback_failure(label: str, exc: ProviderError, fb_label: str,

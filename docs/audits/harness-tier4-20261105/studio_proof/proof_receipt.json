@@ -1,0 +1,82 @@
+{
+  "capability": "pc.studio",
+  "verdict": "PASS",
+  "at": "2026-11-05T04:00:26",
+  "front_minimize_bug_fixed": true,
+  "live_machine_status": {
+    "action": "status",
+    "ok": true,
+    "at": "2026-11-05T04:00:22",
+    "studio": [
+      {
+        "pid": 47928,
+        "hwnd": 0,
+        "title": ""
+      }
+    ],
+    "owned_pid": null,
+    "busy": true,
+    "busy_reason": "Studio is open in another session (pid 47928)"
+  },
+  "live_busy_guard_verified": true,
+  "live_busy_guard_refusal": "play: refused — Studio is open in another session (pid 47928); pc.studio acts only on a Studio it launched",
+  "lifecycle_steps": [
+    {
+      "action": "status",
+      "ok": true,
+      "at": "2026-11-05T04:00:26",
+      "studio": [
+        {
+          "pid": 48800,
+          "hwnd": 199001,
+          "title": "SwapMeCoinTycoon.rbxlx - Roblox Studio"
+        }
+      ],
+      "owned_pid": 48800,
+      "busy": false,
+      "busy_reason": ""
+    },
+    {
+      "action": "front",
+      "ok": true,
+      "at": "2026-11-05T04:00:26",
+      "pid": 48800,
+      "output": "front=True\nran"
+    },
+    {
+      "action": "play",
+      "ok": true,
+      "at": "2026-11-05T04:00:26",
+      "pid": 48800,
+      "output": "front=True\nran"
+    },
+    {
+      "action": "run_lua",
+      "ok": true,
+      "at": "2026-11-05T04:00:26",
+      "marker": "BOSSMAN_STUDIO_3790B773",
+      "out_file": "C:\\Users\\asd\\Bossman\\wt-harness-guards\\docs\\audits\\harness-tier4-20261105\\studio_proof\\studio_output.txt"
+    },
+    {
+      "action": "screenshot",
+      "ok": true,
+      "at": "2026-11-05T04:00:26",
+      "out_file": "C:\\Users\\asd\\Bossman\\wt-harness-guards\\docs\\audits\\harness-tier4-20261105\\studio_proof\\live_screen.png"
+    },
+    {
+      "action": "stop",
+      "ok": true,
+      "at": "2026-11-05T04:00:26",
+      "pid": 48800,
+      "output": "front=True\nran"
+    },
+    {
+      "action": "close",
+      "ok": true,
+      "at": "2026-11-05T04:00:26",
+      "pid": 48800,
+      "forced": false
+    }
+  ],
+  "all_ok": true
+}

@@ -1,0 +1,25 @@
+{
+  "guard": "G4",
+  "verdict": "PASS",
+  "at": "2026-11-05T03:59:21",
+  "registry_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\guards\\third_party_registry.json",
+  "registry_entries": 4,
+  "positive_control_renamed_gemini_1_4": {
+    "ok": false,
+    "checked": 4,
+    "flagged_count": 4,
+    "summary_ru": "G4 FAIL: проверено 4, помечено 4, ошибок 0\n  FakeOwnerTrack_01.mp3 = «ThirdParty_Blocked_Gemini_1.mp3» (identical bytes (sha256)) — ПЕРЕИМЕНОВАННАЯ копия\n  FakeOwnerTrack_02.mp3 = «ThirdParty_Blocked_Gemini_2.mp3» (identical bytes (sha256)) — ПЕРЕИМЕНОВАННАЯ копия\n  FakeOwnerTrack_03.mp3 = «ThirdParty_Blocked_Gemini_3.mp3» (identical bytes (sha256)) — ПЕРЕИМЕНОВАННАЯ копия\n  FakeOwnerTrack_04.mp3 = «ThirdParty_Blocked_Gemini_4.mp3» (identical bytes (sha256)) — ПЕРЕИМЕНОВАННАЯ копия"
+  },
+  "negative_control_owner_approved_tracks": {
+    "ok": true,
+    "checked": 2,
+    "flagged_count": 0,
+    "summary_ru": "G4 PASS: 2 медиафайлов, совпадений с реестром чужих файлов нет"
+  },
+  "swapme_project_media_check": {
+    "ok": true,
+    "checked": 10,
+    "flagged_count": 0,
+    "summary_ru": "G4 PASS: 10 медиафайлов, совпадений с реестром чужих файлов нет"
+  }
+}

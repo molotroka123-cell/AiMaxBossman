@@ -1,0 +1,15 @@
+{
+  "guard": "G2",
+  "verdict": "PASS",
+  "at": "2026-11-05T03:59:02",
+  "model": "qwen3-coder:30b (local id=102)",
+  "elapsed_s": 114.97,
+  "reduction_info": {
+    "variant": "reduced",
+    "chars_before": 80449,
+    "chars_after": 10973,
+    "message_index": 1
+  },
+  "answer_chars": 432,
+  "answer_preview": "1. MatchConfig.luau:25–26 — Ограничения на количество оплаченных побед и очков в день заданы.\n2. MatchService.server.luau:794 — Загружается конфигурация матчей из реплицированной папки.\n3. MatchService.server.luau:1042–1052 — Создаётся структура активного матча с параметрами и участниками.\n4. MatchService.server.luau:1054–1060 — При малом количестве реальных игроков добавляются боты.\n5. MatchService.server.luau:1472 — Запуск мат"
+}

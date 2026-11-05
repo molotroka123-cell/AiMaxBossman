@@ -435,3 +435,41 @@ def test_config_refs_tool_end_to_end(tmp_path, monkeypatch):
     res = asyncio.run(hg._config_refs({"path": str(root)}, ctx))
     assert "MAX_PAID_WINS_PER_DAY" in res.content and res.data["ok"] is False
     json.dumps(res.data, ensure_ascii=False)
+
+
+def test_harness_profile_patch_unblocks_local_agent_tools():
+    """Audit 05.11: Agent 80 had cloud_pc_access=False in permissions, causing chat_only() to strip all tools even on
+    local model 102. harness_profile_patch removes cloud_pc_access=False while keeping cloud_pc_access != True."""
+    from bcc.features import harness_guards as hg
+    from bcc.tools import allowed_tools_for, chat_only
+    agent80 = {
+        "id": 80,
+        "model_id": 102,
+        "tools": ["code.read", "code.write"],
+        "permissions": {"cloud_pc_access": False, "free_pool": [55, 71, 82], "free_pool_first": True},
+    }
+    assert chat_only(agent80) and allowed_tools_for({}, agent80) == []
+    patched = {**agent80, **hg.harness_profile_patch(agent80)}
+    assert not chat_only(patched)
+    assert patched["permissions"].get("cloud_pc_access") is not True
+    allowed = allowed_tools_for({}, patched)
+    for t in ("code.read", "guard.config_refs", "guard.publish_gate", "pc.studio"):
+        assert t in allowed, allowed
+
+
+def test_parse_text_tool_calls_only_accepts_granted_tools():
+    from bcc.engine import parse_text_tool_calls
+    from bcc.features import harness_guards as hg
+    from bcc.tools import REGISTRY
+    asyncio.run(hg.setup(None))
+    specs = [REGISTRY.get("guard.config_refs")]
+    text = (
+        'Проверю конфиги:\n'
+        '<tool_call>{"name": "guard.config_refs", "arguments": {"path": "C:/Bossman/proj"}}</tool_call>\n'
+        '<tool_call>{"name": "terminal.run", "arguments": {"command": "whoami"}}</tool_call>'
+    )
+    calls = parse_text_tool_calls(text, specs, step=2)
+    assert len(calls) == 1
+    assert calls[0].name == specs[0].api_name
+    assert calls[0].arguments == {"path": "C:/Bossman/proj"}
+

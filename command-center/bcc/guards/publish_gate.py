@@ -75,7 +75,12 @@ def tree_clean(root: Path, *, run: Callable[..., Any] = subprocess.run) -> Step:
 
 def build_check(root: Path, command: list[str] | None = None, expect: str = DEFAULT_EXPECT, *,
                 timeout: float = 900.0, run: Callable[..., Any] = subprocess.run) -> Step:
+    import shutil
     cmd = list(command or DEFAULT_CHECK)
+    if cmd and cmd[0] == "bash" and shutil.which("bash") is None:
+        git_bash = Path("C:/Program Files/Git/bin/bash.exe")
+        if git_bash.is_file():
+            cmd[0] = str(git_bash)
     try:
         r = run(cmd, cwd=str(root), capture_output=True, text=True, encoding="utf-8", errors="replace",
                 timeout=timeout, check=False)

@@ -475,7 +475,7 @@ async def query_facts(session, *, subject: str | None = None,
             query = query.where(facts_t.c.expired_at.is_(None))
 
     query = query.order_by(facts_t.c.valid_at.asc(), facts_t.c.id.asc())
-    query = query.limit(max(1, min(int(limit), 200)))
+    query = query.limit(max(1, min(int(limit), 2500)))
     return _rows(await session.execute(query))
 
 
@@ -740,7 +740,7 @@ def parse_time(value: Any, *, default: datetime | None = None) -> datetime:
 
 #: Потолок выборки, из которой подстрочный фильтр выбирает совпадения
 #: (тот же, что у `query_facts`).
-_FILTER_POOL = 200
+_FILTER_POOL = 2500
 
 
 def _fold(text: str) -> str:

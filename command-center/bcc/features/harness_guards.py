@@ -182,6 +182,23 @@ def profile_tools(existing: list[str] | None) -> list[str]:
     return out
 
 
+def harness_profile_patch(agent: dict) -> dict[str, Any]:
+    """Full Agent 80 (Bossman Harness) profile patch: guard.* + pc.studio tools, plus local-model permissions
+    (removes erroneous cloud_pc_access=False that turned the local agent chat-only while keeping cloud fallback
+    blocked from PC tools because cloud_pc_access is not True)."""
+    tools = profile_tools(agent.get("tools"))
+    if "pc.studio" not in tools:
+        tools.append("pc.studio")
+    perms = dict(agent.get("permissions") or {}) if isinstance(agent.get("permissions"), dict) else {}
+    if perms.get("cloud_pc_access") is False:
+        perms.pop("cloud_pc_access", None)
+    perms.setdefault("filesystem.read", True)
+    perms.setdefault("filesystem.write", True)
+    perms.setdefault("computer.control", True)
+    perms.setdefault("empty_recovery", True)
+    return {"tools": tools, "permissions": perms}
+
+
 FEATURE = Feature(name="harness_guards", setup=setup)
 
-__all__ = ["FEATURE", "TOOL_NAMES", "profile_tools", "resolve_project", "guard_roots"]
+__all__ = ["FEATURE", "TOOL_NAMES", "profile_tools", "harness_profile_patch", "resolve_project", "guard_roots"]

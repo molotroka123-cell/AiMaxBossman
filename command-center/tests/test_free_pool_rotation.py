@@ -179,3 +179,38 @@ async def test_rotate_does_not_poison_health_on_a_non_provider_error():
     out = await fp.rotate([1, 2], call, on_failure)
     assert out.model_id == 2 and recorded == []
     assert out.tried[0][1] == "skipped"
+
+
+async def test_multi_provider_pool_skips_401_candidate_and_answers_on_next_provider():
+    """Live audit 05.11: in a multi-provider pool [71 Groq, 55 NIM], an expired key (401) on 71 must record
+    unauthorized on 71 and continue to 55 instead of aborting the whole pool."""
+    recorded = []
+
+    async def call(mid):
+        if mid == 71:
+            raise ProviderError("401 expired_api_key on Groq", kind="http", status_code=401)
+        return "ok from NIM 55"
+
+    async def on_failure(mid, status, detail):
+        recorded.append((mid, status))
+
+    out = await fp.rotate([71, 55], call, on_failure)
+    assert out.answered and out.model_id == 55
+    assert recorded == [(71, mh.UNAUTHORIZED)]
+
+
+async def test_silent_empty_primary_rotates_to_free_pool_on_short_prompt(env):
+    """Audit 05.11: when the primary model returns a silent empty answer on a short prompt (<16k) and free_pool is
+    enabled, _empty_recovery rotates to the free pool and marks model_switched."""
+    stack, ids, adapters, _ = await _stack(
+        env, perms={"free_pool": True, "free_pool_first": True},
+        primary_exc=ProviderError("unused", kind="http", status_code=503))
+    silent_primary = _Text("   ")
+    factory = env.svc.registry.adapter_factory
+    env.svc.registry.adapter_factory = lambda m, p: (
+        adapters[m["name"]] if m.get("name") in adapters else silent_primary
+    )
+    status = await _run_task(env, stack["task"]["id"], timeout=10, until=FINISHED)
+    assert status == "completed", status
+    assert silent_primary.calls >= 1 and adapters["free-good"].calls >= 1
+

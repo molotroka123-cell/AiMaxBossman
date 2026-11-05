@@ -1,0 +1,74 @@
+{
+ "at": "2026-11-05T03:39:00",
+ "rungs": [
+  {
+   "rung": "1 local",
+   "model": 102,
+   "answered": true,
+   "check_pass": true,
+   "tokens_in": 79,
+   "tokens_out": 103,
+   "secs": 27.4
+  },
+  {
+   "rung": "2 local down -> free pool",
+   "local_status": [
+    "provider_down"
+   ],
+   "pool_order": [
+    55,
+    82,
+    18,
+    71,
+    75
+   ],
+   "skipped_cooling": [],
+   "tried": [],
+   "answered_by": 55,
+   "check_pass": true,
+   "tokens_in": 87,
+   "tokens_out": 246,
+   "secs": 14.1
+  },
+  {
+   "rung": "2b forced real-failing model first",
+   "order": [
+    82,
+    55,
+    18,
+    71,
+    75
+   ],
+   "tried": [
+    [
+     82,
+     "throttled",
+     "ProviderError: лимит запросов провайдера (429): попробуйте позже: [{   \"error\": {     \"code\": 429,     \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-"
+    ]
+   ],
+   "answered_by": 55,
+   "check_pass": true,
+   "failed_model_now_cooling": true,
+   "next_order_skips_it": true,
+   "tokens_in": 87,
+   "tokens_out": 324,
+   "secs": 4.0
+  },
+  {
+   "rung": "3 paid cap (GLM 7API)",
+   "model": 105,
+   "called": false,
+   "why": "not needed: a free rung answered"
+  }
+ ],
+ "paid_calls": 0,
+ "spend_usd": 0.0,
+ "claude_equivalent_usd": {
+  "claude-sonnet": 0.01085,
+  "claude-opus": 0.05427
+ },
+ "tokens": {
+  "in": 253,
+  "out": 673
+ }
+}

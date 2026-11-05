@@ -105,8 +105,6 @@ async def rotate(order: Sequence[int], call: Callable[[int], Awaitable[Any]],
             status, detail = classify(exc)
             out.tried.append((model_id, status, detail))
             await on_failure(model_id, status, detail)
-            if not should_rotate(status):
-                break
             continue
         if not answered_ok(result):
             out.tried.append((model_id, mh.SILENT, "empty answer"))

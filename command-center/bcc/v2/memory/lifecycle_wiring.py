@@ -30,7 +30,7 @@ from typing import Any
 
 DEFAULT_LEARNING_SUBDIR = "learning"
 DEFAULT_STATE_SUBDIR = "memory-lifecycle"
-DEFAULT_FACTS_SNAPSHOT = 500
+DEFAULT_FACTS_SNAPSHOT = 2500
 
 
 class LifecycleUnavailable(RuntimeError):

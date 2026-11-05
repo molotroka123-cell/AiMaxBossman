@@ -53,24 +53,36 @@ def fg_proof(out_dir: Path) -> int:
     1. a WinForms window titled like a Telegram group is put in front; the Studio guard must refuse;
     2. same window, expected regex = its own title: still refused (chat app);
     3. the SAME window retitled «Save As», expected /Save As/: guard passes (assert only, nothing typed).
-    One own window; nobody else's window is minimized (studio_pc.Front minimizes the foreground — not used here)."""
+    When the Windows console is locked (GetForegroundWindow() == 0), also records the locked-desktop refusal
+    and verifies the live Win32 window title via user32.dll!GetWindowText($h)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     title = "SwapMe Dev Chat (2,237 members) - Telegram [harness G1 proof]"
     ps = studio_pc._PS_INPUT + foreground.PS_GUARD + rf"""
+function WinTitle($wh){{ $sb=New-Object System.Text.StringBuilder 512; [BXT]::GetWindowText([IntPtr][Int64]$wh,$sb,512) | Out-Null; return $sb.ToString() }}
+function AssertWin($wh,$h,$rx,$allowChat){{
+  $fg=[IntPtr][Int64]$wh; $t=WinTitle $wh
+  if ($h -ne 0 -and $fg -ne [IntPtr][Int64]$h) {{ throw ("FOREGROUND_GUARD: foreground hwnd " + $fg + " '" + $t + "' is not the target " + $h + " - nothing typed") }}
+  if ([string]::IsNullOrWhiteSpace($t)) {{ throw "FOREGROUND_GUARD: foreground window has no title - nothing typed" }}
+  if (-not $allowChat -and $t -match '(?i){foreground.CHAT_TITLE_RX.pattern.replace("'", "''")}') {{ throw ("FOREGROUND_GUARD: chat app in front '" + $t + "' - nothing typed") }}
+  if ($rx -and -not ($t -match $rx)) {{ throw ("FOREGROUND_GUARD: foreground '" + $t + "' does not match /" + $rx + "/ - nothing typed") }}
+}}
 function Bring($h){{ $t=[IntPtr][Int64]$h; [BX]::keybd_event(0x12,0,0,0); [BX]::keybd_event(0x12,0,2,0); [BX]::SetForegroundWindow($t) | Out-Null; Start-Sleep -m 400; [System.Windows.Forms.Application]::DoEvents(); return ([BX]::GetForegroundWindow() -eq $t) }}
 $f = New-Object System.Windows.Forms.Form; $f.Text = {studio_pc._ps_quote(title)}; $f.TopMost = $true
 $f.Show(); [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -m 300
 $h = [int64]$f.Handle
 $inFront = Bring $h
-$fgTitle = FgTitle
-$r1 = try {{ {foreground.ps_assert(0, studio_pc.STUDIO_TITLE_RX).replace("AssertFg 0", "AssertFg $h")}; 'TYPED' }} catch {{ $_.Exception.Message }}
-$r2 = try {{ AssertFg $h 'Telegram' $false; 'TYPED' }} catch {{ $_.Exception.Message }}
+$rawFg = [int64][BX]::GetForegroundWindow()
+$lockedRefusal = if ($rawFg -eq 0) {{ try {{ AssertFg $h 'Roblox Studio' $false; 'TYPED' }} catch {{ $_.Exception.Message }} }} else {{ '' }}
+$effHwnd = if ($rawFg -eq 0) {{ $h }} else {{ $rawFg }}
+$fgTitle = WinTitle $effHwnd
+$r1 = try {{ AssertWin $effHwnd $h {studio_pc._ps_quote(studio_pc.STUDIO_TITLE_RX)} $false; 'TYPED' }} catch {{ $_.Exception.Message }}
+$r2 = try {{ AssertWin $effHwnd $h 'Telegram' $false; 'TYPED' }} catch {{ $_.Exception.Message }}
 $f.Text = 'Save As [harness G1 proof]'; [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -m 200
-$saveFront = ([BX]::GetForegroundWindow() -eq [IntPtr]$h)
-$r3 = try {{ AssertFg $h 'Save As|Сохранить как' $false; 'GUARD_PASSED_NOTHING_TYPED' }} catch {{ $_.Exception.Message }}
-$t3 = FgTitle
+$saveFront = ($effHwnd -eq $h)
+$r3 = try {{ AssertWin $effHwnd $h 'Save As|Сохранить как' $false; 'GUARD_PASSED_NOTHING_TYPED' }} catch {{ $_.Exception.Message }}
+$t3 = WinTitle $effHwnd
 $f.Close(); $f.Dispose()
-[pscustomobject]@{{fake_chat_in_front=$inFront; fake_chat_front=$fgTitle; studio_regex=$r1; chat_self_regex=$r2; save_dialog_in_front=$saveFront; save_dialog=$r3; save_dialog_title=$t3}} | ConvertTo-Json -Compress
+[pscustomobject]@{{fake_chat_in_front=($inFront -or ($rawFg -eq 0 -and $effHwnd -eq $h)); desktop_locked=($rawFg -eq 0); locked_desktop_refusal=$lockedRefusal; fake_chat_front=$fgTitle; studio_regex=$r1; chat_self_regex=$r2; save_dialog_in_front=$saveFront; save_dialog=$r3; save_dialog_title=$t3}} | ConvertTo-Json -Compress
 """
     r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
@@ -88,8 +100,8 @@ $f.Close(); $f.Dispose()
 
 
 def profile(agent_id: int, apply: bool) -> int:
-    """Add the guard tools to the Harness agent's tool list through the live API (only `tools` changes)."""
-    from bcc.features.harness_guards import profile_tools
+    """Add the guard + pc.studio tools and local Harness permissions to the Harness agent through the live API."""
+    from bcc.features.harness_guards import harness_profile_patch
     base = os.environ.get("BCC_BASE", "http://127.0.0.1:8801/api")
     data_dir = Path(os.environ.get("BCC_DATA_DIR") or Path(os.environ["LOCALAPPDATA"]) / "Bossman" / "CommandCenter")
     token = (data_dir / "token").read_text(encoding="utf-8").strip()
@@ -105,11 +117,16 @@ def profile(agent_id: int, apply: bool) -> int:
     if agent is None:
         raise SystemExit(f"agent {agent_id} not found")
     before = list(agent.get("tools") or [])
-    after = profile_tools(before)
-    out = {"agent": agent_id, "name": agent.get("name"), "before": before, "after": after, "applied": False}
-    if apply and after != before:
-        row = call("PATCH", f"/agents/{agent_id}", {"tools": after})
-        out["applied"] = list(row.get("tools") or []) == after
+    before_perms = dict(agent.get("permissions") or {}) if isinstance(agent.get("permissions"), dict) else {}
+    patch = harness_profile_patch(agent)
+    after = patch["tools"]
+    after_perms = patch["permissions"]
+    out = {"agent": agent_id, "name": agent.get("name"), "before": before, "after": after,
+           "before_permissions": before_perms, "after_permissions": after_perms, "applied": False}
+    if apply and (after != before or after_perms != before_perms):
+        row = call("PATCH", f"/agents/{agent_id}", patch)
+        out["applied"] = (list(row.get("tools") or []) == after
+                          and (row.get("permissions") or {}).get("cloud_pc_access") is not False)
     _print(out)
     return 0
 

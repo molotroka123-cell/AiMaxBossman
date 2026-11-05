@@ -27,7 +27,7 @@ CASES = [
 ]
 
 
-def load_rows(limit: int = 500) -> list[dict]:
+def load_rows(limit: int = 2500) -> list[dict]:
     db = Path(os.environ["LOCALAPPDATA"]) / "Bossman" / "CommandCenter" / "bcc.db"
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
