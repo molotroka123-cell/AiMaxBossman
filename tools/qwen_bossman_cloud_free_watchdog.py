@@ -50,15 +50,27 @@ def utc_now() -> str:
 
 
 def is_pid_running(pid: int) -> bool:
+    ps = (
+        "if ((Get-CimInstance Win32_Process -Filter \"Name = 'python.exe'\" | "
+        "Where-Object { $_.CommandLine -match 'qwen_bossman_autonomous_trainer' })) { 'ALIVE' } else { 'DEAD' }"
+    )
+    proc = subprocess.run(
+        ["powershell", "-NoProfile", "-Command", ps],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if "ALIVE" in proc.stdout:
+        return True
     if pid <= 0:
         return False
-    proc = subprocess.run(
+    proc2 = subprocess.run(
         ["powershell", "-NoProfile", "-Command", f"if (Get-Process -Id {pid} -ErrorAction SilentlyContinue) {{ 'ALIVE' }} else {{ 'DEAD' }}"],
         capture_output=True,
         text=True,
         check=False,
     )
-    return "ALIVE" in proc.stdout
+    return "ALIVE" in proc2.stdout
 
 
 def optimize_pc_for_lora(trainer_pid: int | None) -> dict[str, Any]:
@@ -118,25 +130,27 @@ async def query_free_cloud_inspector(status_data: dict[str, Any]) -> str:
 
 
 def spawn_detached_trainer(target_steps: int = 120, ckpt_every: int = 20) -> int:
-    """Launch `qwen_bossman_autonomous_trainer.py` as an independent detached Windows process."""
-    env = os.environ.copy()
-    env["TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL"] = "1"
-    env["QWEN_BOSSMAN_STEPS"] = str(target_steps)
-    env["QWEN_BOSSMAN_CKPT_EVERY"] = str(ckpt_every)
+    """Launch `qwen_bossman_autonomous_trainer.py` via WMI Win32_Process.Create so it survives outside any Job Object."""
+    QWEN_BOSSMAN_DIR.mkdir(parents=True, exist_ok=True)
     log_out = QWEN_BOSSMAN_DIR / "autonomous_trainer_stdout.log"
     log_err = QWEN_BOSSMAN_DIR / "autonomous_trainer_stderr.log"
-    QWEN_BOSSMAN_DIR.mkdir(parents=True, exist_ok=True)
-    CreationFlags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-    with log_out.open("a", encoding="utf-8") as fout, log_err.open("a", encoding="utf-8") as ferr:
-        proc = subprocess.Popen(
-            [str(ROCM_PYTHON), str(TRAINER_SCRIPT)],
-            cwd=str(COLAB_DIR),
-            env=env,
-            stdout=fout,
-            stderr=ferr,
-            creationflags=CreationFlags,
-        )
-    return proc.pid
+    cmd_str = (
+        f'cmd.exe /c "set TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1&& '
+        f'set QWEN_BOSSMAN_STEPS={target_steps}&& '
+        f'set QWEN_BOSSMAN_CKPT_EVERY={ckpt_every}&& '
+        f'set PYTHONIOENCODING=utf-8&& '
+        f'{ROCM_PYTHON} -u {TRAINER_SCRIPT} >> {log_out} 2>> {log_err}"'
+    )
+    ps_script = (
+        f"$res = Invoke-CimMethod -ClassName Win32_Process -MethodName Create "
+        f"-Arguments @{{ CommandLine = '{cmd_str}'; CurrentDirectory = '{COLAB_DIR}' }}; "
+        f"Write-Output $res.ProcessId"
+    )
+    proc = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True, check=False)
+    try:
+        return int(proc.stdout.strip().splitlines()[-1])
+    except Exception:
+        return 0
 
 
 async def run_once(ensure_running_steps: int = 120, send_to_pult: bool = True) -> dict[str, Any]:
