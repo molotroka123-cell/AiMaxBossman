@@ -1,0 +1,65 @@
+{
+  "status": "COMPLETED",
+  "selected_best_checkpoint": "checkpoint_040_calibrated",
+  "selected_best_adapter_sha256": "5d4edb2c1ab5b1bf2692cefb22c946ea8a81bd51424bdaac688a06595f9c83ef",
+  "selected_best_adapter_path": "D:\\Bossman\\models\\adapted\\bossman-tier5-calibrated-best-20261106\\adapter_model.safetensors",
+  "checkpoint_evaluations": {
+    "checkpoint_030": {
+      "cyber_10_score": 11,
+      "tier5_4_score": 5,
+      "combined_14_score": 16
+    },
+    "checkpoint_040_calibrated": {
+      "cyber_10_score": 11,
+      "tier5_4_score": 6,
+      "combined_14_score": 17
+    },
+    "checkpoint_050_calibrated": {
+      "cyber_10_score": 11,
+      "tier5_4_score": 5,
+      "combined_14_score": 16
+    }
+  },
+  "three_way_comparison_summary": {
+    "cyber_10_base": "7 / 20",
+    "cyber_10_prev_adapter_30steps": "11 / 20",
+    "cyber_10_new_candidate_60steps": "11 / 20",
+    "tier5_4_base": "5 / 8",
+    "tier5_4_prev_adapter_30steps": "5 / 8",
+    "tier5_4_new_candidate_60steps": "6 / 8",
+    "coding_pccontrol_10_base": "14 / 20",
+    "coding_pccontrol_10_new_fused": "18 / 20",
+    "total_24_tasks_base": "26 / 48",
+    "total_24_tasks_prev_adapter": "30 / 48",
+    "total_24_tasks_new_candidate": "35 / 48"
+  },
+  "calib_losses": [
+    3.06941,
+    1.787133,
+    2.711684,
+    2.083539,
+    3.238791,
+    2.072518,
+    3.076067,
+    2.634617,
+    3.20588,
+    1.282762,
+    2.757128,
+    1.826886,
+    3.128304,
+    1.567267,
+    2.899422,
+    1.949736,
+    3.164606,
+    1.981506,
+    3.412978,
+    2.575837
+  ],
+  "mean_first5_loss_stage1": 3.442962,
+  "mean_last5_loss_calib": 2.616932,
+  "seconds_stage2": 178.3,
+  "pult_delivery": {
+    "text_message_id": 5852,
+    "document_message_id": 5853
+  }
+}

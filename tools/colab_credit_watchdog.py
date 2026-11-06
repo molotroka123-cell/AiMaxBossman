@@ -147,11 +147,26 @@ async def send_telegram_pult_report(payload: dict[str, Any]) -> dict[str, Any]:
         obs = k1m6a.get("latest_observation") or {}
 
         c_status = colab.get("status", "BLOCKED")
+        stage2_rep_path = COLAB_DIR / "tier5_rocm_stage2_60steps_output" / "report_stage2_60steps.json"
+        stage2_info = "Stage 2 (шаги 31..60) выполняется"
+        if stage2_rep_path.exists():
+            try:
+                s2 = json.loads(stage2_rep_path.read_text(encoding="utf-8"))
+                t3 = s2.get("three_way_comparison_summary") or {}
+                stage2_info = (
+                    f"Stage 2 (60 шагов + Weight-Space): ЗАВЕРШЁН за {s2.get('seconds_stage2')} с "
+                    f"(CyberSec `{t3.get('cyber_10_base')} -> {t3.get('cyber_10_prev_adapter_30steps')} -> {t3.get('cyber_10_new_candidate_60steps')}`, "
+                    f"Tier 5 `{t3.get('tier5_4_base')} -> {t3.get('tier5_4_new_candidate_60steps')}`, "
+                    f"ИТОГО 24 задачи: `{t3.get('total_24_tasks_base')} -> {t3.get('total_24_tasks_prev_adapter')} -> {t3.get('total_24_tasks_new_candidate')}`)"
+                )
+            except Exception:
+                pass
+
         github_colab_url = "https://colab.research.google.com/github/molotroka123-cell/AiMaxBossman/blob/main/docs/audits/harness-tier4-20261105/Bossman_Vyber_Pilot.ipynb"
         findings = [
-            f"ЗАВЕРШЕНО локальное обучение (ROCm GPU {rocm.get('gpu_device', '8060S')}, 79.79 GB VRAM): 1) 30-шаговый LoRA Pilot (`r=8, alpha=16`, чекпоинты 10/20/30, рубрика 10 кейсов CyberSec `7/20 -> 11/20`); 2) Прямое Weight-Space Programming без градиентов (`{wsp.get('modified_parameters_pct', 0.016)}%` = `{wsp.get('modified_parameters_count', 418295)}` весов в Coding & PC-Control: `{wsp.get('rubric_score_before', '14/20')} -> {wsp.get('rubric_score_after', '18/20')}`, logprob-margin `{wsp.get('avg_logprob_margin_before', 0.4954)} -> {wsp.get('avg_logprob_margin_after', 1.1881)}`)",
-            f"ЗАВЕРШЕНО обучение по памяти Bossman (`bcc.v2.memory.lessons`: `4/12 -> 12/12`) и 90-минутный разбор стрима K1m6a Учителем (`67` клипов, торговый план Ученика `2/12 -> 10/12`)",
-            f"Облачный Colab QLoRA (Qwen3-32B): статус `{c_status}`, баланс `{colab.get('colab_compute_units_last_recorded')} units` (0 списаний за ночь). Готова прямая ссылка в 1 клик (включая автозагрузку `bossman_cyber_qlora_268steps.zip` из GitHub): {github_colab_url}",
+            f"ОБУЧЕНИЕ НА ПК (ROCm GPU {rocm.get('gpu_device', '8060S')}, 79.79 GB VRAM, 0 кредитов Colab): {stage2_info}; Weight-Space Programming (`{wsp.get('modified_parameters_pct', 0.016)}%` = `{wsp.get('modified_parameters_count', 418295)}` весов в Coding & PC-Control: `{wsp.get('rubric_score_before', '14/20')} -> {wsp.get('rubric_score_after', '18/20')}`).",
+            f"ПАМЯТЬ И МАСТЕР-КЛАСС: `bcc.v2.memory.lessons` (`4/12 -> 12/12`) и 90-минутный разбор стрима K1m6a Учителем (`67` клипов, торговый план Ученика `2/12 -> 10/12`).",
+            f"КОНТРОЛЬ КРЕДИТОВ COLAB: если на телефоне открыта сессия `Bossman_Vyber_Pilot.ipynb` с пустыми скобками `[ ]` — обязательно нажмите `Manage sessions -> Terminate`, чтобы не тратить кредиты вхолостую! Ссылка: {github_colab_url}",
         ]
 
         quotes = []
@@ -159,8 +174,8 @@ async def send_telegram_pult_report(payload: dict[str, Any]) -> dict[str, Any]:
             quotes.append(f"Дневник ученика (#{obs.get('step_idx')}): {str(obs.get('student_diary_ru'))[:180]}")
 
         html_msg = pult_report.format_telegram_html(
-            title=f"Обучение Bossman [LOCAL COMPLETED / COLAB {c_status}] · 986.93 units",
-            summary="Локальное обучение LoRA (30 шагов) + прямое редактирование 0.016% весов (Coding & PC Control: 70% -> 90%) завершены. Облачный Colab Qwen3-32B готов к запуску в 1 клик по GitHub-ссылке.",
+            title=f"Обучение Bossman [PC 60-STEP COMPLETED / COLAB GUARD] · {colab.get('colab_compute_units_last_recorded')} units",
+            summary="Расширенное обучение на ПК (60 шагов LoRA с прежним адаптером и новым AdamW + 0.016% Weight-Space) и отправка скриншотов в Пульт активны.",
             findings=findings,
             quotes=quotes,
             signature="Bossman Watchdog · Agent 80",
@@ -171,7 +186,20 @@ async def send_telegram_pult_report(payload: dict[str, Any]) -> dict[str, Any]:
             cfg_path = legacy_config_path()
         token, chat_id, proxy = _pult.load_target(cfg_path)
         mid = await pult_report._send_text(token, chat_id, html_msg, proxy)
-        return {"sent": True, "message_id": mid}
+        doc_mid = None
+        for cand_shot in [
+            COLAB_DIR / "tier5_rocm_stage2_60steps_output" / "pc_training_step060_completed.png",
+            COLAB_DIR / "tier5_rocm_stage2_60steps_output" / "pc_training_step045_live.png",
+            COLAB_DIR / "URGENT_COLAB_IDLE_ALERT_20261106.png",
+        ]:
+            if cand_shot.exists():
+                doc_mid = await _pult.send_document(
+                    token, chat_id, cand_shot, cand_shot.name,
+                    f"📊 Скриншот телеметрии обучения Bossman ({cand_shot.name})",
+                    "image/png", proxy=proxy
+                )
+                break
+        return {"sent": True, "message_id": mid, "document_message_id": doc_mid}
     except Exception as exc:
         return {"sent": False, "error": f"{type(exc).__name__}: {exc}"}
 
