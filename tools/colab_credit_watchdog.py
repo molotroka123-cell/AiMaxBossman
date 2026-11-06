@@ -142,6 +142,7 @@ async def send_telegram_pult_report(payload: dict[str, Any]) -> dict[str, Any]:
 
         colab = payload.get("colab_credit_and_training") or {}
         rocm = payload.get("local_rocm_weight_surgery") or {}
+        wsp = payload.get("weight_space_programming_coding_pccontrol") or {}
         k1m6a = payload.get("k1m6a_live_student_watcher") or {}
         obs = k1m6a.get("latest_observation") or {}
 
@@ -150,8 +151,9 @@ async def send_telegram_pult_report(payload: dict[str, Any]) -> dict[str, Any]:
             f"Colab QLoRA Pilot (Qwen3-32B): статус `{c_status}` — {colab.get('status_reason_ru')}",
             f"Баланс Colab Pro+: `{colab.get('colab_compute_units_last_recorded')} units` (ранее списано ~`0.58` ед. на пустой L4 до отключения; сейчас `0` активных сессий)",
             f"Комплект входов (`vyber_pilot_input_v1.zip`, `independent_eval_v1.json`, `bossman_cyber_qlora_268steps.zip`, `colab_pilot.py`, `Bossman_Vyber_Pilot.ipynb`): SHA-256 `{'VERIFIED' if colab.get('all_inputs_sha256_verified') else 'MISMATCH'}`, новый `AdamW` поверх прежнего адаптера `r=8`, автоотключение `runtime.unassign()` включено",
-            f"Локальный эксперимент весов ROCm ({rocm.get('gpu_device', '8060S')}): статус `COMPLETED` (`0.01649%` весов изменено, holdout `{rocm.get('before_heldout_accuracy_pct', 50)}% -> {rocm.get('after_heldout_accuracy_pct', 83.33)}%`)",
-            f"Стрим K1m6a (Ученик `ace-qwen3-17b`): статус `{k1m6a.get('state', 'WATCHING')}`, кадров `{k1m6a.get('observations_count', 0)}`, до разбора Учителя `{round(float(k1m6a.get('remaining_seconds') or 0) / 60, 1)} мин`",
+            f"Локальный 30-step LoRA Pilot ROCm ({rocm.get('gpu_device', '8060S')}): статус `COMPLETED` (`0.0611%` LoRA + `0.01649%` weight surgery, holdout `{rocm.get('before_heldout_accuracy_pct', 50)}% -> {rocm.get('after_heldout_accuracy_pct', 83.33)}%`)",
+            f"Прямое Weight-Space Programming (0 градиентов, `{wsp.get('modified_parameters_pct', 0.016)}%` = `{wsp.get('modified_parameters_count', 418295)}` весов в Coding & PC-Control): рубрика `{wsp.get('rubric_score_before', '14/20')} -> {wsp.get('rubric_score_after', '18/20')}`, logprob-margin `{wsp.get('avg_logprob_margin_before', 0.4954)} -> {wsp.get('avg_logprob_margin_after', 1.1881)}`",
+            f"Стрим K1m6a (Ученик `ace-qwen3-17b`): статус `{k1m6a.get('state', 'WATCHING')}`, кадров `{k1m6a.get('observations_count', 0)}`, разбор Учителя завершён (`2/12 -> 10/12`)",
         ]
 
         quotes = []
@@ -184,6 +186,7 @@ def main() -> int:
     colab = check_colab_status()
     k1m6a = check_k1m6a_status()
     rocm_proof_path = AUDIT_DIR / "ROCM_WEIGHT_SURGERY_PROOF_20261105.json"
+    wsp_proof_path = AUDIT_DIR / "WEIGHT_SPACE_PROGRAMMING_CODING_PCCONTROL_20261105.json"
     arena_path = AUDIT_DIR / "CREATOR_MODE_MULTI_AGENT_ARENA_20261105.json"
 
     rocm_summary = None
@@ -195,6 +198,21 @@ def main() -> int:
             "before_heldout_accuracy_pct": (rp.get("before_heldout_eval") or {}).get("accuracy_pct"),
             "after_heldout_accuracy_pct": (rp.get("after_heldout_eval") or {}).get("accuracy_pct"),
             "sha256_changed_verified": rp.get("sha256_changed_verified"),
+        }
+
+    wsp_summary = None
+    if wsp_proof_path.exists():
+        wp = json.loads(wsp_proof_path.read_text(encoding="utf-8"))
+        sm = wp.get("summary_metrics") or {}
+        wsp_summary = {
+            "gradients_used": wp.get("gradients_used"),
+            "modified_parameters_count": wp.get("modified_parameters_count"),
+            "modified_parameters_pct": wp.get("modified_parameters_pct"),
+            "edited_safetensors_sha256": wp.get("edited_safetensors_sha256"),
+            "rubric_score_before": sm.get("rubric_score_before"),
+            "rubric_score_after": sm.get("rubric_score_after"),
+            "avg_logprob_margin_before": sm.get("avg_logprob_margin_before"),
+            "avg_logprob_margin_after": sm.get("avg_logprob_margin_after"),
         }
 
     arena_summary = None
@@ -210,6 +228,7 @@ def main() -> int:
         "watchdog_timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "colab_credit_and_training": colab,
         "local_rocm_weight_surgery": rocm_summary,
+        "weight_space_programming_coding_pccontrol": wsp_summary,
         "k1m6a_live_student_watcher": {
             "state": k1m6a.get("state"),
             "observations_count": k1m6a.get("observations_count"),

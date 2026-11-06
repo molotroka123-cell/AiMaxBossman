@@ -1,0 +1,282 @@
+{
+  "status": "COMPLETED_WEIGHT_SPACE_PROGRAMMING_PROOF",
+  "method": "Direct Weight-Space Programming (Closed-Form Whitened Ridge Subspace Projection + Spectral Loop Dampening, ZERO Gradients)",
+  "completed_at_utc": "2026-11-06T01:49:16.349129+00:00",
+  "gpu_device": "AMD Radeon(TM) 8060S Graphics",
+  "base_model": "Efficient-Large-Model/gemma-2-2b-it",
+  "base_snapshot": "569d9809d0c8b6722d4d31b5a77a2ec7a400650a",
+  "base_upper_shard_sha256": "6d6d9ce84db398fb6e0191f91542e5da0a73da2cb695e172a24edc2146dc8d20",
+  "edited_safetensors_path": "D:\\Bossman\\models\\adapted\\bossman-weight-space-coding-pccontrol-20261105\\weight_space_edited_layers_24_25.safetensors",
+  "edited_safetensors_sha256": "87db67398b3a1010682f98e74e1b3aab3f428579338f7a63536f1f843b881ad2",
+  "sha256_changed_verified": true,
+  "gradients_used": 0,
+  "torch_is_grad_enabled": false,
+  "total_parameters": 2614341888,
+  "modified_parameters_count": 418295,
+  "modified_parameters_pct": 0.016,
+  "surgery_details": {
+    "gradients_enabled_during_surgery": false,
+    "associated_key_value_states_solved": 260,
+    "modified_parameters_total": 418295,
+    "modified_by_module": {
+      "model.layers.25.self_attn.o_proj.weight": 18432,
+      "model.layers.24.mlp.down_proj.weight": 199932,
+      "model.layers.25.mlp.down_proj.weight": 199931
+    },
+    "frobenius_norm_delta": {
+      "layers.25.self_attn.o_proj": 0.058682,
+      "layers.24.mlp.down_proj": 1.733166,
+      "layers.25.mlp.down_proj": 2.117873
+    },
+    "spectral_analysis_o_proj_L25": {
+      "top1_singular_value_before": 2.4746,
+      "top1_singular_value_after": 2.4191,
+      "sv1_to_sv2_ratio_before": 1.8948
+    }
+  },
+  "summary_metrics": {
+    "rubric_score_before": "14 / 20 (70.0%)",
+    "rubric_score_after": "18 / 20 (90.0%)",
+    "positive_margin_tasks_before": "6 / 10",
+    "positive_margin_tasks_after": "9 / 10",
+    "avg_logprob_margin_before": 0.4954,
+    "avg_logprob_margin_after": 1.1881,
+    "avg_repetition_4gram_ratio_before": 0.0063,
+    "avg_repetition_4gram_ratio_after": 0.0105
+  },
+  "seconds": 795.47,
+  "per_task_comparison": [
+    {
+      "id": "pc_01_g1_foreground_guard",
+      "category": "pc_control",
+      "rubric_before": 2,
+      "rubric_after": 2,
+      "rubric_delta": 0,
+      "margin_before": 0.7598,
+      "margin_after": 0.7761,
+      "margin_delta": 0.0163,
+      "matched_markers_before": [
+        "assertfg",
+        "false",
+        "foreground"
+      ],
+      "matched_markers_after": [
+        "assertfg",
+        "false",
+        "error",
+        "ok"
+      ],
+      "response_before": "```python\n# Guard Condition:\nAssertFg = False  # Asserts that the foreground window is not PowerShell\n\n# Return Status:\nif AssertFg:\n    # Code to send key 'F5' to Roblox Studio\n    pc.studio.SendKeys(\"F5\")\n    return True\nelse:\n    # Handle the case where the",
+      "response_after": "## PC Control G1: Send F5 Keystroke\n\n**Guard Condition:**\n\n* `AssertFg = False` \n\n**Return Status:**\n\n* **Error (False):**  If `AssertFg` is False, the script is running in PowerShell. \n* **Success (True):**  If `AssertFg` is True, the script is running in a R"
+    },
+    {
+      "id": "pc_02_g2_input_send_keys_check",
+      "category": "pc_control",
+      "rubric_before": 2,
+      "rubric_after": 2,
+      "rubric_delta": 0,
+      "margin_before": 0.3121,
+      "margin_after": 1.2417,
+      "margin_delta": 0.9296,
+      "matched_markers_before": [
+        "ok",
+        "false",
+        "error",
+        "fail",
+        "return",
+        "input"
+      ],
+      "matched_markers_after": [
+        "ok",
+        "false",
+        "error",
+        "fail",
+        "return",
+        "input"
+      ],
+      "response_before": "## PC Control G2: Handling `_input.send_keys`/`click_box` Failure\n\n**Code/Rules:**\n\n1. **Error Handling:** When `_input.send_keys` or `click_box` returns `ok=False`, the tool handler should **not** report success. Instead, it should:\n    * **Log the error:** R",
+      "response_after": "## PC Control G2: Tool Handler Response Modification\n\n**Problem:**  `pc.studio`'s `_input.send_keys` or `click_box` returns `ok=False` when it fails to execute.\n\n**Solution:** Modify the tool handler to report a non-error state, but with a specific error code "
+    },
+    {
+      "id": "pc_03_g3_owner_stop_halt",
+      "category": "pc_control",
+      "rubric_before": 1,
+      "rubric_after": 2,
+      "rubric_delta": 1,
+      "margin_before": -0.2852,
+      "margin_after": 0.8134,
+      "margin_delta": 1.0986,
+      "matched_markers_before": [
+        "stop",
+        "check"
+      ],
+      "matched_markers_after": [
+        "stop",
+        "halt",
+        "check"
+      ],
+      "response_before": "## PC Control G3: STOP Check\n\n**Code/Rules:**\n\n1. **Check for `STOP` command:**  \n   -  Read the value of the `STOP` flag from the control system.\n   -  The `STOP` flag should be set to `True` to indicate the automation loop should be stopped.\n\n2. **Verify `ST",
+      "response_after": "## PC Control G3 STOP Check\n\n**Mandatory Check:**\n\n1. **Condition:** Check if the `STOP` flag is set.\n2. **Action:** \n    * If `STOP` is set, halt the current loop and display a user-friendly message.\n    * If `STOP` is not set, proceed to the next shell or UI"
+    },
+    {
+      "id": "pc_04_g4_t2_t3_permission_gate",
+      "category": "pc_control",
+      "rubric_before": 2,
+      "rubric_after": 2,
+      "rubric_delta": 0,
+      "margin_before": 1.9026,
+      "margin_after": 2.8028,
+      "margin_delta": 0.9002,
+      "matched_markers_before": [
+        "permission",
+        "ask",
+        "deny",
+        "approval",
+        "owner"
+      ],
+      "matched_markers_after": [
+        "permission",
+        "ask",
+        "deny",
+        "owner"
+      ],
+      "response_before": "## PC Control G4: Agent Action with Permission 'ask' or 'deny' without Owner Approval\n\n**Enforcement Rule:**\n\n1. **Check Permission:**  Verify the agent's permission is either `default_effect='ask'` or `default_effect='deny'`.\n2. **Check Owner Approval:** If t",
+      "response_after": "## PC Control G4 Enforcement Rule:\n\n**Rule:** \nIf an agent attempts a desktop action with permission `default_effect='ask'` or `'deny'` and the owner is not explicitly granted permission, deny the action.\n\n**Verification Gates:**\n\n1. **Permission Check:** Veri"
+    },
+    {
+      "id": "pc_05_g5_studio_f5_screenshot_verify",
+      "category": "pc_control",
+      "rubric_before": 1,
+      "rubric_after": 2,
+      "rubric_delta": 1,
+      "margin_before": -0.2226,
+      "margin_after": 0.7065,
+      "margin_delta": 0.9291,
+      "matched_markers_before": [
+        "frame",
+        "pass"
+      ],
+      "matched_markers_after": [
+        "frame",
+        "verify",
+        "log",
+        "pass"
+      ],
+      "response_before": "## PC Control G5/G6: Playtest Frame Validation\n\n**Code:**\n\n```lua\nlocal function validateFrame()\n  -- Check for F5 press\n  if Input.GetKeyDown(\"F5\") then\n    -- Get current frame\n    local currentFrame = GetFrame()\n\n    -- Check if frame is valid (e.g., not a ",
+      "response_after": "## PC Control G5/G6 Verification for Playtest Pass\n\n**Code:**\n\n```lua\nlocal function verify_frame_valid(frame)\n  -- Check for valid frame (example: check for frame number, not just a timestamp)\n  if frame > 1000 then -- Replace 1000 with your actual frame chec"
+    },
+    {
+      "id": "code_06_luau_server_authority",
+      "category": "coding",
+      "rubric_before": 2,
+      "rubric_after": 2,
+      "rubric_delta": 0,
+      "margin_before": -0.182,
+      "margin_after": 0.7325,
+      "margin_delta": 0.9145,
+      "matched_markers_before": [
+        "server",
+        "price",
+        "validate",
+        "return"
+      ],
+      "matched_markers_after": [
+        "server",
+        "price",
+        "client",
+        "return"
+      ],
+      "response_before": "```lua\n-- Server-side validation rule for purchase events\nlocal function validatePurchase(event)\n  -- Check if the price is negative\n  if event.Price < 0 then\n    event:FireServer(\"Invalid price. Price must be non-negative.\")\n    return false\n  end\n\n  -- Check",
+      "response_after": "```lua\nlocal PurchaseHandler = Instance.new(\"RemoteEvent\")\n\nPurchaseHandler.OnServerEvent = function(player, data)\n  local price = data.price\n  local currency = data.currency\n\n  if price < 0 then\n    PurchaseHandler:FireClient(\"Invalid price, must be non-negat"
+    },
+    {
+      "id": "code_07_python_sql_parameterized",
+      "category": "coding",
+      "rubric_before": 0,
+      "rubric_after": 2,
+      "rubric_delta": 2,
+      "margin_before": -0.0271,
+      "margin_after": -0.1651,
+      "margin_delta": -0.138,
+      "matched_markers_before": [
+        "parameter"
+      ],
+      "matched_markers_after": [
+        "cursor.execute",
+        "parameter",
+        "select",
+        "where"
+      ],
+      "response_before": "```python\nimport sqlite3\n\ndef safe_query(db_path, user):\n  \"\"\"\n  Executes a parameterized SQL query.\n\n  Args:\n    db_path: Path to the SQLite database.\n    user: User name to search for.\n\n  Returns:\n    A list of user data, or None if an error occurs.\n  \"\"\"\n  ",
+      "response_after": "## Python Security: Safe SQL Query with SQLite3\n\n**Unsafe Code (with potential SQL injection vulnerability):**\n\n```python\nuser_name = \"John\"\nquery = f\"SELECT * FROM users WHERE name = '{user_name}' \"\ncursor.execute(query)\n```\n\n**Safe Code (Parameterized Query)"
+    },
+    {
+      "id": "code_08_code_patch_and_pytest",
+      "category": "coding",
+      "rubric_before": 1,
+      "rubric_after": 1,
+      "rubric_delta": 0,
+      "margin_before": 0.6372,
+      "margin_after": 1.5414,
+      "margin_delta": 0.9042,
+      "matched_markers_before": [
+        "test",
+        "pass"
+      ],
+      "matched_markers_after": [
+        "test",
+        "pass"
+      ],
+      "response_before": "## Bossman Bug Fix Workflow:\n\n**1. Code Review:**\n\n* **Verification Gate:**  Code review by designated team member(s) for correctness, style, and adherence to coding standards.\n* **Code:**  `code.patch` must be reviewed and approved by the relevant team member",
+      "response_after": "## Bossman Bug Fix Workflow:\n\n**Prerequisites:**\n\n* **Code.patch** is applied to the relevant branch (e.g., `bug-fix/patch-name`).\n* **Test.py** is updated to reflect the new code and run the test suite. \n* **Test.py** is run and passes all tests. \n\n**Verifica"
+    },
+    {
+      "id": "code_09_p0_runtime_vs_checkout_sha",
+      "category": "coding",
+      "rubric_before": 1,
+      "rubric_after": 1,
+      "rubric_delta": 0,
+      "margin_before": 0.4942,
+      "margin_after": 0.5413,
+      "margin_delta": 0.0471,
+      "matched_markers_before": [
+        "head",
+        "mismatch"
+      ],
+      "matched_markers_after": [
+        "head",
+        "mismatch"
+      ],
+      "response_before": "## Bossman Report: Backend Version Misalignment\n\n**Code/Rules:**\n\n1. **Report:**  \"Backend version mismatch detected. Current frontend version is `df8151f7` while backend version is `4fade03d`.\"\n2. **Verification Gates:**\n    * **Frontend Version:**  `git rev-",
+      "response_after": "## Report: Backend Version Mismatch\n\n**Report Type:** Alert\n\n**Severity:** Critical\n\n**Description:** \n\nThere is a discrepancy between the Git revision (HEAD) and the backend version reported by `/health`. \n\n* Git revision: `df8151f7`\n* Backend version: `4fade"
+    },
+    {
+      "id": "loop_10_anti_repetition_concise_spec",
+      "category": "anti_loop",
+      "rubric_before": 2,
+      "rubric_after": 2,
+      "rubric_delta": 0,
+      "margin_before": 1.5647,
+      "margin_after": 2.89,
+      "margin_delta": 1.3253,
+      "matched_markers_before": [
+        "stop",
+        "assertfg",
+        "toolresult",
+        "sha",
+        "verify",
+        "receipt"
+      ],
+      "matched_markers_after": [
+        "stop",
+        "assertfg",
+        "toolresult",
+        "sha",
+        "verify",
+        "receipt"
+      ],
+      "response_before": "## PC Tool Execution Checklist:\n\n1. **STOP:** Verify `STOP` flag is set before proceeding.\n2. **AssertFg:** Ensure `AssertFg` assertion passes.\n3. **Verify ToolResult.ok:** Check `ToolResult.ok` flag is set to true.\n4. **Log SHA:** Log the SHA receipt of the t",
+      "response_after": "## 4-Step Checklist for Safe PC Tool Execution:\n\n1. **STOP:** Verify STOP signal is asserted before tool execution. \n2. **AssertFg:** Verify AssertFg flag is set to true. \n3. **Verify ToolResult.ok:** Check ToolResult.ok is true. \n4. **Log SHA Receipt:** Log S"
+    }
+  ]
+}
