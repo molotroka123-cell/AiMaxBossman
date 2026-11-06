@@ -1,7 +1,7 @@
 {
-  "watchdog_timestamp_utc": "2026-11-06T00:55:57.006647+00:00",
+  "watchdog_timestamp_utc": "2026-11-06T01:14:05.458338+00:00",
   "colab_credit_and_training": {
-    "checked_at_utc": "2026-11-06T00:55:56.996059+00:00",
+    "checked_at_utc": "2026-11-06T01:14:05.453842+00:00",
     "status": "BLOCKED",
     "status_reason_ru": "0 активных сеансов Colab (~986.93 units, потерь 0.58 units от прежней пустой L4 сессии); автозагрузка Bossman_Vyber_Pilot.ipynb в Edge заблокирована запретом file:// URL у расширения браузера. GPU НЕ запущен, параллельных прогонов нет.",
     "colab_compute_units_last_recorded": 986.93,
@@ -31,7 +31,7 @@
     "drive_ismount_guard_enabled": true,
     "single_run_lock_enabled": true,
     "run_details": {},
-    "last_journal_entry": "4. Проведён эксперимент до/после со штатной памятью уроков Bossman (bcc.v2.memory.lessons, таблица facts, BOSSMAN_WORKFLOW_MEMORY_EXPERIMENT_20261105.json): урок записан с источником, датой и ограничениями (status=lesson_recorded, proven_learning=False), проверен чтением обратно; на контрольной задаче оценка чеклиста локальной модели ace-qwen3-17b выросла с 4/12 (до урока) до 12/12 (после извлечения урока через memory.lesson.search). Запись в пам"
+    "last_journal_entry": "2026-11-06 01:13 UTC: поскольку облачный запуск Qwen/Qwen3-32B в Google Colab остаётся BLOCKED без ручного открытия блокнота в браузере (запрет file:// URL у расширения Edge, 0 активных сеансов, остаток 986.93 units без потерь), выполнен полный 30-шаговый LoRA fine-tuning отдельного PEFT-совместимого адаптера (r=8, alpha=16, q_proj/v_proj, 1 597 440 параметров = 0.0611%) на локальной GPU AMD Radeon(TM) 8060S Graphics (79.79 GB VRAM) поверх локаль"
   },
   "local_rocm_weight_surgery": {
     "gpu_device": "AMD Radeon(TM) 8060S Graphics",
@@ -66,6 +66,6 @@
   },
   "telegram_pult_delivery": {
     "sent": true,
-    "message_id": 5659
+    "message_id": 5661
   }
 }
