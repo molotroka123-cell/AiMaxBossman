@@ -1,0 +1,45 @@
+{
+  "created_at_utc": "2026-11-06T00:23:50.612056+00:00",
+  "prerequisite_gate": "Stage 2+ experiments in Colab GPU start ONLY after Stage 1 (CyberSec 30-step pilot) completes on Colab GPU and passes blind rubric comparison (Base vs Previous 268-step Adapter vs New Candidate).",
+  "tracks": {
+    "1_tools_function_calling": {
+      "public_source": "Salesforce/xlam-function-calling-60k",
+      "license_note": "Verify dataset card license (CC-BY-4.0 / Apache-2.0) and filter out non-schema records before training.",
+      "bossman_native_schemas": [
+        "memory.search",
+        "memory.store",
+        "code.read",
+        "code.patch",
+        "studio.playtest",
+        "creator.build"
+      ],
+      "evaluation_criteria": [
+        "Exact tool name and JSON schema validity",
+        "Handling of permission denials (ASK / DENY / T2 / T3)",
+        "Immediate halt when STOP flag is active",
+        "Post-call verification (never claim tool succeeded when ToolResult.ok == False)"
+      ]
+    },
+    "2_code_bossman_luau_roblox": {
+      "primary_sources": [
+        "Verified Bossman/SwapMe bugfixes with unit tests (G1-G7 studio/harness guards)",
+        "Server-authoritative Luau mechanics (anti-trust-client currency/plots/teleports)"
+      ],
+      "auxiliary_benchmark": {
+        "name": "SWE-bench Verified",
+        "role": "Auxiliary general Python issue-resolution check ONLY; explicitly NOT proof of Roblox/Luau quality."
+      }
+    },
+    "3_memory_evaluation_first": {
+      "rule": "Measure Bossman's native memory BEFORE any weight changes; writing text to memory is NOT weight training.",
+      "benchmarks": [
+        "LongMemEval / MemoryCraft adaptation",
+        "Bossman native memory suite: exact date retrieval, fact update/supersession, source citation, and explicit abstention when facts are absent"
+      ]
+    },
+    "4_computer_control": {
+      "public_source": "ScaleCUA-Data",
+      "architecture_constraint": "Qwen/Qwen3-32B is a TEXT-ONLY model and does NOT natively perceive screenshots. Computer control requires either a genuine multimodal VLM (e.g. Qwen2.5-VL / Qwen3-VL) or Bossman's verified local vision/OCR bridge (bcc/features/chat_vision.py + xiaomi-ocr-0:bf16) feeding structured UI state to the planner inside an isolated sandbox."
+    }
+  }
+}

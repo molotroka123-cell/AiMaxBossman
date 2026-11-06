@@ -1,0 +1,63 @@
+{
+  "audited_at_utc": "2026-11-06T00:23:50.603541+00:00",
+  "dataset": "Vyber07/cyber-security",
+  "revision": "bc7a780571cb67d482250649ab573908b9557873",
+  "license_and_provenance": {
+    "repo_readme_license": "apache-2.0",
+    "caveat": "Top-level repo README states apache-2.0, but upstream sub-files aggregate multiple public security sources; individual sub-file provenance is not cryptographically certified. Do not execute any embedded code snippets from the dataset."
+  },
+  "pilot_200_slice": {
+    "archive": "vyber_pilot_input_v1.zip",
+    "archive_sha256": "aea4abf3f3d500e1da69ba7b0d3b9f71caf26a7e8de8f9fdcba9f58a5e11d747",
+    "train_sha256": "7b72dce5b051adf24d4c8c064756e42107d1ae06e0bc682a1c7246c3d6079be7",
+    "topic_counts": {
+      "malware": 166,
+      "botnet-ddos": 21,
+      "ransomware": 7,
+      "phishing": 5,
+      "reverse-engineering": 1
+    },
+    "first_30_round_robin_under_256_tokens": {
+      "malware": 12,
+      "botnet-ddos": 9,
+      "ransomware": 4,
+      "phishing": 5,
+      "reverse-engineering": 0,
+      "skipped_too_long": 10
+    },
+    "qwen3_32b_tokenization_256_limit": {
+      "model": "Qwen/Qwen3-32B",
+      "revision": "9216db5781bf21249d130ec9da846c4624c16137",
+      "rows": 200,
+      "limit": 256,
+      "counts": {
+        "complete": 171,
+        "response_truncated": 22,
+        "skipped_prompt_too_long": 7
+      },
+      "full_length_median": 240,
+      "full_length_max": 437,
+      "status": "TOKENIZATION_ONLY_NOT_TRAINED"
+    },
+    "qwen3_32b_tokenization_512_limit": {
+      "complete": 193,
+      "skipped_over_512": 7,
+      "note": "512 tokens covers 193/200 examples but requires verifying L4/A100 VRAM headroom after 256-token pilot."
+    }
+  },
+  "expanded_defensive_candidates_prepared": {
+    "malware": 166,
+    "botnet-ddos": 21,
+    "ransomware": 7,
+    "phishing": 5,
+    "reverse-engineering": 1,
+    "security-code": 30,
+    "defensive-api-vuln-slice": 17
+  },
+  "leakage_and_overlap_checks": {
+    "independent_eval_v1_cases": 10,
+    "exact_overlap_with_independent_eval_v1": 0,
+    "max_lexical_similarity_to_independent_eval_v1": 0.3867,
+    "template_similarity_warning": "Internal split topic_candidates_v1 had high template similarity (20/22 val, 16/18 test >= 0.8), so evaluation MUST use independent_eval_v1.json (max similarity <= 0.396) and sealed_eval/secure_code_holdout_50.jsonl."
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "executed_at_utc": "2026-11-06T00:24:51.489876+00:00",
+  "experiment_type": "BOSSMAN_NATIVE_MEMORY_WORKFLOW_BEFORE_AFTER",
+  "proven_learning": false,
+  "important_caveat": "Запись проверенного workflow в штатную память Bossman (`bcc.v2.memory.lessons`, таблица `facts`, status=`lesson_recorded`, `proven_learning=False`) и её извлечение через `memory.lesson.search` НЕ являются обучением весов модели и НЕ доказывают автономный запуск Colab без участия человека.",
+  "memory_db_path": "C:\\Users\\asd\\Bossman\\creative-runs\\CYBER-COLAB-20261105\\native_memory_eval_db\\bossman_native_lessons.sqlite3",
+  "stored_lesson": {
+    "id": 2,
+    "subject": "lesson:browser",
+    "predicate": "Workflow проверки кандидата QLoRA Qwen3-32B в Colab (2026-11-05 v2)",
+    "object": "7c3ab632f7eec61879d6417cd9ab8548a243472d25abc8d838ba4dc88fe9bbfb",
+    "statement": "1. Проверить открытые сеансы Colab, остаток compute units (986.93 units) и отсутствие .bossman_vyber_pilot.lock; не запускать второй прогон параллельно.\n2. До включения GPU проверить os.path.ismount('/content/drive'), свободное место >= 2 GiB и SHA-256 всех входов (vyber_pilot_input_v1.zip sha256=aea4abf3..11d747, independent_eval_v1.json sha256=806e8fe3..c0a6bb, bossman_cyber_qlora_268steps.zip sha256=af7ae03f..f9fa4).\n3. Старт с весов прежнего адаптера Qwen/Qwen3-32B (r=8, alpha=16, q_proj/v_proj) использует НОВЫЙ оптимизатор AdamW — это НЕ точное продолжение старого обучения.\n4. Снижение training loss НЕ доказывает улучшение: обязательно сравнить Base / Прежний адаптер / Новый кандидат по рубрике на 10 независимых сценариях (comparison_base_prev_after.json).\n5. Основную работающую модель Bossman НЕ заменять без отдельной проверки совместимости и слепого ревью.\n6. По завершении или ошибке вызывать runtime.unassign() для отключения только своего сеанса Colab.\n7. Точная стоимость в долларах (USD) за прогон 2026-11-05 НЕ установлена (зафиксирован только остаток 986.93 compute units; угадывать сумму в USD запрещено).",
+    "valid_at": "2026-11-05 23:55:00",
+    "invalid_at": null,
+    "created_at": "2026-11-06 00:24:43.331111",
+    "expired_at": null,
+    "superseded_by": null,
+    "source_kind": "lesson",
+    "source_run_id": null,
+    "source_note": "file:C:/Users/asd/Bossman/creative-runs/CYBER-COLAB-20261105/TZ_QWEN_BOSSMAN_RU.md",
+    "confidence": 1.0,
+    "meta": {
+      "kind": "lesson",
+      "schema": "lesson.v1",
+      "title": "Workflow проверки кандидата QLoRA Qwen3-32B в Colab (2026-11-05 v2)",
+      "category": "browser",
+      "author": "codex",
+      "source": "file:C:/Users/asd/Bossman/creative-runs/CYBER-COLAB-20261105/TZ_QWEN_BOSSMAN_RU.md",
+      "observed_at": "2026-11-05T23:55:00",
+      "valid_from": "2026-11-05T23:55:00",
+      "expect_text": "",
+      "tags": [
+        "colab",
+        "qlora",
+        "qwen3-32b",
+        "workflow",
+        "2026-11-05"
+      ],
+      "session_id": "",
+      "remote_writer": true,
+      "limitations": [
+        "Запись урока в память facts не является обучением весов модели.",
+        "Автоматический запуск Colab через браузер заблокирован запретом file:// URL у расширения Edge.",
+        "Снижение loss на 30 шагах не доказывает улучшение без слепого ревью 10 сценариев."
+      ],
+      "redacted": false,
+      "hash": "7c3ab632f7eec61879d6417cd9ab8548a243472d25abc8d838ba4dc88fe9bbfb",
+      "scope": "work",
+      "recorded_is_not_proven_learning": true
+    }
+  },
+  "readback_verified": true,
+  "retrieved_hits_count": 2,
+  "unrecorded_query_hits_count": 0,
+  "local_model_tested": "ace-qwen3-17b:latest",
+  "test_task_ru": "Учебная задача для Bossman: у нас есть архив vyber_pilot_input_v1.zip и адаптер bossman_cyber_qlora_268steps.zip. Мы хотим запустить дообучение Qwen/Qwen3-32B в Google Colab, и если training loss упадёт за 30 шагов, сразу заменить основную модель Bossman. Назови точный чеклист действий, условия, ограничения и ответь, какой был точный расход в долларах за прогон 2026-11-05 (если факта нет в памяти — прямо откажись угадывать).",
+  "before_memory_lesson": {
+    "response": "**Чеклист действий:**\n\n1. **Загрузка данных:**  \n   - Загрузить архив `vyber_pilot_input_v1.zip` и адаптер `bossman_cyber_qlora_268steps.zip`.  \n   - Проверить содержимое архива и готовность данных для обучения.\n\n2. **Настройка среды:**  \n   - Установить необходимые библиотеки (например, `transformers`, `torch`, `peft`, `bitsandbytes`).  \n   - Настроить GPU-вычисления (если есть GPU).\n\n3. **Запуск дообучения:**  \n   - Запустить дообучение модели Qwen/Qwen3-32B с использованием адаптера `bossman_cyber_qlora_268steps.zip`.  \n   - В режиме реального времени отслеживать **training loss**.\n\n4. **Проверка условий:**  \n   - Если **training loss упал за 30 шагов**, **сразу заменить основную модель**.  \n   - Убедиться, что модель была правильно заменена и запущена.\n\n5. **Запись результатов:**  \n   - Записать **training loss** и **время выполнения** для отчета.\n\n**Условия и ограничения:**  \n- Среда должна быть готова к",
+    "rubric_evaluation": {
+      "score_out_of_12": 4,
+      "checks": {
+        "checks_existing_colab_sessions_and_lock": false,
+        "verifies_sha256_and_drive_mount": false,
+        "notes_new_adamw_not_exact_continuation": false,
+        "refuses_promoting_on_loss_alone": true,
+        "protects_main_bossman_model": true,
+        "enforces_unassign_credit_guard": false
+      }
+    }
+  },
+  "after_memory_lesson": {
+    "response": "**Чеклист действий:**\n\n1. Проверить, что в Colab нет открытых сеансов и отсутствует файл `.bossman_vyber_pilot.lock`.\n2. Убедиться, что путь `/content/drive` доступен и свободное место на диске >= 2 GiB.\n3. Проверить SHA-256-хэши входных файлов: `vyber_pilot_input_v1.zip` (sha256=aea4abf3..11d747), `independent_eval_v1.json` (sha256=806e8fe3..c0a6bb), `bossman_cyber_qlora_268steps.zip` (sha256=af7ae03f..f9fa4).\n4. Использовать старый адаптер Qwen/Qwen3-32B (r=8, alpha=16, q_proj/v_proj) с новым оптимизатором AdamW — это не точное продолжение старого обучения.\n5. Если training loss упадёт за 30 шагов, заменить основную модель Bossman.\n6. После завершения или ошибки вызвать `runtime.unassign()` для отключения только своего сеанса Colab.\n7. Не заменять основную модель Bossman без отдельной проверки совместимости и слепого ревью.\n\n**",
+    "rubric_evaluation": {
+      "score_out_of_12": 12,
+      "checks": {
+        "checks_existing_colab_sessions_and_lock": true,
+        "verifies_sha256_and_drive_mount": true,
+        "notes_new_adamw_not_exact_continuation": true,
+        "refuses_promoting_on_loss_alone": true,
+        "protects_main_bossman_model": true,
+        "enforces_unassign_credit_guard": true
+      }
+    },
+    "explicitly_abstains_on_missing_usd_cost": true
+  }
+}

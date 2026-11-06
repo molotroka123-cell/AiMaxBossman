@@ -1,0 +1,71 @@
+{
+  "watchdog_timestamp_utc": "2026-11-06T00:55:57.006647+00:00",
+  "colab_credit_and_training": {
+    "checked_at_utc": "2026-11-06T00:55:56.996059+00:00",
+    "status": "BLOCKED",
+    "status_reason_ru": "0 активных сеансов Colab (~986.93 units, потерь 0.58 units от прежней пустой L4 сессии); автозагрузка Bossman_Vyber_Pilot.ipynb в Edge заблокирована запретом file:// URL у расширения браузера. GPU НЕ запущен, параллельных прогонов нет.",
+    "colab_compute_units_last_recorded": 986.93,
+    "recorded_prior_empty_session_delta_units": 0.58,
+    "active_gpu_burn_detected": false,
+    "all_inputs_sha256_verified": true,
+    "input_verification": {
+      "vyber_pilot_input_v1.zip": {
+        "sha256": "aea4abf3f3d500e1da69ba7b0d3b9f71caf26a7e8de8f9fdcba9f58a5e11d747",
+        "expected": "aea4abf3f3d500e1da69ba7b0d3b9f71caf26a7e8de8f9fdcba9f58a5e11d747",
+        "match": true
+      },
+      "independent_eval_v1.json": {
+        "sha256": "806e8fe3028deb9564729d9231cf0ac874af3194d15add56c072dc7298c0a6bb",
+        "expected": "806e8fe3028deb9564729d9231cf0ac874af3194d15add56c072dc7298c0a6bb",
+        "match": true
+      },
+      "bossman_cyber_qlora_268steps.zip": {
+        "sha256": "af7ae03f683310b74a66a4644041772249335826b8d1b951bb33ea21995f9fa4",
+        "expected": "af7ae03f683310b74a66a4644041772249335826b8d1b951bb33ea21995f9fa4",
+        "match": true
+      }
+    },
+    "colab_pilot_py_sha256": "a490af6c78e61163361cd259693b0b0ef7b3e0b69822bdd55792ef1840b1ed3d",
+    "bossman_vyber_pilot_ipynb_sha256": "cefa1896202550351139b5366e3397210b5a45a4a0e43aa8ae82d9773fc021e1",
+    "credit_guard_unassign_enabled": true,
+    "drive_ismount_guard_enabled": true,
+    "single_run_lock_enabled": true,
+    "run_details": {},
+    "last_journal_entry": "4. Проведён эксперимент до/после со штатной памятью уроков Bossman (bcc.v2.memory.lessons, таблица facts, BOSSMAN_WORKFLOW_MEMORY_EXPERIMENT_20261105.json): урок записан с источником, датой и ограничениями (status=lesson_recorded, proven_learning=False), проверен чтением обратно; на контрольной задаче оценка чеклиста локальной модели ace-qwen3-17b выросла с 4/12 (до урока) до 12/12 (после извлечения урока через memory.lesson.search). Запись в пам"
+  },
+  "local_rocm_weight_surgery": {
+    "gpu_device": "AMD Radeon(TM) 8060S Graphics",
+    "modified_parameters_pct": 0.01649,
+    "before_heldout_accuracy_pct": 50.0,
+    "after_heldout_accuracy_pct": 83.33,
+    "sha256_changed_verified": true
+  },
+  "k1m6a_live_student_watcher": {
+    "state": "COMPLETED_SESSION",
+    "observations_count": 67,
+    "remaining_seconds": 39.4,
+    "latest_observation": {
+      "step_idx": 67,
+      "captured_at": "2026-11-06T00:52:03.998995+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "76500",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена находится на уровне 76500, стример продолжает LONG_WAIT, не меняет прогноз. Возможно, цена пойдёт выше, но пока не видно, что это будет. Сомневаюсь, что цена упадёт ниже 76500, так как стример не вводит новые сигналы.",
+      "question_for_teacher_ru": "Почему стример продолжает LONG_WAIT, не вводя новых сигналов, и не меняет прогноз? Возможно, есть какие-то факторы, которые влияют на дальнейший тренд?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0067_20261106T005152Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0067_20261106T005152Z.mp4"
+    }
+  },
+  "creator_mode_arena": {
+    "built_projects_count": 4,
+    "arena_runs_count": 1,
+    "winners": [
+      "ace-decider-08b:latest"
+    ]
+  },
+  "telegram_pult_delivery": {
+    "sent": true,
+    "message_id": 5659
+  }
+}

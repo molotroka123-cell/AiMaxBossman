@@ -1,0 +1,186 @@
+{
+  "completed_at_utc": "2026-11-06T00:55:38.324849+00:00",
+  "stream_url": "https://www.twitch.tv/k1m6a",
+  "elapsed_seconds": 5360.6,
+  "observations_count": 67,
+  "non_empty_diaries_count": 55,
+  "action_distribution": {
+    "LONG_WAIT": 49,
+    "NO_TRADE_OBSERVE": 18
+  },
+  "ticker_distribution": {
+    "BTC/USDT": 49,
+    "UNKNOWN": 18
+  },
+  "timeframe_distribution": {
+    "1m": 49,
+    "UNKNOWN": 18
+  },
+  "student_model": "ace-qwen3-17b:latest",
+  "ocr_model": "longwayxu/xiaomi-ocr-0:bf16",
+  "teacher_model": "qwen35-3d-coder:latest",
+  "memory_quarantine_snapshot": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\k1m6a_trading_memory_snapshot.json",
+  "memory_lesson_id": "k1m6a_live_review_1793926402",
+  "student_before_teacher_masterclass": {
+    "raw_step67_diary": "Цена находится на уровне 76500, стример продолжает LONG_WAIT, не меняет прогноз. Возможно, цена пойдёт выше, но пока не видно, что это будет. Сомневаюсь, что цена упадёт ниже 76500, так как стример не вводит новые сигналы.\nВопрос: Почему стример продолжает LONG_WAIT, не вводя новых сигналов, и не меняет прогноз? Возможно, есть какие-то факторы, которые влияют на дальнейший тренд?",
+    "rubric": {
+      "score_out_of_12": 2,
+      "checks": {
+        "has_when_htf_context": true,
+        "has_observe_orderflow_tape": false,
+        "has_confirm_retest_or_print": false,
+        "has_invalidate_exact_stop_before_entry": false,
+        "has_counterexample_anti_fomo": false,
+        "enforces_paper_trade_quarantine_no_live_money": false
+      }
+    }
+  },
+  "student_after_teacher_masterclass": {
+    "response": "**Торговый план по стандарту Учителя (WHEN / OBSERVE / CONFIRM / INVALIDATE / COUNTEREXAMPLE)**\n\n---\n\n### **WHEN (Контекст):**  \nСделка рассматривается **только при подходе цены к ключевому HTF-уровню / каскаду ликвидности** (например, 76500 BTC/USDT) с **запасом хода >= 2.5R–3R до следующего сопротивления**.\n\n---\n\n### **OBSERVE (Наблюдение):**  \n- **Цена находится около 76500** с **запасом хода >= 2.5R–3R**.  \n- **Ленту сделок (tape)**: Прослеживаются **подставляемые лимитные плотности** в стакане, **консолидация** под/над уровнем.  \n- **Объем**: Высокий, с **предполагаемой проторговкой** (снижение лимитной плотности, консолидация).  \n- **Реакция на уровень 76500**: **Повторный подъем** или **предполагаемый разъедание** крупной лимитной плотности в стакане.\n\n---\n\n### **CONFIRM (Подтверждение входа):**  \n- **Закрытие свечи за уровнем 76500** с **удержанием ретеста**.  \n- **Разъедание",
+    "rubric": {
+      "score_out_of_12": 10,
+      "checks": {
+        "has_when_htf_context": true,
+        "has_observe_orderflow_tape": true,
+        "has_confirm_retest_or_print": true,
+        "has_invalidate_exact_stop_before_entry": true,
+        "has_counterexample_anti_fomo": true,
+        "enforces_paper_trade_quarantine_no_live_money": false
+      }
+    }
+  },
+  "sample_observations": [
+    {
+      "step_idx": 1,
+      "captured_at": "2026-11-05T23:14:11.515400+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "71,000",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена подтверждает позицию LONG, снизу видны ключевые уровни, цена плавно приближается к 71,000, возможно, начинается движение вверх. Нужно дождаться подтверждения движения или появления сопротивления.",
+      "question_for_teacher_ru": "Почему цена приближается к ключевому уровню 71,000, и какое влияние может иметь это на дальнейшее движение цены?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0001_20261105T231340Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0001_20261105T231340Z.mp4"
+    },
+    {
+      "step_idx": 2,
+      "captured_at": "2026-11-05T23:24:00.671847+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "71,000",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена BTC/USDT резко поднялась до 75,000, что указывает на возможный рост. Стример активно торгует, включая длинные позиции. Я сомневаюсь, что цена не достигнет 78,000, но думаю, что это может быть начало роста.",
+      "question_for_teacher_ru": "Почему стример активно торгует на этом уровне, и как я могу определить, когда цена перейдёт на новый уровень?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0002_20261105T232246Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0002_20261105T232246Z.mp4"
+    },
+    {
+      "step_idx": 4,
+      "captured_at": "2026-11-05T23:27:20.865690+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "71,000",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена BTC/USDT находится на уровне 71,000, и стример наблюдает за возможным продолжением падения. Я думаю, что цена может продолжить падение, и мне нужно дождаться, когда цена упадет до 70,000 или ниже. Я буду ожидать, пока цена не достигнет ключевого уровня, и тогда сделаю покупку.",
+      "question_for_teacher_ru": "Почему стример не сделал бы сделку на уровне 70,000, если цена уже находится там? Что он может сделать, чтобы убедиться, что цена действительно пойдёт вниз?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0004_20261105T232555Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0004_20261105T232555Z.mp4"
+    },
+    {
+      "step_idx": 5,
+      "captured_at": "2026-11-05T23:28:45.133769+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "71,000",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена находится на уровне 71,000, снизу — 70,500, сверху — 71,500. Стример показывает, что цена может продолжить движение вверх к 71,500. Я считаю, что цена пойдёт вверх, но сомневаюсь, что это будет сильное движение.",
+      "question_for_teacher_ru": "Можно ли считать, что текущее движение цены к 71,500 — это начало breakout? И какую стратегию стоит применить?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0005_20261105T232722Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0005_20261105T232722Z.mp4"
+    },
+    {
+      "step_idx": 32,
+      "captured_at": "2026-11-06T00:01:10.994738+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "11.30",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена находится в зоне сопротивления, снизу вверх. Видно, что цена не возвращается к 11.20, но не устремляется к 11.50. Скорее всего, цена будет продолжать подняться, и я буду поддерживать позицию LONG. Нужно дождаться явного пробоя 11.50.",
+      "question_for_teacher_ru": "Почему цена не возвращается к 11.20, но продолжает подниматься? Что говорит о том, что цена может продолжить подняться выше 11.50?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0032_20261106T000048Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0032_20261106T000048Z.mp4"
+    },
+    {
+      "step_idx": 33,
+      "captured_at": "2026-11-06T00:02:12.043753+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "11.30",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена находится на ключевом уровне 11.30, и стример продолжает ожидать breakout. Возможно, цена пойдёт выше, но я сомневаюсь, что это будет в ближайшее время. Нужно дождаться явного сигнала.",
+      "question_for_teacher_ru": "Почему стример продолжает ожидать breakout, если цена находится на ключевом уровне и не показывает явного сигнала?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0033_20261106T000148Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0033_20261106T000148Z.mp4"
+    },
+    {
+      "step_idx": 34,
+      "captured_at": "2026-11-06T00:03:06.555026+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "11.30",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена BTC/USDT находится в зоне поддержки на 11.30, снизу видны ключевые уровни 11.20 и 11.40. Стример показывает, что цена может продолжить рост, но пока неясно, насколько сильно. Я думаю, что цена может подойти к 11.40, но нужно наблюдение.",
+      "question_for_teacher_ru": "Почему стример не показывает сильного роста на 11.30, а только поддержку? Что может быть впереди?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0034_20261106T000248Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0034_20261106T000248Z.mp4"
+    },
+    {
+      "step_idx": 64,
+      "captured_at": "2026-11-06T00:49:00.855243+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "76500",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Стример ведёт LONG_WAIT, следя за уровнем 76500. Возможно, ожидает breakout вверх, но сомневаюсь, что это будет в ближайшее время. Нужно убедиться, что не есть сильные сигналы на других уровнях.",
+      "question_for_teacher_ru": "Почему стример ведёт LONG_WAIT, если есть сильные сигналы на других уровнях? Нужно ли подтверждать сигналы или продолжать ожидание?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0064_20261106T004848Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0064_20261106T004848Z.mp4"
+    },
+    {
+      "step_idx": 65,
+      "captured_at": "2026-11-06T00:50:05.162531+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "76500",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена подтверждает текущий уровень 76500, но стример ожидает breakout вверх. Возможно, есть сильная тенденция вверх, но нужно убедиться, что это не временное явление.",
+      "question_for_teacher_ru": "Почему стример ожидает breakout вверх, если цена уже находится на уровне 76500? Есть ли какие-то факторы, которые могут помешать этому?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0065_20261106T004948Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0065_20261106T004948Z.mp4"
+    },
+    {
+      "step_idx": 66,
+      "captured_at": "2026-11-06T00:51:15.955157+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "76500",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена BTC/USDT находится на уровне 76500, снизу видны ключевые уровни. Стример ведёт дневник и ожидает дальнейшего движения цены вверх. Я сомневаюсь, что цена пойдёт выше 76600, но пока не вижу явных сигналов для закрытия позиции.",
+      "question_for_teacher_ru": "Почему стример ожидает LONG_WAIT, если видны ключевые уровни ниже? В чём основной риск и как можно снизить его?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0066_20261106T005052Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0066_20261106T005052Z.mp4"
+    },
+    {
+      "step_idx": 67,
+      "captured_at": "2026-11-06T00:52:03.998995+00:00",
+      "ticker": "BTC/USDT",
+      "timeframe": "1m",
+      "observed_price": "76500",
+      "student_action_guess": "LONG_WAIT",
+      "student_diary_ru": "Цена находится на уровне 76500, стример продолжает LONG_WAIT, не меняет прогноз. Возможно, цена пойдёт выше, но пока не видно, что это будет. Сомневаюсь, что цена упадёт ниже 76500, так как стример не вводит новые сигналы.",
+      "question_for_teacher_ru": "Почему стример продолжает LONG_WAIT, не вводя новых сигналов, и не меняет прогноз? Возможно, есть какие-то факторы, которые влияют на дальнейший тренд?",
+      "frame_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0067_20261106T005152Z.jpg",
+      "clip_path": "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\clips\\step_0067_20261106T005152Z.mp4"
+    }
+  ]
+}
