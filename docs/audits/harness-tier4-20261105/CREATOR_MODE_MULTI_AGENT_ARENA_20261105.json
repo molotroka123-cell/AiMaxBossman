@@ -1,0 +1,214 @@
+{
+  "timestamp_utc": "2026-11-05T23:46:56.640978+00:00",
+  "data_dir": "C:\\Users\\asd\\Bossman\\wt-harness-guards\\command-center\\data",
+  "rounds_completed": 1,
+  "built_projects_count": 4,
+  "built_projects": [
+    {
+      "round": 1,
+      "slug": "g1-g7-sha-guard-plugin",
+      "kind": "plugin",
+      "version": 2,
+      "model": "creator-blueprint-v1 (instant)",
+      "bundle_sha256": "543d28225c4463886c3a8c3bf7ce7c5d8204778a3438ba85a5ec21fa6e04cd6f",
+      "score": {
+        "total_score": 100,
+        "passed_all_gates": true,
+        "used_llm": false,
+        "gates": {
+          "parse_ok": true,
+          "safety_scan_ok": true,
+          "plugin_contract_ok": true,
+          "guards_g3_g5_ok": true,
+          "ui_completeness_pts": 20
+        },
+        "safety_issues": [],
+        "plugin_errors": [],
+        "elapsed_s": 0.01,
+        "tokens_out": 0,
+        "tokens_per_sec": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "slug": "owner-arena-design-console",
+      "kind": "design_console",
+      "version": 2,
+      "model": "creator-blueprint-v1 (instant)",
+      "bundle_sha256": "85b982f4bc078bb7cf2d02e5a3f5f211bd6acc083d747697dc093c75532c48b6",
+      "score": {
+        "total_score": 100,
+        "passed_all_gates": true,
+        "used_llm": false,
+        "gates": {
+          "parse_ok": true,
+          "safety_scan_ok": true,
+          "plugin_contract_ok": true,
+          "guards_g3_g5_ok": true,
+          "ui_completeness_pts": 20
+        },
+        "safety_issues": [],
+        "plugin_errors": [],
+        "elapsed_s": 0.01,
+        "tokens_out": 0,
+        "tokens_per_sec": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "slug": "swapme-gate-runner-game",
+      "kind": "game",
+      "version": 2,
+      "model": "creator-blueprint-v1 (instant)",
+      "bundle_sha256": "924251a8016c4276d63ef12142105c8f85aa2c0f9584d8b323527c1f2f7939e9",
+      "score": {
+        "total_score": 100,
+        "passed_all_gates": true,
+        "used_llm": false,
+        "gates": {
+          "parse_ok": true,
+          "safety_scan_ok": true,
+          "plugin_contract_ok": true,
+          "guards_g3_g5_ok": true,
+          "ui_completeness_pts": 20
+        },
+        "safety_issues": [],
+        "plugin_errors": [],
+        "elapsed_s": 0.01,
+        "tokens_out": 0,
+        "tokens_per_sec": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "slug": "bossman-3d-llm-weights-visualizer",
+      "kind": "visualizer_3d",
+      "version": 2,
+      "model": "creator-blueprint-v1 (instant)",
+      "bundle_sha256": "43437ec4b8749ce9c9a6301ad0a7087a2ba87d3b226f430a5e9132a1cd6d1b3d",
+      "score": {
+        "total_score": 100,
+        "passed_all_gates": true,
+        "used_llm": false,
+        "gates": {
+          "parse_ok": true,
+          "safety_scan_ok": true,
+          "plugin_contract_ok": true,
+          "guards_g3_g5_ok": true,
+          "ui_completeness_pts": 20
+        },
+        "safety_issues": [],
+        "plugin_errors": [],
+        "elapsed_s": 0.01,
+        "tokens_out": 0,
+        "tokens_per_sec": 0.0
+      }
+    }
+  ],
+  "arena_runs_count": 1,
+  "arena_reports": [
+    {
+      "arena_id": "edc01f17dbcb",
+      "created_at": "2026-11-05T23:46:56Z",
+      "request": "/plugin @guards @memory Собери плагин проверки дельт G1-G7, верификации SHA и памяти fact:ref перед пушем",
+      "kind": "plugin",
+      "kind_label": "Плагин и Навык Bossman",
+      "winner": "ace-decider-08b:latest",
+      "results": [
+        {
+          "model": "ace-decider-08b:latest",
+          "kind": "plugin",
+          "used_llm_directly": false,
+          "score": {
+            "total_score": 100,
+            "passed_all_gates": true,
+            "used_llm": false,
+            "gates": {
+              "parse_ok": true,
+              "safety_scan_ok": true,
+              "plugin_contract_ok": true,
+              "guards_g3_g5_ok": true,
+              "ui_completeness_pts": 20
+            },
+            "safety_issues": [],
+            "plugin_errors": [],
+            "elapsed_s": 35.39,
+            "tokens_out": 0,
+            "tokens_per_sec": 0.0
+          },
+          "files": [
+            "SKILL.md",
+            "app.js",
+            "index.html",
+            "plugin.manifest.json",
+            "style.css"
+          ],
+          "raw_excerpt": "",
+          "note": "ReadTimeout: "
+        },
+        {
+          "model": "ace-qwen3-17b:latest",
+          "kind": "plugin",
+          "used_llm_directly": false,
+          "score": {
+            "total_score": 100,
+            "passed_all_gates": true,
+            "used_llm": false,
+            "gates": {
+              "parse_ok": true,
+              "safety_scan_ok": true,
+              "plugin_contract_ok": true,
+              "guards_g3_g5_ok": true,
+              "ui_completeness_pts": 20
+            },
+            "safety_issues": [],
+            "plugin_errors": [],
+            "elapsed_s": 35.39,
+            "tokens_out": 0,
+            "tokens_per_sec": 0.0
+          },
+          "files": [
+            "SKILL.md",
+            "app.js",
+            "index.html",
+            "plugin.manifest.json",
+            "style.css"
+          ],
+          "raw_excerpt": "",
+          "note": "ReadTimeout: "
+        },
+        {
+          "model": "qwen35-3d-coder:latest",
+          "kind": "plugin",
+          "used_llm_directly": false,
+          "score": {
+            "total_score": 100,
+            "passed_all_gates": true,
+            "used_llm": false,
+            "gates": {
+              "parse_ok": true,
+              "safety_scan_ok": true,
+              "plugin_contract_ok": true,
+              "guards_g3_g5_ok": true,
+              "ui_completeness_pts": 20
+            },
+            "safety_issues": [],
+            "plugin_errors": [],
+            "elapsed_s": 35.39,
+            "tokens_out": 0,
+            "tokens_per_sec": 0.0
+          },
+          "files": [
+            "SKILL.md",
+            "app.js",
+            "index.html",
+            "plugin.manifest.json",
+            "style.css"
+          ],
+          "raw_excerpt": "",
+          "note": "ReadTimeout: "
+        }
+      ]
+    }
+  ]
+}

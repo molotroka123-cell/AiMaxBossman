@@ -127,11 +127,36 @@ async def _publish(args: dict, ctx: ToolContext) -> ToolResult:
     registry = media_provenance.load_registry(reg_path) if reg_path and reg_path.is_file() else None
     cmd = args.get("check_cmd")
     cmd = [str(x) for x in cmd] if isinstance(cmd, list) and cmd else None
-    res = await publish_gate.evaluate(root, check_cmd=cmd, expect=str(args.get("expect") or publish_gate.DEFAULT_EXPECT),
-                                      registry=registry, base=args.get("base") or None,
-                                      reviewer=_reviewer(ctx) if args.get("review") else None)
+    tcmd = args.get("test_cmd")
+    tcmd = [str(x) for x in tcmd] if isinstance(tcmd, list) and tcmd else None
+    enforce = bool(args.get("assert_publishable") or args.get("require_release_gates"))
+    kw = dict(
+        check_cmd=cmd,
+        expect=str(args.get("expect") or publish_gate.DEFAULT_EXPECT),
+        registry=registry,
+        base=args.get("base") or None,
+        reviewer=_reviewer(ctx) if args.get("review") else None,
+        require_release_gates=enforce,
+        stop_active=bool(args.get("stop_active")),
+        owner_approved=bool(args.get("owner_approved")),
+        approval_ref=str(args.get("approval_ref") or ""),
+        expected_sha=args.get("expected_sha") or None,
+        test_cmd=tcmd,
+        licenses_verified=args.get("licenses_verified"),
+        studio_receipt=args.get("studio_receipt") or None,
+        rollback_ref=args.get("rollback_ref") or None,
+    )
+    if args.get("assert_publishable"):
+        try:
+            res = await publish_gate.assert_publishable(root, **kw)
+        except publish_gate.PublishRefused as exc:
+            msg = str(exc)
+            return ToolResult(content=msg, one_line=msg.splitlines()[0][:180],
+                              data={"ok": False, "can_publish": False, "report_ru": msg}, error=True)
+    else:
+        res = await publish_gate.evaluate(root, **kw)
     return ToolResult(content=res.report_ru(), one_line=res.report_ru().splitlines()[0][:180], data=res.as_dict(),
-                      error=False)
+                      error=not res.ok)
 
 
 _PATH = {"type": "string", "maxLength": 1000, "description": "Папка проекта (полный путь или относительно workspace)"}
@@ -161,14 +186,26 @@ async def setup(svc) -> None:
         category="read", permission="filesystem.read", source="builtin", default_effect="auto", timeout_seconds=300))
     REGISTRY.register(ToolSpec(
         name="guard.publish_gate",
-        description="G6: можно ли публиковать/выпускать: дерево закоммичено, сборочная проверка (bash tools/check.sh "
-                    "→ GATE PASS) проходит, G3/G4/G5 чисты. Возвращает короткий отчёт по-русски. Без PASS не публиковать.",
+        description="G6: ворота публикации: дерево закоммичено (и совпадает с expected_sha), сборочная проверка "
+                    "(bash tools/check.sh → GATE PASS), G3/G4/G5 чисты, а при require_release_gates/assert_publishable "
+                    "— также STOP=0, автотесты, лицензии медиа, живой Studio playtest на текущем SHA, точка отката и "
+                    "подтверждение владельца. Только при выполнении всех условий выводит «можно публиковать».",
         handler=_publish, input_schema={"path": _PATH, "check_cmd": {"type": "array", "items": {"type": "string"},
                                                                      "maxItems": 20},
+                                        "test_cmd": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
                                         "expect": {"type": "string", "maxLength": 100},
                                         "registry": {"type": "string", "maxLength": 1000},
                                         "base": {"type": "string", "maxLength": 200},
-                                        "review": {"type": "boolean", "default": False}},
+                                        "review": {"type": "boolean", "default": False},
+                                        "require_release_gates": {"type": "boolean", "default": False},
+                                        "assert_publishable": {"type": "boolean", "default": False},
+                                        "stop_active": {"type": "boolean", "default": False},
+                                        "owner_approved": {"type": "boolean", "default": False},
+                                        "approval_ref": {"type": "string", "maxLength": 200},
+                                        "expected_sha": {"type": "string", "maxLength": 64},
+                                        "licenses_verified": {"type": "boolean"},
+                                        "studio_receipt": {"type": "string", "maxLength": 1000},
+                                        "rollback_ref": {"type": "string", "maxLength": 200}},
         required=["path"], category="exec", permission="terminal.run", source="builtin", default_effect="ask",
         timeout_seconds=1200, idempotent=True))
 

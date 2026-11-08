@@ -215,6 +215,26 @@ function controlSummaryStrip(rows, body, pcStatus) {
       h('span.control-kpi-sub', editEng === 'uncensored' ? 'sdcpp:z-image-turbo (1 кадр)' : 'sdcpp:qwen-image-edit-2509')));
 }
 
+function creatorQuickBar(creatorStatus) {
+  const projCount = (creatorStatus && creatorStatus.projects_count) || 0;
+  const skillsCount = (creatorStatus && Array.isArray(creatorStatus.installed_skills)) ? creatorStatus.installed_skills.length : 0;
+  const k1m6a = (creatorStatus && creatorStatus.k1m6a_live) || {};
+  const k1m6aObs = k1m6a.observations_count || 0;
+  return panel('Creator Mode (Into the Unknown) и обучение со стрима K1m6a',
+    h('div.row.tight', { style: { flexWrap: 'wrap', gap: '8px' } },
+      h('span.mono.small',
+        `Creator Mode: проектов ${projCount} · навыков ${skillsCount} · K1m6a ученик: ${k1m6a.state || 'READY'} (${k1m6aObs} кадров)`),
+      h('div.spacer'),
+      h('a.btn.btn-sm.btn-primary', {
+        href: '#/creator-mode',
+        title: 'Открыть Creator Mode: плагины, дизайн-консоль, мини-игры и 3D LLM визуализатор',
+      }, icon('builder', 12), h('span', 'Открыть Creator Mode')),
+      h('a.btn.btn-sm', {
+        href: '#/trading_lab',
+        title: 'Открыть лабораторию обучения трейдингу',
+      }, icon('activity', 12), h('span', 'Обучение трейдингу'))));
+}
+
 const ControlPage = {
   id: 'control',
   title: 'Пульт',
@@ -231,8 +251,10 @@ const ControlPage = {
     }
     let computer = null;
     let pcStatus = null;
+    let creatorStatus = null;
     try { computer = await api.raw('/api/computer/status'); } catch { computer = null; }
     try { pcStatus = await api.raw('/api/pc-agent/status'); } catch { pcStatus = null; }
+    try { creatorStatus = await api.raw('/api/creator/status'); } catch { creatorStatus = null; }
     const view = body.owner_view || { rows: [], rule: '' };
     const rows = view.rows || [];
     const attention = rows.filter((r) => r.attention);
@@ -246,6 +268,7 @@ const ControlPage = {
           onClick: async () => { try { await ctx.refresh(); } catch (e) { toastError(e, 'Не удалось обновить'); } },
         }, icon('retry', 12), h('span', 'Обновить'))]),
       desktopPanel(computer, pcStatus, ctx),
+      creatorQuickBar(creatorStatus),
       controlSummaryStrip(rows, body, pcStatus),
       attention.length
         ? panel(h('h2', `Требует вашего решения (${attention.length})`), table(attention))

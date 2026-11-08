@@ -7,8 +7,10 @@ Every acting step refuses while a Studio it did not launch is open (another sess
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -19,27 +21,80 @@ from bcc.features import studio_pc  # noqa: E402
 STATE = Path(os.environ.get("LOCALAPPDATA", ".")) / "Bossman" / "CommandCenter" / "studio" / "owned.json"
 
 
+def _git_head(path: Path) -> str:
+    try:
+        r = subprocess.run(["git", "-C", str(path.parent), "rev-parse", "HEAD"],
+                           capture_output=True, text=True, timeout=10, check=False)
+        return (r.stdout or "").strip() if r.returncode == 0 else ""
+    except OSError:
+        return ""
+
+
+def _sha256(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def proof(place: str, out_dir: Path) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
+    place_path = Path(place).resolve()
+    build_sha = _git_head(place_path)
+    place_sha256 = _sha256(place_path)
     s = studio_pc.StudioPC(state_file=STATE)
     st = s.status()
     if st["busy"] or st["studio"]:
-        print(json.dumps({"verdict": "BLOCKED", "reason": st["busy_reason"] or "Studio already open", "status": st},
-                         ensure_ascii=False))
+        blocked_shot = out_dir / "desktop_state_while_blocked.png"
+        shot_rec = s.screenshot(str(blocked_shot))
+        rec = {
+            "capability": "pc.studio",
+            "verdict": "BLOCKED",
+            "simulated": False,
+            "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "place": str(place_path),
+            "place_sha256": place_sha256,
+            "build_sha": build_sha,
+            "reason": st["busy_reason"] or "Studio already open; refusing to interfere with foreign Studio process",
+            "status": st,
+            "read_only_screenshot_receipt": shot_rec,
+        }
+        (out_dir / "receipt.json").write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(rec, ensure_ascii=False))
         return 2
+    owned_pid = None
+    shot_file = out_dir / "studio_play.png"
     try:
-        s.open(place)
+        r_open = s.open(str(place_path))
+        owned_pid = r_open.get("pid")
         s.play()
         time.sleep(20)
         s.run_lua('print("players", #game:GetService("Players"):GetPlayers())', out_file=str(out_dir / "output.txt"))
-        s.screenshot(str(out_dir / "studio_play.png"))
+        s.screenshot(str(shot_file))
         s.stop()
     finally:
         if s._owned():
             s.close()
-    ok = all(r["ok"] for r in s.receipts)
-    (out_dir / "receipt.json").write_text(json.dumps({"verdict": "PASS" if ok else "FAIL", "steps": s.receipts},
-                                                     ensure_ascii=False, indent=1), encoding="utf-8")
+    img_info = studio_pc.inspect_png(shot_file)
+    ok = all(r["ok"] for r in s.receipts) and img_info["valid_png"] and not img_info["is_stub_1x1"]
+    rec = {
+        "capability": "pc.studio",
+        "verdict": "PASS" if ok else "FAIL",
+        "ok": ok,
+        "simulated": False,
+        "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "place": str(place_path),
+        "place_sha256": place_sha256,
+        "build_sha": build_sha,
+        "pid": owned_pid,
+        "screenshot": str(shot_file),
+        "image": img_info,
+        "steps": s.receipts,
+    }
+    (out_dir / "receipt.json").write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
     print("PASS" if ok else "FAIL", out_dir / "receipt.json")
     return 0 if ok else 1
 

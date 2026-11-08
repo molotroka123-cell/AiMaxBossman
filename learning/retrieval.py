@@ -554,7 +554,11 @@ CHECKLIST_MAX_ITEMS = 3
 
 
 #: sentences that carry the rule of a lesson (the rest is the incident story)
-_RULE_MARK = re.compile(r"(?:Правил[оа]|Исправление|Решение|Фикс|Rule|Fix|Solution)\s*:\s*", re.I)
+_RULE_MARK = re.compile(
+    r"(?:Правил[оа]|Исправление|Решение|Фикс|Rule|Fix|Solution|Выводы агента считать гипотезами|Перед тратой|Рекомендации и реклама)"
+    r"\s*:?\s*",
+    re.I,
+)
 #: the checklist travels with the task (engine puts it into the user turn); governance strips this exact span for cloud
 CHECKLIST_START = "[ENGINEERING CHECKLIST"
 CHECKLIST_END = "[/ENGINEERING CHECKLIST]"
@@ -594,7 +598,7 @@ def _lesson_checklist(kept: list[Candidate]) -> str:
             # no «Правило/Исправление/Решение»: a note or a web quote, not an executable rule — it stays in the
             # memory DATA block and never reaches the task's user turn (prompt-injection surface)
             continue
-        items.append(f"- {title or cand.ref}: DO {_actionable(body)}")
+        items.append(f"- [{cand.ref}] {title or cand.ref}: DO {_actionable(body)}")
         if len(items) >= CHECKLIST_MAX_ITEMS:
             break
     if not items:

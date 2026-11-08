@@ -1,0 +1,64 @@
+{
+  "snapshot": {
+    "working_state_keys": [],
+    "episodic": 0,
+    "procedural": 0,
+    "quarantine": 1,
+    "procedural_rules": [],
+    "quarantined_rules": [
+      {
+        "lesson_id": "k1m6a_live_review_1793926402",
+        "notes": "WHEN: Импульсный подход цены к горизонтальному каскаду уровней / локальному экстремуму на повышенном объёме. | CONFIRM: Закрытие свечи за уровнем с удержанием ретеста ИЛИ разъедание крупной плотности в стакане с импульсным продолжением. | INVALIDATE: Возврат цены обратно под пробитый уровень (ложный закол) и поглощение импульсной свечи — немедленный выход по короткому стопу (R <= 0.5-1%).; Live K1m6a stream student-teacher review (awaiting 30 paper trades)"
+      }
+    ]
+  },
+  "procedural": [],
+  "quarantine": [
+    {
+      "lesson_id": "k1m6a_live_review_1793926402",
+      "layer": "QUARANTINE",
+      "rule": {
+        "rule_id": "rule_k1m6a_1793926402",
+        "asset": "BTC/USDT",
+        "venue": "twitch_k1m6a_stream_observed",
+        "timeframe": "1m",
+        "direction": "LONG",
+        "zones": [],
+        "required_regimes": [],
+        "forbidden_regimes": [],
+        "stop_pct": 0.008,
+        "take_pct": 0.024,
+        "max_hold_bars": 30,
+        "no_averaging_regimes": [],
+        "derived_from": [
+          "k1m6a_step_63",
+          "k1m6a_step_64",
+          "k1m6a_step_65",
+          "k1m6a_step_66",
+          "k1m6a_step_67"
+        ],
+        "author_opinion_only": false
+      },
+      "episode_ids": [
+        "ep_k1m6a_63",
+        "ep_k1m6a_64",
+        "ep_k1m6a_65",
+        "ep_k1m6a_66",
+        "ep_k1m6a_67"
+      ],
+      "provenance": [
+        "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0063_20261106T004748Z.jpg",
+        "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0064_20261106T004848Z.jpg",
+        "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0065_20261106T004948Z.jpg",
+        "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0066_20261106T005052Z.jpg",
+        "C:\\Users\\asd\\Bossman\\creative-runs\\K1M6A-LIVE-20261105\\frames\\step_0067_20261106T005152Z.jpg"
+      ],
+      "report": null,
+      "verified_by": "qwen35-3d-coder:latest",
+      "created_at": "2026-11-06T00:53:22.862821+00:00",
+      "evidence_class": "SIMULATED",
+      "notes": "WHEN: Импульсный подход цены к горизонтальному каскаду уровней / локальному экстремуму на повышенном объёме. | CONFIRM: Закрытие свечи за уровнем с удержанием ретеста ИЛИ разъедание крупной плотности в стакане с импульсным продолжением. | INVALIDATE: Возврат цены обратно под пробитый уровень (ложный закол) и поглощение импульсной свечи — немедленный выход по короткому стопу (R <= 0.5-1%).; Live K1m6a stream student-teacher review (awaiting 30 paper trades)",
+      "contradicted_by": []
+    }
+  ]
+}

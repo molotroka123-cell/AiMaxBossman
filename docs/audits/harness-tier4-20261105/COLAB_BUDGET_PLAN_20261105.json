@@ -1,0 +1,52 @@
+{
+  "created_at_utc": "2026-11-06T00:23:50.611056+00:00",
+  "recorded_available_units": 986.93,
+  "prior_observed_balance_units": 987.51,
+  "unattributed_or_empty_l4_delta_units": 0.58,
+  "observed_l4_rate_units_per_hour": 1.94,
+  "policy": "These are strict budget CEILINGS, NOT an obligation to spend all units. Never purchase additional units or change subscriptions. Scale up only after a verified pilot and blind rubric review. Auto-disconnect via runtime.unassign() immediately on completion, idle GPU, or save failure.",
+  "ceilings": [
+    {
+      "category": "baselines_pilots_retests",
+      "label_ru": "Базовые замеры, пилоты и повторные тесты",
+      "ceiling_share_pct": 15,
+      "ceiling_units": 148.04,
+      "estimated_l4_hours_at_1_94_u_hr": 76.3
+    },
+    {
+      "category": "cybersecurity_curated",
+      "label_ru": "Выбранные проверенные данные по кибербезопасности",
+      "ceiling_share_pct": 25,
+      "ceiling_units": 246.73,
+      "estimated_l4_hours_at_1_94_u_hr": 127.2
+    },
+    {
+      "category": "bossman_tool_calling",
+      "label_ru": "Вызов инструментов Bossman (xlam-60k + реальные схемы Bossman)",
+      "ceiling_share_pct": 25,
+      "ceiling_units": 246.73,
+      "estimated_l4_hours_at_1_94_u_hr": 127.2
+    },
+    {
+      "category": "coding_luau_roblox",
+      "label_ru": "Программирование, включая Luau/Roblox и задачи Bossman/SwapMe",
+      "ceiling_share_pct": 15,
+      "ceiling_units": 148.04,
+      "estimated_l4_hours_at_1_94_u_hr": 76.3
+    },
+    {
+      "category": "computer_control_experiment",
+      "label_ru": "Эксперимент по управлению компьютером (ScaleCUA + VLM)",
+      "ceiling_share_pct": 10,
+      "ceiling_units": 98.69,
+      "estimated_l4_hours_at_1_94_u_hr": 50.9
+    },
+    {
+      "category": "reserve_recovery_promising",
+      "label_ru": "Резерв на восстановление и перспективные результаты",
+      "ceiling_share_pct": 10,
+      "ceiling_units": 98.69,
+      "estimated_l4_hours_at_1_94_u_hr": 50.9
+    }
+  ]
+}

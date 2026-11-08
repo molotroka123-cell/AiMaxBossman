@@ -214,3 +214,46 @@ async def test_silent_empty_primary_rotates_to_free_pool_on_short_prompt(env):
     assert status == "completed", status
     assert silent_primary.calls >= 1 and adapters["free-good"].calls >= 1
 
+
+def test_unknown_pricing_is_never_treated_as_free_and_withhold_local_memory_strips_both_blocks():
+    """P1 Budget & Privacy:
+    1. A cloud model with unknown pricing (`pricing_known=False` or `None` prices) is refused by `refuses_unknown_price`
+       and excluded from `free_pool.is_free_model`.
+    2. `withhold_local_memory` strips both `[MEMORY CONTEXT]` system messages and `[ENGINEERING CHECKLIST]` user spans.
+    """
+    from bcc import provider_governance as pg
+    cloud_prov = {"id": 9, "name": "cloud-x", "kind": "openai_compat", "base_url": "https://api.example.com/v1"}
+    unpriced_zero = {"id": 91, "name": "mystery-model", "kind": "cloud", "price_in": 0.0, "price_out": 0.0, "pricing_known": False}
+    null_price = {"id": 92, "name": "null-model", "kind": "cloud", "price_in": None, "price_out": None, "pricing_known": True}
+    assert pg.refuses_unknown_price(cloud_prov, unpriced_zero) is True
+    assert pg.refuses_unknown_price(cloud_prov, null_price) is True
+    assert fp.is_free_cloud(unpriced_zero, is_local=lambda _: False) is False
+    assert fp.is_free_cloud(null_price, is_local=lambda _: False) is False
+
+    msgs = [
+        {"role": "system", "content": "Ты — инженер."},
+        {"role": "system", "content": "[MEMORY CONTEXT — local vault]\nСекретный урок 859\n[/MEMORY CONTEXT]"},
+        {"role": "user", "content": "Проверь порт\n\n[ENGINEERING CHECKLIST — обязательно соблюсти в ответе]\n- [fact:859] Порт 8801\n[/ENGINEERING CHECKLIST]"},
+    ]
+    _, kw, removed = pg.withhold_local_memory((), {"messages": msgs})
+    assert removed == 2
+    assert len(kw["messages"]) == 2
+    assert all("MEMORY CONTEXT" not in m["content"] and "ENGINEERING CHECKLIST" not in m["content"] for m in kw["messages"])
+
+
+async def test_refuse_cloud_with_pc_blocks_cloud_fallback_when_agent_carries_pc_tools(env):
+    """P1 Privacy: an agent carrying PC/guard tools without `cloud_pc_access: True` must never fall back to a cloud model."""
+    stack, ids, adapters, _ = await _stack(
+        env, perms={"free_pool": True, "free_pool_first": True},
+        primary_exc=ProviderError("503 local down", kind="http", status_code=503))
+    async with env.svc.db.session() as s:
+        await s.execute(sa.update(agents_t).where(agents_t.c.id == stack["agent"]["id"]).values(
+            tools=["code.read", "code.write", "pc.studio"],
+            permissions={"free_pool": True, "free_pool_first": True},
+        ))
+        await s.commit()
+    status = await _run_task(env, stack["task"]["id"], timeout=10, until=FINISHED)
+    assert status != "completed", "cloud fallback must be refused when PC tools are attached without cloud_pc_access=True"
+    assert adapters["free-good"].calls == 0
+
+

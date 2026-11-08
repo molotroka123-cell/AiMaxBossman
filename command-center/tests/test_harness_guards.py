@@ -45,9 +45,11 @@ def test_g1_studio_script_asserts_foreground_before_every_key_batch():
     for c in chunks:
         assert c.rstrip().endswith("AssertFg 99 'Roblox Studio|\\.rbxlx?\\b' $false;"), c[-120:]
     assert "telegram" in script.lower(), "the chat denylist is inside the PowerShell guard"
-    for act in ("play", "stop", "copy_output"):
+    for act in ("play", "stop"):
         s = sp.build_script(act, hwnd=7)
         assert s.count("AssertFg 7 ") == s.count("SendWait("), act
+    s_copy = sp.build_script("copy_output", hwnd=7)
+    assert s_copy.count("AssertFg 7 ") == s_copy.count("SendWait(") + 1, "copy_output asserts fg before each key and before clipboard read"
 
 
 def test_g1_studio_input_raises_when_guard_fires(tmp_path):
@@ -384,11 +386,137 @@ def test_g6_passes_on_clean_fixed_project_and_fails_without_gate_marker(tmp_path
     root = _repo(tmp_path, fixed)
     res = asyncio.run(publish_gate.evaluate(root, check_cmd=["bash", "tools/check.sh"], registry=[]))
     assert res.ok, res.report_ru()
-    assert "ПРОЙДЕНА" in res.report_ru()
+    assert res.can_publish is False, "static 5/5 check alone must never authorize publish"
+    assert "ПРОЙДЕНА СТАТИЧЕСКАЯ ЧАСТЬ" in res.report_ru()
+    assert "можно публиковать" not in res.report_ru()
     bad = asyncio.run(publish_gate.evaluate(root, check_cmd=["bash", "-c", "echo GATE FAIL"], registry=[]))
     assert not bad.ok and "НЕТ" in next(s.detail for s in bad.steps if s.name == "Сборочная проверка")
     skip = asyncio.run(publish_gate.evaluate(root, skip_build=True, registry=[]))
     assert not skip.ok
+
+
+def test_g3_dynamic_bracket_access_boundary_vs_static_dot_access(tmp_path):
+    """Applicability boundary: G3 checks static `Module.FIELD` access and does not crash on dynamic `Module[key]`."""
+    (tmp_path / "Cfg.luau").write_text("local Cfg = { A = 1 }\nreturn Cfg\n", encoding="utf-8")
+    (tmp_path / "Use.server.luau").write_text(
+        'local Cfg = require(script.Parent:WaitForChild("Cfg"))\n'
+        "local k = 'DYNAMIC'\n"
+        "print(Cfg[k], Cfg.A, Cfg.STATIC_MISSING)\n",
+        encoding="utf-8",
+    )
+    rep = config_refs.check(tmp_path)
+    assert [(m.module_var, m.field) for m in rep.missing] == [("Cfg", "STATIC_MISSING")]
+
+
+def test_g5_paid_random_items_requires_policy_service_and_odds_disclosure():
+    """Roblox Paid Random Items policy: Robux/paid-currency random chest requires ArePaidRandomItemsRestricted + odds."""
+    bad_lines = [
+        ("Shop.luau", 10, 'MarketplaceService:PromptProductPurchase(player, 12345)'),
+        ("Shop.luau", 11, 'local reward = rollRandomChest("paid_swaps_chest")'),
+    ]
+    res_bad = asyncio.run(content_policy.check(bad_lines))
+    assert not res_bad.ok
+    assert any(h.category == "paid_random_items" for h in res_bad.blocking), res_bad.as_dict()
+    assert res_bad.as_dict()["reviewer_advisory_only"] is True
+
+    good_lines = bad_lines + [
+        ("Shop.luau", 12, 'local policy = PolicyService:GetPolicyInfoForPlayerAsync(player).ArePaidRandomItemsRestricted'),
+        ("Shop.luau", 13, 'local oddsText = "Шанс выпадения (probabilities): Common 70%, Rare 30%"'),
+    ]
+    res_good = asyncio.run(content_policy.check(good_lines))
+    assert res_good.ok and not any(h.category == "paid_random_items" for h in res_good.hits), res_good.as_dict()
+
+
+def _valid_studio_receipt(tmp_path: Path, sha: str) -> Path:
+    import struct
+    import zlib
+    # Build a valid 64x64 RGB PNG (>100 bytes, not 1x1)
+    w, h = 64, 64
+    raw = b"".join(b"\x00" + (b"\x10\x20\x30" * w) for _ in range(h))
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+    scr = tmp_path / "studio_live.png"
+    scr.write_bytes(png)
+    rec = tmp_path / "studio_receipt.json"
+    rec.write_text(json.dumps({
+        "verdict": "PASS",
+        "simulated": False,
+        "pid": 42424,
+        "build_sha": sha,
+        "screenshot": str(scr),
+        "steps": [
+            {"step": "play", "ok": True},
+            {"step": "screenshot", "ok": True},
+            {"step": "stop", "ok": True},
+        ],
+    }), encoding="utf-8")
+    return rec
+
+
+def test_g6_assert_publishable_refuses_every_unmet_condition_and_passes_only_when_all_10_hold(tmp_path):
+    fixed = FIX_CONFIG.replace("return MatchConfig", "MatchConfig.MAX_PAID_WINS_PER_DAY = 8\n"
+                               "MatchConfig.DAILY_MATCH_POINT_CAP = 600\nMatchConfig.OPTIONAL_FIELD = 1\n"
+                               "return MatchConfig")
+    root = _repo(tmp_path / "game", fixed)
+    prev_sha = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    (root / "tools" / "test.sh").write_text("echo '12 passed'\n", encoding="utf-8")
+    _git(root, "add", "tools/test.sh")
+    _git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "add tests")
+    head_sha = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    studio_rec = _valid_studio_receipt(tmp_path, head_sha)
+
+    base_kwargs = dict(
+        root=root,
+        check_cmd=["bash", "tools/check.sh"],
+        test_cmd=["bash", "tools/test.sh"],
+        registry=[],
+        owner_approved=True,
+        expected_sha=head_sha,
+        licenses_verified=True,
+        studio_receipt=studio_rec,
+        rollback_ref=prev_sha,
+        stop_active=False,
+    )
+
+    # 1. All 10 conditions satisfied -> can_publish is True and report says "ПРОЙДЕНА — можно публиковать"
+    ok_res = asyncio.run(publish_gate.assert_publishable(**base_kwargs))
+    assert ok_res.ok and ok_res.can_publish
+    assert "ПРОЙДЕНА — можно публиковать" in ok_res.report_ru()
+
+    # 2. Negative checks: each single unmet release condition must raise PublishRefused
+    negative_mutations = [
+        ({"stop_active": True}, "Проверка STOP"),
+        ({"owner_approved": False}, "Подтверждение владельца"),
+        ({"expected_sha": "0000000000000000000000000000000000000000"}, "Рабочее дерево закоммичено"),
+        ({"test_cmd": None}, "Автотесты проекта"),
+        ({"test_cmd": ["bash", "-c", "exit 1"]}, "Автотесты проекта"),
+        ({"studio_receipt": None}, "Живой Studio playtest"),
+        ({"rollback_ref": None}, "Точка отката"),
+        ({"rollback_ref": head_sha}, "Точка отката"),
+    ]
+    for patch_kw, failed_step in negative_mutations:
+        kw = {**base_kwargs, **patch_kw}
+        with pytest.raises(publish_gate.PublishRefused) as exc_info:
+            asyncio.run(publish_gate.assert_publishable(**kw))
+        by_name = {s.name: s.ok for s in exc_info.value.result.steps}
+        assert by_name[failed_step] is False, (patch_kw, by_name)
+        assert exc_info.value.result.can_publish is False
+        assert "можно публиковать" not in exc_info.value.result.report_ru()
+
+    # 3. Simulated Studio receipt or 1x1 stub screenshot -> refused
+    sim_rec = tmp_path / "sim_receipt.json"
+    sim_rec.write_text(json.dumps({
+        "verdict": "PASS",
+        "simulated": True,
+        "build_sha": head_sha,
+        "screenshot": str(tmp_path / "studio_live.png"),
+        "steps": [{"step": "play", "ok": True}, {"step": "screenshot", "ok": True}, {"step": "stop", "ok": True}],
+    }), encoding="utf-8")
+    with pytest.raises(publish_gate.PublishRefused) as sim_exc:
+        asyncio.run(publish_gate.assert_publishable(**{**base_kwargs, "studio_receipt": sim_rec}))
+    assert dict((s.name, s.ok) for s in sim_exc.value.result.steps)["Живой Studio playtest"] is False
+
 
 
 def test_g6_media_without_registry_is_refused_and_content_hit_in_diff(tmp_path):

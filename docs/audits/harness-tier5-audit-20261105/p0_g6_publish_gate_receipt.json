@@ -1,0 +1,98 @@
+{
+  "audit": "P0_G6_publish_gate_tier5",
+  "swapme_head_sha": "5936304b876a21206eb984b05f4cb62fdfe8d045",
+  "static_5_of_5": {
+    "ok": true,
+    "can_publish": false,
+    "release_gates_verified": false,
+    "head_sha": "5936304b876a21206eb984b05f4cb62fdfe8d045",
+    "steps": [
+      {
+        "name": "Рабочее дерево закоммичено",
+        "ok": true,
+        "detail": "чисто, HEAD 5936304b876a"
+      },
+      {
+        "name": "Сборочная проверка",
+        "ok": true,
+        "detail": "python tools/fast_gate.py -> код 0, маркер «GATE PASS» есть\nbuild/SwapMeCoinTycoon.rbxlx: 3,128,573 bytes\nGATE PASS\nmaterials OK\nclient paths OK\nlocale keys OK\nstatus keys OK"
+      },
+      {
+        "name": "G3 ссылки на поля конфигов",
+        "ok": true,
+        "detail": "G3 PASS: 2108 обращений к полям 64 модулей — все поля определены (динамические пропущены: src/server/TransitKit.luau); предупреждений (поля нет, но обращение терпит nil): 3"
+      },
+      {
+        "name": "G4 происхождение медиа",
+        "ok": true,
+        "detail": "G4 PASS: 10 медиафайлов, совпадений с реестром чужих файлов нет"
+      },
+      {
+        "name": "G5 политика контента",
+        "ok": true,
+        "detail": "G5 PASS: строк 213711, совпадений в коде/строках 0, в комментариях/с отрицанием 49 (предупреждение), ревьюер-модель NOT_RUN\n  [gambling] «казино» — src/server/Carnival.server.luau:3 (комментарий): -- бинго» + «американские горки тоже добавим»). Owner's «казино» is built as a CARNIVAL with no stak\n  [gambling] «gambling» — src/server/Carnival.server.luau:4 (комментарий): -- are sold for Robux and Fox Points convert to Swaps, so any paid/staked game of chance would be ga\n  [crypto] «crypto» — src/server/EdgeBillboards.server.luau:4 (комментарий): -- crypto logos, card-table or price tags (assets/billboards). Decorative, no prompts, nothing to co\n  [real_brand] «Minecraft» — src/server/World/VersionSign.luau:2 (комментарий): -- VersionSign (02.11.2026): a Minecraft-style wooden sign in front of the spawn with the current ma\n  [gambling] «лутбокс» — src/shared/Locale.luau:68 (отрицание): parents_card2_title = { ru = \"Без платных лутбоксов и Pay-to-Win\", en = \"No Paid Lootboxes & No Pay-\n  [tobacco_nicotine] «tobacco» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [alcohol] «alcohol» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [gambling] «gambling» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [crypto] «crypto» — assets/argon/fox_swapme_r15_manifest.json:47 (отрицание): \"crypto_logos_present\": false\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:17 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:34 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:51 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:68 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:85 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:102 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:119 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:136 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:153 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:170 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:187 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:204 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:221 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:238 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:255 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:272 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:289 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:306 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:323 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:340 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:357 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym"
+      }
+    ],
+    "report_ru": "Проверка публикации: ПРОЙДЕНА СТАТИЧЕСКАЯ ЧАСТЬ (5/5) — публикация НЕ РАЗРЕШЕНА (требуются: STOP=0, подтверждение владельца, автотесты, лицензии, живой Studio playtest на текущем SHA и точка отката)\n✔ Рабочее дерево закоммичено: чисто, HEAD 5936304b876a\n✔ Сборочная проверка: python tools/fast_gate.py -> код 0, маркер «GATE PASS» есть\n✔ G3 ссылки на поля конфигов: G3 PASS: 2108 обращений к полям 64 модулей — все поля определены (динамические пропущены: src/server/TransitKit.luau); предупреждений (поля нет, но обращение терпит nil): 3\n✔ G4 происхождение медиа: G4 PASS: 10 медиафайлов, совпадений с реестром чужих файлов нет\n✔ G5 политика контента: G5 PASS: строк 213711, совпадений в коде/строках 0, в комментариях/с отрицанием 49 (предупреждение), ревьюер-модель NOT_RUN"
+  },
+  "assert_publishable_refused_as_expected": true,
+  "assert_publishable_10_gates": {
+    "ok": false,
+    "can_publish": false,
+    "release_gates_verified": true,
+    "head_sha": "5936304b876a21206eb984b05f4cb62fdfe8d045",
+    "steps": [
+      {
+        "name": "Рабочее дерево закоммичено",
+        "ok": true,
+        "detail": "чисто, HEAD 5936304b876a"
+      },
+      {
+        "name": "Сборочная проверка",
+        "ok": true,
+        "detail": "python tools/fast_gate.py -> код 0, маркер «GATE PASS» есть\nbuild/SwapMeCoinTycoon.rbxlx: 3,128,573 bytes\nGATE PASS\nmaterials OK\nclient paths OK\nlocale keys OK\nstatus keys OK"
+      },
+      {
+        "name": "G3 ссылки на поля конфигов",
+        "ok": true,
+        "detail": "G3 PASS: 2108 обращений к полям 64 модулей — все поля определены (динамические пропущены: src/server/TransitKit.luau); предупреждений (поля нет, но обращение терпит nil): 3"
+      },
+      {
+        "name": "G4 происхождение медиа",
+        "ok": true,
+        "detail": "G4 PASS: 10 медиафайлов, совпадений с реестром чужих файлов нет"
+      },
+      {
+        "name": "G5 политика контента",
+        "ok": true,
+        "detail": "G5 PASS: строк 213711, совпадений в коде/строках 0, в комментариях/с отрицанием 49 (предупреждение), ревьюер-модель NOT_RUN\n  [gambling] «казино» — src/server/Carnival.server.luau:3 (комментарий): -- бинго» + «американские горки тоже добавим»). Owner's «казино» is built as a CARNIVAL with no stak\n  [gambling] «gambling» — src/server/Carnival.server.luau:4 (комментарий): -- are sold for Robux and Fox Points convert to Swaps, so any paid/staked game of chance would be ga\n  [crypto] «crypto» — src/server/EdgeBillboards.server.luau:4 (комментарий): -- crypto logos, card-table or price tags (assets/billboards). Decorative, no prompts, nothing to co\n  [real_brand] «Minecraft» — src/server/World/VersionSign.luau:2 (комментарий): -- VersionSign (02.11.2026): a Minecraft-style wooden sign in front of the spawn with the current ma\n  [gambling] «лутбокс» — src/shared/Locale.luau:68 (отрицание): parents_card2_title = { ru = \"Без платных лутбоксов и Pay-to-Win\", en = \"No Paid Lootboxes & No Pay-\n  [tobacco_nicotine] «tobacco» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [alcohol] «alcohol» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [gambling] «gambling» — src/shared/VipCosmetics.luau:4 (комментарий): -- No real brands, no tobacco/alcohol/gambling, no real-person likeness. No gameplay advantage.\n  [crypto] «crypto» — assets/argon/fox_swapme_r15_manifest.json:47 (отрицание): \"crypto_logos_present\": false\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:17 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:34 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:51 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:68 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:85 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:102 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:119 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:136 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:153 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:170 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:187 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:204 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:221 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:238 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:255 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:272 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:289 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:306 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:323 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:340 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym\n  [crypto] «crypto» — assets/incoming/argon-20261102/manifest.json:357 (отрицание): \"notes\": \"Single uniform contour line (#18181C), transparent RGBA background, no currency/crypto sym"
+      },
+      {
+        "name": "Проверка STOP",
+        "ok": true,
+        "detail": "STOP не активен"
+      },
+      {
+        "name": "Автотесты проекта",
+        "ok": true,
+        "detail": "python tools/fast_gate.py -> код 0\nbuild/SwapMeCoinTycoon.rbxlx: 3,128,573 bytes\nGATE PASS\nmaterials OK\nclient paths OK\nlocale keys OK\nstatus keys OK"
+      },
+      {
+        "name": "Живой Studio playtest",
+        "ok": false,
+        "detail": "статус playtest не PASS (verdict='BLOCKED', ok=None)"
+      },
+      {
+        "name": "Точка отката",
+        "ok": true,
+        "detail": "проверена точка отката HEAD~1 (ab850894a813)"
+      },
+      {
+        "name": "Подтверждение владельца",
+        "ok": false,
+        "detail": "нет явного разрешения владельца на публикацию (owner_approved=False)"
+      }
+    ],
+    "report_ru": "Проверка публикации: ОТКАЗ — публикация запрещена\n✔ Рабочее дерево закоммичено: чисто, HEAD 5936304b876a\n✔ Сборочная проверка: python tools/fast_gate.py -> код 0, маркер «GATE PASS» есть\n✔ G3 ссылки на поля конфигов: G3 PASS: 2108 обращений к полям 64 модулей — все поля определены (динамические пропущены: src/server/TransitKit.luau); предупреждений (поля нет, но обращение терпит nil): 3\n✔ G4 происхождение медиа: G4 PASS: 10 медиафайлов, совпадений с реестром чужих файлов нет\n✔ G5 политика контента: G5 PASS: строк 213711, совпадений в коде/строках 0, в комментариях/с отрицанием 49 (предупреждение), ревьюер-модель NOT_RUN\n✔ Проверка STOP: STOP не активен\n✔ Автотесты проекта: python tools/fast_gate.py -> код 0\n✘ Живой Studio playtest: статус playtest не PASS (verdict='BLOCKED', ok=None)\n✔ Точка отката: проверена точка отката HEAD~1 (ab850894a813)\n✘ Подтверждение владельца: нет явного разрешения владельца на публикацию (owner_approved=False)"
+  }
+}

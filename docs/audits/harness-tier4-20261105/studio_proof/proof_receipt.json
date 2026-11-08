@@ -1,6 +1,9 @@
 {
   "capability": "pc.studio",
-  "verdict": "PASS",
+  "verdict": "BLOCKED",
+  "historical_verdict_overridden": "PASS",
+  "simulated": true,
+  "audit_tier5_note": "AUDIT CORRECTION (05.11.2026): live_machine_status confirmed real BUSY GUARD on foreign PID 47928, whereas lifecycle_steps (pid 48800) was a unit-test callback simulation that wrote a 69-byte 1x1 PNG fixture (live_screen.png). Reclassified from PASS to BLOCKED (live Studio busy in another session; unit simulation != live Studio run).",
   "at": "2026-11-05T04:00:26",
   "front_minimize_bug_fixed": true,
   "live_machine_status": {

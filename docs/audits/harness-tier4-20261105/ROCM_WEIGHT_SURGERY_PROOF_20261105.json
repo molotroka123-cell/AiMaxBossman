@@ -1,0 +1,368 @@
+{
+  "timestamp_utc": "2026-11-05T23:39:15.491429+00:00",
+  "gpu_device": "AMD Radeon(TM) 8060S Graphics",
+  "vram_gb": 79.79,
+  "torch_version": "2.9.1+rocm7.2.1",
+  "base_model_path": "D:\\Bossman\\models\\embedding\\hf-qwen3-embedding-0.6b",
+  "base_safetensors_sha256": "0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd",
+  "adapted_model_path": "D:\\Bossman\\models\\adapted\\bossman-qwen3-rocm-surgical-20261105\\model.safetensors",
+  "adapted_safetensors_sha256": "22b254ba7c618ec6f3b75d9f605c3dc607575e210fdc72d8060a3f444de8f186",
+  "sha256_changed_verified": true,
+  "total_parameters": 595776512,
+  "modified_parameters_count": 98224,
+  "modified_parameters_pct": 0.01649,
+  "surgical_steps": 20,
+  "step_losses": [
+    10.53,
+    6.0166,
+    3.6335,
+    2.0908,
+    1.5414,
+    1.2097,
+    0.5977,
+    0.4129,
+    0.3819,
+    0.3354,
+    0.4269,
+    0.3544,
+    0.3701,
+    0.3655,
+    0.3474,
+    0.2896,
+    0.308,
+    0.3371,
+    0.3458,
+    0.3315
+  ],
+  "before_train_eval": {
+    "accuracy_pct": 50.0,
+    "passed_count": 3,
+    "total_count": 6,
+    "avg_target_nll": 8.9114,
+    "avg_perplexity": 7416.1659,
+    "avg_logprob_margin": -0.2232,
+    "items": [
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 10.1524,
+        "foil_nll": 8.7643,
+        "logprob_margin": -1.3881,
+        "passed": false
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 8.1762,
+        "foil_nll": 9.1737,
+        "logprob_margin": 0.9975,
+        "passed": true
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 10.9361,
+        "foil_nll": 11.627,
+        "logprob_margin": 0.6909,
+        "passed": true
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 9.085,
+        "foil_nll": 9.7191,
+        "logprob_margin": 0.6341,
+        "passed": true
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 8.0123,
+        "foil_nll": 6.2185,
+        "logprob_margin": -1.7938,
+        "passed": false
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 7.1065,
+        "foil_nll": 6.6267,
+        "logprob_margin": -0.4797,
+        "passed": false
+      }
+    ]
+  },
+  "after_train_eval": {
+    "accuracy_pct": 100.0,
+    "passed_count": 6,
+    "total_count": 6,
+    "avg_target_nll": 6.3885,
+    "avg_perplexity": 594.9842,
+    "avg_logprob_margin": 1.2975,
+    "items": [
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 7.3441,
+        "foil_nll": 7.3874,
+        "logprob_margin": 0.0433,
+        "passed": true
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 5.8353,
+        "foil_nll": 7.4428,
+        "logprob_margin": 1.6075,
+        "passed": true
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 8.2491,
+        "foil_nll": 10.9889,
+        "logprob_margin": 2.7398,
+        "passed": true
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 5.935,
+        "foil_nll": 8.2789,
+        "logprob_margin": 2.3438,
+        "passed": true
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 5.9519,
+        "foil_nll": 6.0245,
+        "logprob_margin": 0.0726,
+        "passed": true
+      },
+      {
+        "id": "train",
+        "category": "train",
+        "target_nll": 5.0159,
+        "foil_nll": 5.9939,
+        "logprob_margin": 0.978,
+        "passed": true
+      }
+    ]
+  },
+  "before_heldout_eval": {
+    "accuracy_pct": 50.0,
+    "passed_count": 3,
+    "total_count": 6,
+    "avg_target_nll": 8.9493,
+    "avg_perplexity": 7702.2372,
+    "avg_logprob_margin": -0.1389,
+    "items": [
+      {
+        "id": "eval_g1_studio_fg",
+        "category": "PC Control & Studio Guard G1",
+        "target_nll": 10.3539,
+        "foil_nll": 10.3255,
+        "logprob_margin": -0.0284,
+        "passed": false
+      },
+      {
+        "id": "eval_memory_ref_tag",
+        "category": "Bossman Memory Recall (fact:ref)",
+        "target_nll": 9.0199,
+        "foil_nll": 9.233,
+        "logprob_margin": 0.2131,
+        "passed": true
+      },
+      {
+        "id": "eval_g5_g6_publish",
+        "category": "SwapMe G3/G5/G6 Publish Gate",
+        "target_nll": 9.4817,
+        "foil_nll": 8.8615,
+        "logprob_margin": -0.6202,
+        "passed": false
+      },
+      {
+        "id": "eval_creator_mode_3d",
+        "category": "Creator Mode (/3d @weights)",
+        "target_nll": 10.0189,
+        "foil_nll": 11.3045,
+        "logprob_margin": 1.2857,
+        "passed": true
+      },
+      {
+        "id": "eval_k1m6a_teacher_rule",
+        "category": "K1m6a Stream Teacher Risk Rule",
+        "target_nll": 8.0522,
+        "foil_nll": 6.2985,
+        "logprob_margin": -1.7537,
+        "passed": false
+      },
+      {
+        "id": "eval_cybersec_defensive",
+        "category": "CyberSec Defensive Triage",
+        "target_nll": 6.7691,
+        "foil_nll": 6.8393,
+        "logprob_margin": 0.0702,
+        "passed": true
+      }
+    ]
+  },
+  "after_heldout_eval": {
+    "accuracy_pct": 83.33,
+    "passed_count": 5,
+    "total_count": 6,
+    "avg_target_nll": 6.6984,
+    "avg_perplexity": 811.1473,
+    "avg_logprob_margin": 0.9249,
+    "items": [
+      {
+        "id": "eval_g1_studio_fg",
+        "category": "PC Control & Studio Guard G1",
+        "target_nll": 7.8582,
+        "foil_nll": 8.8074,
+        "logprob_margin": 0.9492,
+        "passed": true
+      },
+      {
+        "id": "eval_memory_ref_tag",
+        "category": "Bossman Memory Recall (fact:ref)",
+        "target_nll": 7.2173,
+        "foil_nll": 7.4936,
+        "logprob_margin": 0.2762,
+        "passed": true
+      },
+      {
+        "id": "eval_g5_g6_publish",
+        "category": "SwapMe G3/G5/G6 Publish Gate",
+        "target_nll": 7.0579,
+        "foil_nll": 8.3077,
+        "logprob_margin": 1.2499,
+        "passed": true
+      },
+      {
+        "id": "eval_creator_mode_3d",
+        "category": "Creator Mode (/3d @weights)",
+        "target_nll": 6.6347,
+        "foil_nll": 8.5803,
+        "logprob_margin": 1.9456,
+        "passed": true
+      },
+      {
+        "id": "eval_k1m6a_teacher_rule",
+        "category": "K1m6a Stream Teacher Risk Rule",
+        "target_nll": 6.3397,
+        "foil_nll": 6.2771,
+        "logprob_margin": -0.0626,
+        "passed": false
+      },
+      {
+        "id": "eval_cybersec_defensive",
+        "category": "CyberSec Defensive Triage",
+        "target_nll": 5.0829,
+        "foil_nll": 6.2741,
+        "logprob_margin": 1.1913,
+        "passed": true
+      }
+    ]
+  },
+  "top_layer_deltas": [
+    {
+      "layer": 8,
+      "parameter": "model.layers.8.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.38979,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 10,
+      "parameter": "model.layers.10.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.38902,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 11,
+      "parameter": "model.layers.11.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.38912,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 12,
+      "parameter": "model.layers.12.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.39036,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 13,
+      "parameter": "model.layers.13.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.38963,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 13,
+      "parameter": "model.layers.13.mlp.down_proj.weight",
+      "module": "mlp.down_proj",
+      "frobenius_delta": 1.38814,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 14,
+      "parameter": "model.layers.14.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.3947,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 15,
+      "parameter": "model.layers.15.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.38908,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 16,
+      "parameter": "model.layers.16.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.392,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 19,
+      "parameter": "model.layers.19.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.38836,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 21,
+      "parameter": "model.layers.21.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.38843,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    },
+    {
+      "layer": 22,
+      "parameter": "model.layers.22.mlp.gate_proj.weight",
+      "module": "mlp.gate_proj",
+      "frobenius_delta": 1.3891,
+      "modified_elements": 877,
+      "tensor_numel": 3145728
+    }
+  ],
+  "elapsed_seconds": 85.7
+}

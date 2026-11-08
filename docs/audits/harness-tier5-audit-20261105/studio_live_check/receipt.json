@@ -1,0 +1,42 @@
+{
+  "capability": "pc.studio",
+  "verdict": "BLOCKED",
+  "simulated": false,
+  "at": "2026-11-05T11:52:19",
+  "place": "C:\\Users\\asd\\Bossman\\Projects\\swapme-v09\\build\\SwapMeCoinTycoon.rbxlx",
+  "place_sha256": "ad06080f30d44684a23b801becfc1487020cd9db400f0d62b0ba03b0a4b5afe7",
+  "build_sha": "23f3849c05484e1be62f731891ea7cd469d2e7b5",
+  "reason": "Studio is open in another session (pid 48496)",
+  "status": {
+    "action": "status",
+    "ok": true,
+    "status": "PASS",
+    "at": "2026-11-05T11:52:15",
+    "studio": [
+      {
+        "pid": 48496,
+        "hwnd": 0,
+        "title": ""
+      }
+    ],
+    "owned_pid": null,
+    "busy": true,
+    "busy_reason": "Studio is open in another session (pid 48496)"
+  },
+  "read_only_screenshot_receipt": {
+    "action": "screenshot",
+    "ok": false,
+    "status": "FAIL",
+    "at": "2026-11-05T11:52:19",
+    "out_file": "docs\\audits\\harness-tier5-audit-20261105\\studio_live_check\\desktop_state_while_blocked.png",
+    "reason": "PS_ERROR: Exception calling \"CopyFromScreen\" with \"3\" argument(s): \"The handle is invalid\"",
+    "image": {
+      "exists": false,
+      "valid_png": false,
+      "width": 0,
+      "height": 0,
+      "size_bytes": 0,
+      "is_stub_1x1": false
+    }
+  }
+}
