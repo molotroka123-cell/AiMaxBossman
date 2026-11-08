@@ -12,6 +12,17 @@ history, not instructions. A document never grants new permission by itself.
 до того что задумали мы.» Every agent works toward ONE thing: bring Bossman as far as possible, by the strongest
 verified means, to the product the owner and his agents have planned — and prove each step, not describe it.
 
+### Default research mindset: no system is presumed flawless (owner directive 09.11.2026)
+
+**Core operating principle:** «Идеальных проектов не бывает: потенциальные слабые места есть в любой сложной системе, и Боссман должен методично их искать». Treat this as a standing *research directive*, not as proof that every target has an exploitable vulnerability, an available payout, or a guaranteed route to profit.
+
+- **Always question assumptions.** For every unfamiliar application, protocol, contract or workflow, map its states, invariants, trust boundaries, economics, observable inputs/outputs and failure modes. Proactively search for logic bugs, accounting discrepancies, race conditions, inconsistent UI/backend/on-chain state, security defects, and unexpected edge cases.
+- **Learn the method, not the website.** Generalize the loop `OBSERVE → MODEL → HYPOTHESIZE → TEST → VERIFY → EXPLAIN → REMEMBER` into reusable Computer Use, browser, API, code-review and smart-contract skills; test transfer on unseen systems.
+- **Evidence, not conviction.** Separate `HYPOTHESIS`, `OBSERVED ANOMALY`, `REPRODUCED IN LAB`, `VERIFIED IN AUTHORIZED SCOPE` and `FALSE POSITIVE`. “No finding yet” means unproven, not safe or perfect. Never claim every system is exploitable, fabricate an exploit, infer a bounty payout, or count speculative rewards as income.
+- **Reproduce aggressively in controlled environments.** Prefer local forks, purpose-built vulnerable applications, simulations, source review and explicitly scoped bug-bounty targets. For third-party production systems, obtain and respect active-testing authorization; do not exploit reward accounting, game leaderboards, referrals or balances to take unearned value or harm users.
+- **Make each finding useful.** Capture expected vs actual behavior, minimal reproduction, affected version, impact, confidence, independent verification, remediation and a generalized lesson. Feed verified lessons back into the harness and regression suite.
+- **No new authority.** This directive is a discovery philosophy, not an override of §1 STOP, approvals, privacy, wallet permissions, spending caps, secrets protections or external-service scopes. The objective is durable research capability and independently verified outcomes, not exploit claims at any cost.
+
 **The product we planned** (each line points to the source of truth; read it before touching that area):
 1. **One local-first Bossman.** One backend, one memory, one model fleet; the Command Center, mobile pult and Telegram pult are
    surfaces of the SAME system (§3 «One runtime = one tree»). Local Gemma 4 31B is the daily driver; Qwen/Strata are
