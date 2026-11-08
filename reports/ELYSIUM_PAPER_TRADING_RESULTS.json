@@ -1,0 +1,893 @@
+{
+  "accounting_classification": "SIMULATED_PAPER_TRADING",
+  "confirmed_realized_income_usd": 0.0,
+  "initial_capital_hype": 10.0,
+  "final_equity_hype": 10.39499,
+  "net_simulated_pnl_hype": 0.39499,
+  "net_simulated_pnl_usd_equivalent": 30.3945,
+  "hype_reference_price_usd": 76.95,
+  "scenarios_evaluated": 200,
+  "decisions_correct": 183,
+  "decision_accuracy_pct": 91.5,
+  "trades_executed": 85,
+  "risks_rejected": 73,
+  "weak_edge_skipped": 42,
+  "win_rate_pct": 80.0,
+  "profit_factor": 2.483,
+  "max_drawdown_pct": 0.452,
+  "avg_profit_per_trade_hype": 0.004647,
+  "execution_failure_rate_pct": 0.0,
+  "sharpe_ratio": 4.09,
+  "model_and_api_costs_usd": 0.0,
+  "best_strategy_id": "STRATEGY_C_POST_MIGRATION",
+  "strategy_breakdown": {
+    "STRATEGY_A_EARLY_MOMENTUM": {
+      "trades": 28,
+      "wins": 18,
+      "losses": 10,
+      "gross_profit_hype": 0.150824,
+      "gross_loss_hype": 0.16804,
+      "net_pnl_hype": -0.017216,
+      "win_rate_pct": 64.29,
+      "profit_factor": 0.898,
+      "avg_profit_hype": -0.000615
+    },
+    "STRATEGY_B_PULLBACK": {
+      "trades": 14,
+      "wins": 12,
+      "losses": 2,
+      "gross_profit_hype": 0.117561,
+      "gross_loss_hype": 0.030906,
+      "net_pnl_hype": 0.086655,
+      "win_rate_pct": 85.71,
+      "profit_factor": 3.804,
+      "avg_profit_hype": 0.00619
+    },
+    "STRATEGY_C_POST_MIGRATION": {
+      "trades": 43,
+      "wins": 38,
+      "losses": 5,
+      "gross_profit_hype": 0.392946,
+      "gross_loss_hype": 0.067395,
+      "net_pnl_hype": 0.325551,
+      "win_rate_pct": 88.37,
+      "profit_factor": 5.83,
+      "avg_profit_hype": 0.007571
+    }
+  },
+  "trades": [
+    {
+      "scenario_id": "ELYSIUM-SCEN-001",
+      "symbol": "ELY001",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.007233
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-006",
+      "symbol": "ELY006",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.014216
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-008",
+      "symbol": "ELY008",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -338.54,
+      "pnl_hype": -0.016927,
+      "equity_after_hype": 9.997289
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-009",
+      "symbol": "ELY009",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.499864,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009794,
+      "equity_after_hype": 10.007083
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-010",
+      "symbol": "ELY010",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.021604
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-011",
+      "symbol": "ELY011",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.032587
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-015",
+      "symbol": "ELY015",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.03982
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-020",
+      "symbol": "ELY020",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -330.34,
+      "pnl_hype": -0.016517,
+      "equity_after_hype": 10.023303
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-022",
+      "symbol": "ELY022",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 211.46,
+      "pnl_hype": 0.010573,
+      "equity_after_hype": 10.033876
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-023",
+      "symbol": "ELY023",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.043673
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-024",
+      "symbol": "ELY024",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": -269.58,
+      "pnl_hype": -0.013479,
+      "equity_after_hype": 10.030194
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-025",
+      "symbol": "ELY025",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.041177
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-029",
+      "symbol": "ELY029",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.04841
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-034",
+      "symbol": "ELY034",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.055393
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-036",
+      "symbol": "ELY036",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -338.54,
+      "pnl_hype": -0.016927,
+      "equity_after_hype": 10.038466
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-037",
+      "symbol": "ELY037",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.048263
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-038",
+      "symbol": "ELY038",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.062784
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-039",
+      "symbol": "ELY039",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.073767
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-043",
+      "symbol": "ELY043",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.081
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-048",
+      "symbol": "ELY048",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.087983
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-050",
+      "symbol": "ELY050",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 211.46,
+      "pnl_hype": 0.010573,
+      "equity_after_hype": 10.098556
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-051",
+      "symbol": "ELY051",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.108353
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-052",
+      "symbol": "ELY052",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.122874
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-053",
+      "symbol": "ELY053",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.133857
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-057",
+      "symbol": "ELY057",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.14109
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-062",
+      "symbol": "ELY062",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.148073
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-064",
+      "symbol": "ELY064",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -338.54,
+      "pnl_hype": -0.016927,
+      "equity_after_hype": 10.131146
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-065",
+      "symbol": "ELY065",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": -309.06,
+      "pnl_hype": -0.015453,
+      "equity_after_hype": 10.115693
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-066",
+      "symbol": "ELY066",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": -269.58,
+      "pnl_hype": -0.013479,
+      "equity_after_hype": 10.102214
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-067",
+      "symbol": "ELY067",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.113197
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-071",
+      "symbol": "ELY071",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.12043
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-076",
+      "symbol": "ELY076",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.127413
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-078",
+      "symbol": "ELY078",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 211.46,
+      "pnl_hype": 0.010573,
+      "equity_after_hype": 10.137986
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-079",
+      "symbol": "ELY079",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.147783
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-080",
+      "symbol": "ELY080",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.162304
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-081",
+      "symbol": "ELY081",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.173287
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-085",
+      "symbol": "ELY085",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.18052
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-090",
+      "symbol": "ELY090",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -330.34,
+      "pnl_hype": -0.016517,
+      "equity_after_hype": 10.164003
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-092",
+      "symbol": "ELY092",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -338.54,
+      "pnl_hype": -0.016927,
+      "equity_after_hype": 10.147076
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-093",
+      "symbol": "ELY093",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.156873
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-094",
+      "symbol": "ELY094",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.171394
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-095",
+      "symbol": "ELY095",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.182377
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-099",
+      "symbol": "ELY099",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.18961
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-104",
+      "symbol": "ELY104",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.196593
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-106",
+      "symbol": "ELY106",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 211.46,
+      "pnl_hype": 0.010573,
+      "equity_after_hype": 10.207166
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-107",
+      "symbol": "ELY107",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.216963
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-108",
+      "symbol": "ELY108",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": -269.58,
+      "pnl_hype": -0.013479,
+      "equity_after_hype": 10.203484
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-109",
+      "symbol": "ELY109",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.214467
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-113",
+      "symbol": "ELY113",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.2217
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-118",
+      "symbol": "ELY118",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.228683
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-120",
+      "symbol": "ELY120",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -338.54,
+      "pnl_hype": -0.016927,
+      "equity_after_hype": 10.211756
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-121",
+      "symbol": "ELY121",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.221553
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-122",
+      "symbol": "ELY122",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.236074
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-123",
+      "symbol": "ELY123",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.247057
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-127",
+      "symbol": "ELY127",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.25429
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-132",
+      "symbol": "ELY132",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.261273
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-134",
+      "symbol": "ELY134",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 211.46,
+      "pnl_hype": 0.010573,
+      "equity_after_hype": 10.271846
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-135",
+      "symbol": "ELY135",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": -309.06,
+      "pnl_hype": -0.015453,
+      "equity_after_hype": 10.256393
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-136",
+      "symbol": "ELY136",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.270914
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-137",
+      "symbol": "ELY137",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.281897
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-141",
+      "symbol": "ELY141",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.28913
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-146",
+      "symbol": "ELY146",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.296113
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-148",
+      "symbol": "ELY148",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -338.54,
+      "pnl_hype": -0.016927,
+      "equity_after_hype": 10.279186
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-149",
+      "symbol": "ELY149",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.288983
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-150",
+      "symbol": "ELY150",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": -269.58,
+      "pnl_hype": -0.013479,
+      "equity_after_hype": 10.275504
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-151",
+      "symbol": "ELY151",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.286487
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-155",
+      "symbol": "ELY155",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.29372
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-160",
+      "symbol": "ELY160",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -330.34,
+      "pnl_hype": -0.016517,
+      "equity_after_hype": 10.277203
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-162",
+      "symbol": "ELY162",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 211.46,
+      "pnl_hype": 0.010573,
+      "equity_after_hype": 10.287776
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-163",
+      "symbol": "ELY163",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.297573
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-164",
+      "symbol": "ELY164",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.312094
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-165",
+      "symbol": "ELY165",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.323077
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-169",
+      "symbol": "ELY169",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.33031
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-174",
+      "symbol": "ELY174",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.337293
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-176",
+      "symbol": "ELY176",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": -338.54,
+      "pnl_hype": -0.016927,
+      "equity_after_hype": 10.320366
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-177",
+      "symbol": "ELY177",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.330163
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-178",
+      "symbol": "ELY178",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 290.42,
+      "pnl_hype": 0.014521,
+      "equity_after_hype": 10.344684
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-179",
+      "symbol": "ELY179",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.355667
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-183",
+      "symbol": "ELY183",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.3629
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-188",
+      "symbol": "ELY188",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 139.66,
+      "pnl_hype": 0.006983,
+      "equity_after_hype": 10.369883
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-190",
+      "symbol": "ELY190",
+      "strategy_id": "STRATEGY_A_EARLY_MOMENTUM",
+      "size_hype": 0.5,
+      "net_return_bps": 211.46,
+      "pnl_hype": 0.010573,
+      "equity_after_hype": 10.380456
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-191",
+      "symbol": "ELY191",
+      "strategy_id": "STRATEGY_B_PULLBACK",
+      "size_hype": 0.5,
+      "net_return_bps": 195.94,
+      "pnl_hype": 0.009797,
+      "equity_after_hype": 10.390253
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-192",
+      "symbol": "ELY192",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": -269.58,
+      "pnl_hype": -0.013479,
+      "equity_after_hype": 10.376774
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-193",
+      "symbol": "ELY193",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 219.66,
+      "pnl_hype": 0.010983,
+      "equity_after_hype": 10.387757
+    },
+    {
+      "scenario_id": "ELYSIUM-SCEN-197",
+      "symbol": "ELY197",
+      "strategy_id": "STRATEGY_C_POST_MIGRATION",
+      "size_hype": 0.5,
+      "net_return_bps": 144.66,
+      "pnl_hype": 0.007233,
+      "equity_after_hype": 10.39499
+    }
+  ],
+  "live_testnet_eth_call_verification": {
+    "chain_id": 99801,
+    "rpc_url": "https://testnet-rpc.elysium.kinetiq.xyz",
+    "swap_router": "0x752f6816bc514e1eeff852b2eadcd96f6c0f9f3f",
+    "whype": "0xcd57f65c2b0e5881cfc2e609f7cd53b746e1f234",
+    "kalos": "0x8a2201953af29e8be7700bcb53da3ce5cad18726",
+    "buy_0_001_hype_quotes_kalos": {
+      "fee_100": {
+        "out_kalos": 5.052186,
+        "est_gas": 149478
+      },
+      "fee_500": {
+        "out_kalos": 5.056125,
+        "est_gas": 149558
+      },
+      "fee_3000": {
+        "out_kalos": 5.054042,
+        "est_gas": 143230
+      },
+      "fee_10000": {
+        "out_kalos": 5.053417,
+        "est_gas": 149983
+      }
+    },
+    "sell_5_056125_kalos_fee_500": {
+      "out_whype": 0.00099891,
+      "est_gas": 136378,
+      "round_trip_cost_bps": 10.9,
+      "total_round_trip_gas": 285936,
+      "total_round_trip_gas_hype": 2.86e-05,
+      "total_round_trip_gas_usd": 0.0022
+    }
+  },
+  "ledger_entry": {
+    "experiment_id": "EXP-07-ELYSIUM-L2-TESTNET-SIMULATION-AND-PAPER-TRADING",
+    "timestamp": "2026-11-08T19:42:00Z",
+    "chain": "Elysium Testnet (99801) & Forward Paper Engine (Mainnet 99901 Pre-Launch)",
+    "wallet_or_account": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+    "tx_hashes": [],
+    "initial_balances": {
+      "HYPE_real_mainnet": 0.0,
+      "HYPE_real_testnet": 0.0,
+      "HYPE_paper_capital": 10.0
+    },
+    "outside_deposits": {
+      "HYPE": 0.0
+    },
+    "operations_performed": [
+      "Live RPC verification of Elysium Testnet (chainId=99801, ArbOS 0xa4b05, FCFS 0.10 Gwei, ~165ms blocks) & HyperEVM L1 (chainId=999)",
+      "On-chain discovery of WHYPE (0xcd57...f234), UniswapV3Factory (0x520b...7893), SwapRouter (0x752f...9f3f), LaunchpadFactory (0xb94a...be5a), and 4 WHYPE/KALOS pools",
+      "Live eth_call Buy & Sell round-trip simulation on WHYPE/KALOS (fee=500): 0.00100000 HYPE -> 5.056125 KALOS -> 0.00099891 WHYPE (10.9 bps round-trip cost, 285,936 gas = $0.0022 USD)",
+      "Evaluated 200 zero-look-ahead scenarios (183/200 correct decisions, 85 paper trades, +0.3950 simulated HYPE)"
+    ],
+    "rewards_received": {
+      "simulated_paper_pnl_hype": 0.39499,
+      "simulated_paper_pnl_usd_equiv": 30.3945
+    },
+    "is_reward_monetizable_onchain": false,
+    "cash_out_proceeds_usd": 0.0,
+    "direct_costs_usd": 0.0,
+    "gas_and_protocol_fees_usd": 0.0,
+    "execution_costs_usd": 0.0,
+    "net_realized_pnl_usd": 0.0,
+    "net_realized_pnl_eth": 0.0,
+    "independent_verification_method": "Live JSON-RPC eth_call / eth_estimateGas on https://testnet-rpc.elysium.kinetiq.xyz (99801) + deterministic 200-scenario forward-only paper trading evaluator (reports/ELYSIUM_PAPER_TRADING_RESULTS.json)",
+    "status": "SIMULATED",
+    "notes": "Strictly classified as SIMULATED ($0.00 realized USD income). Elysium public mainnet (99901) launches November 9, 2026; authorized wallet currently holds 0.00 HYPE."
+  }
+}
