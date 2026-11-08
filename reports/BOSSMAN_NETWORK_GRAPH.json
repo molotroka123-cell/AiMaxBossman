@@ -1,0 +1,730 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-11-08",
+  "owner_verified_wallet": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+  "color_legend": {
+    "REAL_VERIFIED": {
+      "stroke": "#10B981",
+      "fill": "#064E3B",
+      "description": "Verified existing local infrastructure, governance gates, RAG memory, and SHA-checked LoRA corpus"
+    },
+    "PAPER_ONLY_PLANNED": {
+      "stroke": "#F59E0B",
+      "fill": "#451A03",
+      "description": "Planned Telegram channels, [BOT] assistants, and $0 paper-pilot marketing campaigns awaiting owner launch approval"
+    }
+  },
+  "summary_counts": {
+    "total_nodes": 37,
+    "real_verified_nodes": 7,
+    "paper_only_planned_nodes": 30,
+    "total_edges": 56,
+    "real_verified_edges": 7,
+    "paper_only_planned_edges": 49,
+    "fake_trades_depicted": 0,
+    "sybil_accounts_depicted": 0
+  },
+  "nodes": [
+    {
+      "id": "OWNER",
+      "label": "Bossman Owner\n(Single Verified Profile)",
+      "group": "owner",
+      "status": "REAL_VERIFIED",
+      "x": 960,
+      "y": 110,
+      "radius": 44
+    },
+    {
+      "id": "BOSSMAN_CORE",
+      "label": "AiMaxBossman Core\n(Ryzen AI Max+ 395 128GB)",
+      "group": "core",
+      "status": "REAL_VERIFIED",
+      "x": 960,
+      "y": 270,
+      "radius": 48
+    },
+    {
+      "id": "PERMISSIONS_STOP",
+      "label": "Permissions & STOP-Latch\n(5 Security Gates PASS)",
+      "group": "governance",
+      "status": "REAL_VERIFIED",
+      "x": 430,
+      "y": 210,
+      "radius": 38
+    },
+    {
+      "id": "MEMORY_RAG",
+      "label": "Verified Memory & RAG\n(Mutable Facts & Ledger)",
+      "group": "governance",
+      "status": "REAL_VERIFIED",
+      "x": 670,
+      "y": 190,
+      "radius": 38
+    },
+    {
+      "id": "LORA_CORPUS",
+      "label": "Source-Grounded LoRA Corpus\n(Train + >=15% Holdout + Neg)",
+      "group": "governance",
+      "status": "REAL_VERIFIED",
+      "x": 1250,
+      "y": 190,
+      "radius": 38
+    },
+    {
+      "id": "CONTENT_PIPELINE",
+      "label": "Content Pipeline\n(Drafts & 30d Plans)",
+      "group": "infra",
+      "status": "REAL_VERIFIED",
+      "x": 1490,
+      "y": 210,
+      "radius": 38
+    },
+    {
+      "id": "ANALYTICS_HUB",
+      "label": "UTM & Single-Owner GEMS\nAnalytics (10 Campaign IDs)",
+      "group": "infra",
+      "status": "REAL_VERIFIED",
+      "x": 960,
+      "y": 980,
+      "radius": 42
+    },
+    {
+      "id": "TG-CH-01",
+      "label": "TG-CH-01\n@bossman_hq_official",
+      "title": "Bossman HQ | Autonomous Systems & Lab Log",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 150,
+      "y": 435,
+      "radius": 30
+    },
+    {
+      "id": "BOT-01",
+      "label": "BOT-01 [BOT]\n@bossman_hq_navigator_bot",
+      "title": "[BOT] Официальный бот-навигатор Bossman HQ (публикует дайджесты и карту сети, не пишет в ЛС без запроса)",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 150,
+      "y": 615,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-01",
+      "label": "CAMP-01\nGEMS-CAMP-01",
+      "title": "1. Основной бренд Bossman (Transparent AI Workstation Hub)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 150,
+      "y": 795,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-02",
+      "label": "TG-CH-02\n@bossman_swapme_roblox",
+      "title": "Bossman | SwapMe & Roblox Worlds Studio",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 330,
+      "y": 475,
+      "radius": 30
+    },
+    {
+      "id": "BOT-02",
+      "label": "BOT-02 [BOT]\n@bossman_swapme_devlog_bot",
+      "title": "[BOT] Автоматический публикатор чейнджлогов сборки и статуса игровых серверов SwapMe",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 330,
+      "y": 650,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-02",
+      "label": "CAMP-02\nGEMS-CAMP-02",
+      "title": "2. Roblox/SwapMe (4-World Showcase & Devlog)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 330,
+      "y": 835,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-03",
+      "label": "TG-CH-03\n@bossman_ai_tools",
+      "title": "Bossman | Practical AI Tools & Workflows",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 510,
+      "y": 435,
+      "radius": 30
+    },
+    {
+      "id": "BOT-03",
+      "label": "BOT-03 [BOT]\n@bossman_tools_catalog_bot",
+      "title": "[BOT] Каталогизатор проверенных AI-утилит и шаблонов конфигураций (только по запросу пользователя)",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 510,
+      "y": 615,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-03",
+      "label": "CAMP-03\nGEMS-CAMP-03",
+      "title": "3. AI-инструменты (Deterministic Skills & MCP Recipes)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 510,
+      "y": 795,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-04",
+      "label": "TG-CH-04\n@bossman_computer_use",
+      "title": "Bossman | Computer-Use & Safe Desktop Automation",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 690,
+      "y": 475,
+      "radius": 30
+    },
+    {
+      "id": "BOT-04",
+      "label": "BOT-04 [BOT]\n@bossman_ui_verifier_bot",
+      "title": "[BOT] Информационный бот по чек-листам безопасности Computer-Use и шаблонам постусловий",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 690,
+      "y": 650,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-04",
+      "label": "CAMP-04\nGEMS-CAMP-04",
+      "title": "4. Computer-use и автоматизация (Postcondition-Verified UI Agents)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 690,
+      "y": 835,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-05",
+      "label": "TG-CH-05\n@bossman_defensive_cyber",
+      "title": "Bossman | Defensive Cybersecurity & PC Hygiene",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 870,
+      "y": 435,
+      "radius": 30
+    },
+    {
+      "id": "BOT-05",
+      "label": "BOT-05 [BOT]\n@bossman_sec_gate_bot",
+      "title": "[BOT] Справочный бот по правилам секрет-гигиены и шаблонам defensive-аудита",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 870,
+      "y": 615,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-05",
+      "label": "CAMP-05\nGEMS-CAMP-05",
+      "title": "5. Defensive Cybersecurity (5-Gate Repo & Workstation Audit)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 870,
+      "y": 795,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-06",
+      "label": "TG-CH-06\n@bossman_creative_studio",
+      "title": "Bossman | Creative Studio (3D, Motion & Generative UI)",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1050,
+      "y": 475,
+      "radius": 30
+    },
+    {
+      "id": "BOT-06",
+      "label": "BOT-06 [BOT]\n@bossman_studio_showcase_bot",
+      "title": "[BOT] Ассистент галереи рендеров и технических спецификаций ассетов",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1050,
+      "y": 650,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-06",
+      "label": "CAMP-06\nGEMS-CAMP-06",
+      "title": "6. Creative Studio (Procedural 3D & Network Visualization)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1050,
+      "y": 835,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-07",
+      "label": "TG-CH-07\n@bossman_gamedev_lab",
+      "title": "Bossman | Game Development & Economy Engineering",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1230,
+      "y": 435,
+      "radius": 30
+    },
+    {
+      "id": "BOT-07",
+      "label": "BOT-07 [BOT]\n@bossman_gamedev_telemetry_bot",
+      "title": "[BOT] Бот сводок игровой телеметрии и отчётов регрессионных тестов",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1230,
+      "y": 615,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-07",
+      "label": "CAMP-07\nGEMS-CAMP-07",
+      "title": "7. Game Development (Balanced Virtual Economies & Automated QA)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1230,
+      "y": 795,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-08",
+      "label": "TG-CH-08\n@bossman_lora_training",
+      "title": "Bossman | Local AI Training, RAG & LoRA Engineering",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1410,
+      "y": 475,
+      "radius": 30
+    },
+    {
+      "id": "BOT-08",
+      "label": "BOT-08 [BOT]\n@bossman_corpus_auditor_bot",
+      "title": "[BOT] Публикатор метрик чистоты датасета, хэшей манифестов и результатов валидации на holdout",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1410,
+      "y": 650,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-08",
+      "label": "CAMP-08\nGEMS-CAMP-08",
+      "title": "8. AI-обучение и модели (Source-Grounded LoRA & Sealed Holdout)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1410,
+      "y": 835,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-09",
+      "label": "TG-CH-09\n@bossman_web3_research",
+      "title": "Bossman | Open Web3 Research & On-Chain Microstructure",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1590,
+      "y": 435,
+      "radius": 30
+    },
+    {
+      "id": "BOT-09",
+      "label": "BOT-09 [BOT]\n@bossman_onchain_metrics_bot",
+      "title": "[BOT] Аналитический бот публичной статистики комиссий и статуса тестовых симуляций (без торговых сигналов)",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1590,
+      "y": 615,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-09",
+      "label": "CAMP-09\nGEMS-CAMP-09",
+      "title": "9. Открытые исследования Web3 (Transparent Microstructure & Single-Profile GEMS)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1590,
+      "y": 795,
+      "radius": 28
+    },
+    {
+      "id": "TG-CH-10",
+      "label": "TG-CH-10\n@bossman_b2b_services",
+      "title": "Bossman | B2B Automation & Commercial Engineering Services",
+      "group": "channel",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1770,
+      "y": 475,
+      "radius": 30
+    },
+    {
+      "id": "BOT-10",
+      "label": "BOT-10 [BOT]\n@bossman_b2b_intake_bot",
+      "title": "[BOT] Официальный бот приёма технических заданий и первичного брифинга заказчиков",
+      "group": "bot",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1770,
+      "y": 650,
+      "radius": 24
+    },
+    {
+      "id": "CAMP-10",
+      "label": "CAMP-10\nGEMS-CAMP-10",
+      "title": "10. Коммерческие услуги Bossman (B2B Engineering & Automation Intake)",
+      "group": "campaign",
+      "status": "PAPER_ONLY_PLANNED",
+      "x": 1770,
+      "y": 835,
+      "radius": 28
+    }
+  ],
+  "edges": [
+    {
+      "source": "OWNER",
+      "target": "BOSSMAN_CORE",
+      "status": "REAL_VERIFIED",
+      "label": "Direct Governance"
+    },
+    {
+      "source": "OWNER",
+      "target": "PERMISSIONS_STOP",
+      "status": "REAL_VERIFIED",
+      "label": "Hardware/Software STOP"
+    },
+    {
+      "source": "BOSSMAN_CORE",
+      "target": "PERMISSIONS_STOP",
+      "status": "REAL_VERIFIED",
+      "label": "Pre-Action Gate"
+    },
+    {
+      "source": "BOSSMAN_CORE",
+      "target": "MEMORY_RAG",
+      "status": "REAL_VERIFIED",
+      "label": "Verified Lessons Only"
+    },
+    {
+      "source": "BOSSMAN_CORE",
+      "target": "LORA_CORPUS",
+      "status": "REAL_VERIFIED",
+      "label": "SHA-Verified Corpus"
+    },
+    {
+      "source": "BOSSMAN_CORE",
+      "target": "CONTENT_PIPELINE",
+      "status": "REAL_VERIFIED",
+      "label": "Local Draft Engine"
+    },
+    {
+      "source": "BOSSMAN_CORE",
+      "target": "ANALYTICS_HUB",
+      "status": "REAL_VERIFIED",
+      "label": "$0 Ledger & UTM"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-01",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "BOT-01",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-01",
+      "target": "CAMP-01",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-01",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-01"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-02",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-02",
+      "target": "BOT-02",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-02",
+      "target": "CAMP-02",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-02",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-02"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-02",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-03",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-03",
+      "target": "BOT-03",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-03",
+      "target": "CAMP-03",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-03",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-03"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-03",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-04",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-04",
+      "target": "BOT-04",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-04",
+      "target": "CAMP-04",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-04",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-04"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-04",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-05",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-05",
+      "target": "BOT-05",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-05",
+      "target": "CAMP-05",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-05",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-05"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-05",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-06",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-06",
+      "target": "BOT-06",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-06",
+      "target": "CAMP-06",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-06",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-06"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-06",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-07",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-07",
+      "target": "BOT-07",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-07",
+      "target": "CAMP-07",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-07",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-07"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-07",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-08",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-08",
+      "target": "BOT-08",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-08",
+      "target": "CAMP-08",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-08",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-08"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-08",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-09",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-09",
+      "target": "BOT-09",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-09",
+      "target": "CAMP-09",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-09",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-09"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-09",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    },
+    {
+      "source": "CONTENT_PIPELINE",
+      "target": "TG-CH-10",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "30d Content Plan (Awaiting Approval)"
+    },
+    {
+      "source": "TG-CH-10",
+      "target": "BOT-10",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Explicit [BOT] Assistant"
+    },
+    {
+      "source": "BOT-10",
+      "target": "CAMP-10",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Paper-Pilot Funnel ($0)"
+    },
+    {
+      "source": "CAMP-10",
+      "target": "ANALYTICS_HUB",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Single-Owner GEMS-CAMP-10"
+    },
+    {
+      "source": "TG-CH-01",
+      "target": "TG-CH-10",
+      "status": "PAPER_ONLY_PLANNED",
+      "label": "Hub Cross-Navigation"
+    }
+  ]
+}

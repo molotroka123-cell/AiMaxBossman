@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "bossman_lora_legit_corpus_20261108",
+  "created_at": "2026-11-08",
+  "weights_trained_in_this_run": false,
+  "security_and_quality_gates": {
+    "overall_status": "PASS",
+    "counts": {
+      "total_records": 60,
+      "train_records": 40,
+      "holdout_records": 10,
+      "negative_control_records": 10,
+      "holdout_ratio_of_positive": 0.2,
+      "train_holdout_overlap": 0
+    },
+    "gates": {
+      "deduplication_and_holdout_isolation": {
+        "status": "PASS",
+        "unique_ids": 60,
+        "train_holdout_overlap": 0,
+        "holdout_pct": 20.0
+      },
+      "secret_scan": {
+        "status": "PASS",
+        "hits": []
+      },
+      "pii_scan": {
+        "status": "PASS",
+        "hits": []
+      },
+      "prompt_injection_scan": {
+        "status": "PASS",
+        "uncontained_positive_hits": [],
+        "negative_controls_verified": 10
+      },
+      "license_and_provenance": {
+        "status": "PASS",
+        "failures": []
+      }
+    }
+  },
+  "files": {
+    "train.jsonl": {
+      "sha256": "8d00e99e90be1be8fa58c23149db06d797618ca461bce36f4cccf86a6381bf35",
+      "size_bytes": 58317
+    },
+    "holdout.jsonl": {
+      "sha256": "27cf5176d7925f8cde15b6b565473deaae2a64a1eeab766cfbda9589995cfa97",
+      "size_bytes": 14962
+    },
+    "negative_controls.jsonl": {
+      "sha256": "9a41baac5a8f54c97c20ce438985fe4777d935f7c69bb9ce3e6908d61271be6c",
+      "size_bytes": 11592
+    },
+    "sources.json": {
+      "sha256": "a404c318cf86a38a42613783377989e55331b96356e1769211fce2388aa9803e",
+      "size_bytes": 8300
+    },
+    "dataset_card.md": {
+      "sha256": "d4560099f09a8de63db9cfaf97411f412fa5340032ff2ba1a2c915e83fc464ac",
+      "size_bytes": 3651
+    },
+    "lora_training_config.json": {
+      "sha256": "b4e5a98c220ac35839b5f54c10e69ef1533618da5d88fbe3fa7ac47c6a962009",
+      "size_bytes": 1385
+    }
+  }
+}

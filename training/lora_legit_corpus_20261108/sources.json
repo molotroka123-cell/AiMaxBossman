@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-11-08",
+  "repo_root_identity": "AiMaxBossman",
+  "total_verified_sources": 20,
+  "sources": [
+    {
+      "source_path": "AGENTS.md",
+      "source_sha256": "9be9617b43fb392ee3b8a0bd9b7881ad97f66fffb6254a9a488d998228b4f19b",
+      "capability": "stop_latch_and_permissions",
+      "description": "Tier-0 repo standing orders, STOP-latch, worktree hygiene, and hardware rules",
+      "size_bytes": 23836,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/stop-latch-preflight/SKILL.md",
+      "source_sha256": "fdb71e913a67af25f9d0ce255e21abab1f9140efe1a646f1b920663e0f8475e3",
+      "capability": "stop_latch_and_permissions",
+      "description": "STOP-latch preflight checks before UI or terminal execution",
+      "size_bytes": 1835,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/permission-auditor/SKILL.md",
+      "source_sha256": "655cab40ed502329dccf8f0fe6d74ee6e8f68b6c8bb96d82deaf00b51280759c",
+      "capability": "stop_latch_and_permissions",
+      "description": "Permission matrix classification and least-privilege enforcement",
+      "size_bytes": 2097,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/secret-hygiene/SKILL.md",
+      "source_sha256": "3792f3b02a1d4565b5741b870aaafd1781b20b92eac97d8d45442f453076789c",
+      "capability": "defensive_cybersecurity",
+      "description": "Zero secret leakage, DPAPI/key redaction, and pre-commit secret scanning",
+      "size_bytes": 2376,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/pc-defense-audit/SKILL.md",
+      "source_sha256": "181b8a1e15b7fff58f3ea24f32fc36fc0cab05ec324cdcbf5fb2a90a5a7f12c8",
+      "capability": "defensive_cybersecurity",
+      "description": "Defensive workstation security audit and listener inspection",
+      "size_bytes": 2899,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/incident-response-local/SKILL.md",
+      "source_sha256": "a3d6ea7e24b9662f5b85c633e17df959d2e502026ab1105ce84981de36657fcb",
+      "capability": "defensive_cybersecurity",
+      "description": "Local incident response containment and read-only forensic snapshotting",
+      "size_bytes": 2914,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/proof-before-done/SKILL.md",
+      "source_sha256": "473d0398080bc57daf70f8234146c7b68f13fcad5400363965e141183e0cb3d6",
+      "capability": "verified_skill_execution",
+      "description": "Proof-before-done verification gate requiring empirical postconditions",
+      "size_bytes": 2006,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/external-evidence-check/SKILL.md",
+      "source_sha256": "8f7ff8025293ebf213f8e062c3655dc67f3d76339f7c5828dae381687e1c7913",
+      "capability": "campaign_analytics_and_attribution",
+      "description": "Independent verification of external metrics and revenue claims",
+      "size_bytes": 3163,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/memory-curator/SKILL.md",
+      "source_sha256": "85bf6a16cb7964a8f662c78f4eefefb7a9a9b05454ff5ef0e08681089a35c1a8",
+      "capability": "checkpoint_and_resume",
+      "description": "Separation of mutable RAG facts from verified durable agent lessons",
+      "size_bytes": 1814,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/sqlite-wal-checkpoint-guard/SKILL.md",
+      "source_sha256": "47025b2cdd900000a8738397d527fa8e66665fd1ca40f0757e1d28ec8163c6d1",
+      "capability": "checkpoint_and_resume",
+      "description": "Safe SQLite WAL checkpoint and resumable state persistence",
+      "size_bytes": 1931,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/safe-terminal/SKILL.md",
+      "source_sha256": "c285e00bbd51f4e5da36879074546b05907ae163d9d30d7d2c2e375bc96db160",
+      "capability": "tool_schema_grounding",
+      "description": "Safe non-destructive terminal command construction and timeout guards",
+      "size_bytes": 1919,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/safe-code-change/SKILL.md",
+      "source_sha256": "f5589ff67a20c9f0c07482444cd837020ac972b4bc1fcefe9c75f10f8821a538",
+      "capability": "runtime_source_identity",
+      "description": "Runtime source identity check and isolated git worktree code modifications",
+      "size_bytes": 1637,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/browser-research/SKILL.md",
+      "source_sha256": "21bc60ba9c1450a3a9874f15406c9f46a4d6c09a88796c64fa75cdaf7ae0bd34",
+      "capability": "browser_computer_use_postcondition",
+      "description": "Read-only public browser research with DOM/URL postcondition verification",
+      "size_bytes": 1536,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/telegram-x-tiktok-marketing-engine/SKILL.md",
+      "source_sha256": "30a7dc8ce7940c5317d8b59cda67cab4de45da2bf007866e957e36987342b144",
+      "capability": "telegram_content_admin_workflow",
+      "description": "Transparent Telegram content planning, UTM tagging, and explicit [BOT] labeling",
+      "size_bytes": 11732,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/agent-swarm-orchestration/SKILL.md",
+      "source_sha256": "085b938a75da1e4cf857f809b55c51ffc87568a77af6841b60b72eb249df40b8",
+      "capability": "task_planning_and_decomposition",
+      "description": "Multi-agent task planning, budget gating, and local-first model routing",
+      "size_bytes": 3727,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": ".agents/skills/bossman-self-repair-lessons/SKILL.md",
+      "source_sha256": "2643d52159a4bc6aa91299248de48e75d4e8bd07282a11cca8bdecea4d1120ab",
+      "capability": "error_handling_and_self_repair",
+      "description": "Deterministic error diagnosis, rollback, and test-driven self-repair",
+      "size_bytes": 2528,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": "learning/bullshot_earnings_ledger.py",
+      "source_sha256": "be3a2dd8683054fb74d78aeefb0e785b41ac4ddebdc8568db6e0ef808681305b",
+      "capability": "campaign_analytics_and_attribution",
+      "description": "Verified earnings ledger with single-owner attribution and $0 fake volume",
+      "size_bytes": 26738,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": "learning/elysium_trading_intelligence.py",
+      "source_sha256": "68ce8c6b052d52347e934622d61822b207f873ba4727ea1c83b4d6189df4773a",
+      "capability": "safety_refusal_financial_and_spam",
+      "description": "Execution governor blocking unapproved live trades and enforcing risk caps",
+      "size_bytes": 65090,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": "learning/bossman_trading_swarm.py",
+      "source_sha256": "abf64abd27f0eda27748044adf138d2cea5fc1493353a2dcf53d372da97cf3f6",
+      "capability": "task_planning_and_decomposition",
+      "description": "6-agent trading research swarm with local-first routing and $0 cloud spend",
+      "size_bytes": 59293,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    },
+    {
+      "source_path": "bossman-core/bossman/trading_learning/safety.py",
+      "source_sha256": "04b00b12c282e156878fae1f80ba793bbf012a47c71d1853069d7fc06a2b56c7",
+      "capability": "safety_refusal_financial_and_spam",
+      "description": "Trading learning safety invariants and live-gate enforcement",
+      "size_bytes": 8255,
+      "license": "Proprietary-Bossman-Internal-Verified"
+    }
+  ]
+}

@@ -1,0 +1,426 @@
+{
+  "timestamp_utc": "2026-11-08T20:10:04.578972+00:00",
+  "workspace": "C:\\Users\\asd\\Bossman\\wt-bossman-20-argon",
+  "branch": "argon/bullshot-first-verified-earnings",
+  "head_sha": "aeaa99d49d99f108d9445723fccd2992d878a99a",
+  "origin_main_sha": "4909c871a884355adcf3fe3f118cc2d64004123d",
+  "dirty_snapshot_sha256": "38d6ec78484aff9fa945c22e1dabd8cb877d06339e93cac26ae9e4a211fe038e",
+  "dirty_files_count": 41,
+  "dirty_status_short": [
+    "M .agents/skills/video-face-swap-facefusion/SKILL.md",
+    " M AGENTS.md",
+    " M bossman-core/bossman/context_engine/memory.py",
+    " M bossman-core/bossman/runner.py",
+    " M bossman-core/bossman/trading_learning/cli.py",
+    " M bossman-core/bossman/trading_learning/pump_project_launchpad.py",
+    " M bossman-core/bossman/trading_learning/routes.py",
+    " M bossman-core/tests/test_trading_pump_project_launchpad.py",
+    " M command-center/bcc/telegram_companion/console.py",
+    " M command-center/bcc/telegram_companion/owner_report.py",
+    " M command-center/ui/pages/trading_lab.js",
+    " M data/learning/failed_experiments.jsonl",
+    " M data/learning/fix_cases.jsonl",
+    " M data/learning/history.jsonl",
+    " M data/learning/journal.jsonl",
+    "?? .agents/skills/agent-swarm-orchestration/",
+    "?? .agents/skills/bossman-motion-concert-copy-copy/",
+    "?? .agents/skills/bossman-motion-concert-copy/",
+    "?? .agents/skills/roblox-monetization-harness/",
+    "?? .agents/skills/roblox-monetization-workflow/",
+    "?? .agents/skills/solana-pump-pilot-workflow/",
+    "?? apps/bossman-mobile/bossmobile/ui/bsent.html",
+    "?? apps/bossman-mobile/bossmobile/ui/bsent_banner_1500x500.png",
+    "?? apps/bossman-mobile/bossmobile/ui/bsent_logo_1024x1024.png",
+    "?? apps/bossman-mobile/bossmobile/ui/showcase.html",
+    "?? apps/bossman-mobile/bossmobile/ui/showcase_media/",
+    "?? apps/bossman-mobile/bossmobile/ui/vendor/GLTFExporter.js",
+    "?? apps/bossman-mobile/bossmobile/ui/vendor/models/readyplayer.me.glb",
+    "?? bossman-core/bossman/memory_spool.py",
+    "?? bossman-core/bossman/trading_learning/ai_token_mm_controller.py",
+    "?? bossman-core/bossman/trading_learning/solana_pilot_runner.py",
+    "?? bossman-core/tests/test_bossman_memory_upgrades.py",
+    "?? bossman-core/tests/test_trading_ai_token_mm.py",
+    "?? bossman-core/tests/test_trading_solana_pilot.py",
+    "?? command-center/bcc/features/jev_kev_game_squad.py",
+    "?? command-center/bcc/telegram_companion/widget_sandbox.py",
+    "?? command-center/tests/test_jev_kev_game_squad.py",
+    "?? docs/BOSSMAN_HARNESS_AGENT_AUDIT_20261101_RU.md",
+    "?? docs/audits/2026-11-02-ai-token-mm-control/",
+    "?? docs/audits/2026-11-02-solana-first-pilot/",
+    "?? tools/prove_ai_token_mm_controller.py"
+  ],
+  "git_worktrees": [
+    "C:/Users/asd/Bossman/integration-20261006                                                              bfbf25da [integrate/bossman-2.1-one-20261006]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-06cb4b33ec73                        5e7d01cf [lab/op-06cb4b33ec73]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-070a5caad5c5                        e0c19a28 [lab/op-070a5caad5c5]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-0b52419bc728                        b046b3b3 [lab/op-0b52419bc728]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-0db377569445                        b046b3b3 [lab/op-0db377569445]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-11026bf88acb                        38f4aec3 [lab/op-11026bf88acb]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-15c792545a28                        e0c19a28 [lab/op-15c792545a28]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-33b5bd4fbffd                        2ca20a41 [lab/op-33b5bd4fbffd]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-4257575f2bc8                        31265a15 [lab/op-4257575f2bc8]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-4766e79c9d65                        c91e934c [lab/op-4766e79c9d65]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-61b337f7d9d6                        cd71cddc [lab/op-61b337f7d9d6]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-6360e517bd5e                        5e7d01cf [lab/op-6360e517bd5e]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-64cf3cdadbdf                        cd71cddc [lab/op-64cf3cdadbdf]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-79d482bb5195                        31265a15 [lab/op-79d482bb5195]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-825e2c9e4a9f                        e0c19a28 [lab/op-825e2c9e4a9f]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-87ceb78d18a4                        e0c19a28 [lab/op-87ceb78d18a4]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-9889cab859fd                        b046b3b3 [lab/op-9889cab859fd]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-c56a43b1d89c                        2a3adecd [lab/op-c56a43b1d89c]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-d00bf4d25ca2                        9012b391 [lab/op-d00bf4d25ca2]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-d029679aea7d                        005cc414 [lab/op-d029679aea7d]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-d732dcbbe910                        cd71cddc [lab/op-d732dcbbe910]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-db1dfd28c89f                        f7efa98f [lab/op-db1dfd28c89f]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-db5935c0b31d                        cd71cddc [lab/op-db5935c0b31d]",
+    "C:/Users/asd/AppData/Local/Bossman/CommandCenter/qwen-operator/lab-e5505ab63905                        25bc7c54 [lab/op-e5505ab63905]",
+    "C:/Users/asd/AppData/Local/Bossman/stage22-proof/data-20261013-060914/qwen-operator/lab-478211ff41dd   e0549e22 [lab/op-478211ff41dd]",
+    "C:/Users/asd/AppData/Local/Bossman/stage22-proof/data-20261013-060938/qwen-operator/lab-6f822267e0e2   d35872fc [lab/op-6f822267e0e2]",
+    "C:/Users/asd/AppData/Local/Bossman/stage22-proof/data-20261013-061044/qwen-operator/lab-e54cbcaedc9d   3bd91243 [lab/op-e54cbcaedc9d]",
+    "C:/Users/asd/Bossman/apps-local/sana-wm/.claude/worktrees/agent-ab7fcadf649f9dd85/wt-war-tender        4fdc825c [feat/war-tender-pipeline-20261019]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a06f91f992136f807                    c164cb03 [feat/b05-cloud-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a07c5bdf1a14675f2                    cd183a32 [feat/b11-plugins-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a0a0c0989f65e20b6                    affbbeca [feat/lesson-transfer-proof-20261101]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a122f8ccdb8bca394                    c369fc21 [fix/paid-reservation-complete-20261101]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a145804276c0ececf                    d8871ef2 [feat/jeff-manual-gemma-20261021]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a15cdbfcef1066ccd                    4c0e4794 [feat/b09-agents-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a1918f8d89e035a95                    af8caf35 [fix/a22-04-pult-approvals-20261018]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a1fcb31969fe80793                    73f307b4 [swarm/cloud-worker]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a208f1407635a33e7                    19531c72 [feat/b02-ux-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a23f8d41d1ad63f11                    689d288e [feat/stop-visibility-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a25b49f8769318ed4                    0ff51ad1 [feat/swapme-practical-flow-20261101]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a2a1b6976f932b477                    95d0d4b7 [worktree-agent-a2a1b6976f932b477]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a30d79b640aa647ca                    e71c2a68 [feat/video-facelock-pult-20261021]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a31781bd432f1c5df                    b67e34c0 [feat/jeff-manual-cloud-fallback-20261021]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a372f302a55e41433                    7013e883 [fix/p0-swarm-cross-family-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a3eed612506f5e4ca                    c9c2c429 [worktree-agent-a3eed612506f5e4ca]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a3ffb3195f35808e0                    c2541393 [worktree-agent-a3ffb3195f35808e0]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a4087fd0fe0c19df7                    44caf013 [feat/arch-reliability-20261010]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a4087fd0fe0c19df7/.arch_scratch/base 44caf013 (detached HEAD)",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a416c6cec35813b89                    04b44bcf [swarm/lora-corpus]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a43b03eaa9a4f6fb8                    4ff10003 [fix/p0-studio-honest-result-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a461bd15dd1f29af8                    774742eb [feat/codex-learning-readiness-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a4798836fc30d8460                    3a3975d6 [feat/b06-computer-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a4980bf565ab6159a                    0ac5ff11 [swarm/warm-edit]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a4aa2c0fe5a26edd9                    aedeb495 [feat/north-star-ladder-20261010]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a4cb7b83043c5974d                    d951a788 [feat/b03-apps-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a4cf96a32ae5bce26                    95bd6d97 [feat/video-v2-artifacts-20261010]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a4def6e7af46d63b3                    d96c2d79 [feat/b08-memory-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a50dc882ffcb6b6c1                    f335fd77 [swarm/slow-endpoints]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a5be24b08cddfba07                    acbb2721 [feat/video-progress-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a60cc0b1895b1043a                    84b36051 [feat/nightly-backups-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a630cd20999b33864                    b3e8e252 [feat/pult-projects-workspace-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a6482b2d540214b4a                    00f59aec [feat/swarm-self-improve-20261018]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a65c5414938e5a7b5                    a3ba456e [worktree-agent-a65c5414938e5a7b5]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a6978a25e62a99879                    7f11a10b [swarm/mobile-accept]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a6f475dc67af560ca                    216dafb6 [feat/ltx25-direct-gen-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a701ac36cb38cb265                    93b706c4 [feat/agent-watchdog-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a76b26733c32edbd0                    010bc6c4 [fix/jeff-during-dense-generation-20261021]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a778a5fced00b893d                    40bfe386 [feat/chat-smooth-gemma-photo-20261019]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a7bd41d7f305aa993                    48caed3e [swarm/owner-priority]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a7e78b5ce5a8fc685                    f1978c13 [worktree-agent-a7e78b5ce5a8fc685]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a7ef2bd9568a1f00a                    e0ea61ca [feat/jeff-closeout-20261010]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a7ef2bd9568a1f00a/tmp_closeout/base  93c81467 (detached HEAD)",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a80db0f9c6bddda63                    8125c657 [worktree-agent-a80db0f9c6bddda63]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a824172f753544c92                    ebb8c676 [feat/code-mode-facade-20261010]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a8477db675ce37d4e                    117097f1 [worktree-agent-a8477db675ce37d4e]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a8ada781c70c57687                    3daebc7f [swarm/edit-delivery]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a8f7dc970fd440946                    ceee487e [worktree-agent-a8f7dc970fd440946]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a9336dcd12dc4def6                    2f08512d [feat/b03-apps-v2-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a942ba091b5353cf9                    09e65290 [feat/lh-driver-gaps-20261101] locked",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a94afdd291a53101d                    3ee9177a [swarm/ollama-numctx]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a958cb1d24849ee01                    2ed203c8 [docs/2-5-alignment-20261018]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a992d5802826c73b9                    f335fd77 [swarm/cyber-bench]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a9a71c6a2ba5b641a                    44caf013 [fix/ux-redteam-20261010]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a9bffee04c0fdf128                    c567ae04 [swarm/direct-gen-multi-20261007]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-a9c5edee24497bc29                    66ac57cb [swarm/direct-gen-ui-20261007]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-ab81d0a5e937a85c8                    fdcc0adb [fix/lh-evidence-outputs-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-abc806b2e8a38e7bc                    d3212208 [worktree-agent-abc806b2e8a38e7bc]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-abe5ac800ccf126a7                    e46e925d [fix/pult-chat-context-live-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-abed23e7f30b44aef                    93dc65db [fix/ci-red-2-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-ac323a13299cc3cfa                    8f2ad238 [feat/war-terminal-contacts-match-20261021]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-acd88b9d8d2dbd2cd                    24a2c660 [feat/b01-jeff-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-ad42ef095f4aba60d                    28a7460d [feat/b04-models-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-ad84f54b54de64707                    39134092 [feat/jeff-outbound-guard-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-adfaf0dc1c4674355                    3483148c [worktree-agent-adfaf0dc1c4674355]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-ae03b34ad064ff99e                    636b47e7 [feat/warm-queue-measured-eta-20261019]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-ae12a666983df2baa                    3b65173a [fix/p0-billing-unknown-20261031]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-aea9f3c744a39f9d2                    53d13313 [feat/war-terminal-prozorro-20261021]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-aebca6a8b60222b42                    07cf296e [work-facelock]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-aec04d63e0b9a6b30                    b3c93c17 [feat/b10-skills-20261020]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-aec34543aee1fc9b8                    9946ae6c [fix/studio-real-path-20261101]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-af230ddeb70927576                    36f5278a [worktree-agent-af230ddeb70927576]",
+    "C:/Users/asd/Bossman/integration-20261006/.claude/worktrees/agent-afd0f56ff7fc7da8c                    b00bb78a [docs/matrix-15-20261101]",
+    "C:/Users/asd/Bossman/wt-ads-20261010                                                                   798e0856 [feat/ads-queue-20261010]",
+    "C:/Users/asd/Bossman/wt-agent-proof-20261025                                                           449e3057 [proof/pult-agent-self-edit-20261025]",
+    "C:/Users/asd/Bossman/wt-apps-ux-sweep-20261024                                                         bec593db [fix/apps-ux-sweep-main-20261024-r2]",
+    "C:/Users/asd/Bossman/wt-argon-clean-8a956d07                                                           8a956d07 (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-argon-foundation-20261022                                                      87268320 [claude/argon-foundation-20261022]",
+    "C:/Users/asd/Bossman/wt-argon-pair                                                                     1856815f [argon/pair-20261029]",
+    "C:/Users/asd/Bossman/wt-argon-poker-20261015                                                           c5d2dfa2 [fix/argon-poker-gto-20261015]",
+    "C:/Users/asd/Bossman/wt-argon-t1-t2-t4                                                                 fc915317 [feat/argon-t1-t2-t4-20261029]",
+    "C:/Users/asd/Bossman/wt-bossman-20-argon                                                               aeaa99d4 [argon/bullshot-first-verified-earnings]",
+    "C:/Users/asd/Bossman/wt-bossman-cam-tapo-20261014                                                      f176d753 [feat/bossman-cam-tapo-20261014]",
+    "C:/Users/asd/Bossman/wt-branches-20261011                                                              1fabcec3 [docs/branch-inventory-20261011]",
+    "C:/Users/asd/Bossman/wt-checkpoint-20261015                                                            288f79f5 (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-claude-docs                                                                    18a39b45 [feat/harness-unified-20261103]",
+    "C:/Users/asd/Bossman/wt-codex-2h-fix-20261018                                                          b5bb05b9 [codex/bossman-2h-fix-20261018]",
+    "C:/Users/asd/Bossman/wt-codex-exec-20261028                                                            ee06a8e2 [codex/exec-swarm-20261028]",
+    "C:/Users/asd/Bossman/wt-codex-lora-db-20261108                                                         da4e2ea6 (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-codex-owner-audit-20261027                                                     a8140abb (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-codex-paid-reservation-20261101                                                e24c14f2 [codex/paid-reservation-20261101]",
+    "C:/Users/asd/Bossman/wt-codex-security-training-20261101                                               331b441f [codex/security-training-foundation-20261101]",
+    "C:/Users/asd/Bossman/wt-codex-task-911-20261101                                                        989205b7 [codex/task-911-routing-20261101]",
+    "C:/Users/asd/Bossman/wt-codex-wan-quality-20261027                                                     3abeb918 [codex/wan-genjutsu-quality-20261027]",
+    "C:/Users/asd/Bossman/wt-d22-20261013                                                                   cd71cddc [chk/20261013-night]",
+    "C:/Users/asd/Bossman/wt-delegate-proof                                                                 61b850f7 [proof/cli-delegate-20261023]",
+    "C:/Users/asd/Bossman/wt-final-20261023                                                                 c56a07db [fix/cross-surface-stop-resume-20261026]",
+    "C:/Users/asd/Bossman/wt-freellm-0918                                                                   a1c41fde [feat/freellmapi-orchestra-20261018]",
+    "C:/Users/asd/Bossman/wt-hairmask-20261010                                                              c82c71d7 [feat/hair-mask-20261010]",
+    "C:/Users/asd/Bossman/wt-harness-guards                                                                 e51bae47 [feat/harness-guards-20261103]",
+    "C:/Users/asd/Bossman/wt-integrate-20261022                                                             33dc7352 [integrate/claude-20261022]",
+    "C:/Users/asd/Bossman/wt-jeff-one-20261009                                                              36894519 [jeff/one-20261009]",
+    "C:/Users/asd/Bossman/wt-live-20261023                                                                  d040f762 [feat/bossman-browser-parse-20261022]",
+    "C:/Users/asd/Bossman/wt-main-prod-20261009                                                             4044058b [ux/genjutsu-live-constructor]",
+    "C:/Users/asd/Bossman/wt-mobile-20261015                                                                fff6ca02 [feat/mobile-ios-20261015]",
+    "C:/Users/asd/Bossman/wt-mobile-assistant-pilot                                                         83771ee7 [claude/mobile-assistant-audit-20261017]",
+    "C:/Users/asd/Bossman/wt-mp-b-poker-20261011                                                            6d9f2020 [mp/b-poker-20261011]",
+    "C:/Users/asd/Bossman/wt-mp-d-20261011                                                                  01345739 [mp/d-trading-audit-20261011]",
+    "C:/Users/asd/Bossman/wt-music2                                                                         bf92a16f [fix/audit-t3-hard-refusals-20261028]",
+    "C:/Users/asd/Bossman/wt-pc-agent-argon-20261013                                                        8a956d07 [release/bossman-one-20261014]",
+    "C:/Users/asd/Bossman/wt-persona-20261016                                                               3c7df719 [feat/persona-intake-20261016]",
+    "C:/Users/asd/Bossman/wt-podcast-20261016                                                               5973d0a2 [feat/bossman-podcast-20261016]",
+    "C:/Users/asd/Bossman/wt-poker-tg-20261014                                                              37e4ab47 [feat/poker-tg-miniapp-20261014]",
+    "C:/Users/asd/Bossman/wt-proof-20261021                                                                 c4b600da [test/tools-skills-proof-20261021]",
+    "C:/Users/asd/Bossman/wt-pult-live                                                                      cd71cddc (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-rc-20261019                                                                    8a2de925 [integrate/north-star-final-20261023]",
+    "C:/Users/asd/Bossman/wt-readme-20261023                                                                0ef8e8e9 [docs/readme-swarm-20261023]",
+    "C:/Users/asd/Bossman/wt-release-20261011                                                               5cea6445 [release/bossman-2.1-rc-20261011]",
+    "C:/Users/asd/Bossman/wt-retention-4x-20261014                                                          611e86c8 [codex/retention-4x-20261014]",
+    "C:/Users/asd/Bossman/wt-runpod-20261010                                                                c886abfb [feat/runpod-vace14b-20261010]",
+    "C:/Users/asd/Bossman/wt-runtime-20261101                                                               f8d6e5b5 (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-soup-integration-20261012                                                      dda1a0f2 [codex/soup-integration-20261012]",
+    "C:/Users/asd/Bossman/wt-stage2-20261011                                                                3de66731 [feat/stage2-retest-20261011]",
+    "C:/Users/asd/Bossman/wt-stage22-20261013                                                               58568779 [feat/stage22-qwen-operator-20261013]",
+    "C:/Users/asd/Bossman/wt-studio-20261017                                                                a2a78d83 [feat/studio-model-picker-20261017]",
+    "C:/Users/asd/Bossman/wt-studio-v2-20261011                                                             2032c924 [feat/studio-v2-20261011]",
+    "C:/Users/asd/Bossman/wt-swarm-0657                                                                     0657cd1b (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-swarm-research                                                                 6869f67a (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-swarm-verify                                                                   6869f67a (detached HEAD)",
+    "C:/Users/asd/Bossman/wt-t3video-20261011                                                               2da814b1 [feat/t3-video-eval-20261011]",
+    "C:/Users/asd/Bossman/wt-tier1-20261019                                                                 41eb3645 [feat/tier1-argon-20261019]",
+    "C:/Users/asd/Bossman/wt-trading-legit-20261011                                                         71bfd53f [trade/legit-20261011]",
+    "C:/Users/asd/Bossman/wt-translator-20261015                                                            53dadac3 [feat/live-translator-mvp]",
+    "C:/Users/asd/Bossman/wt-trio-argon                                                                     15aab6cd [feat/claude-live-acceptance-20261028]",
+    "C:/Users/asd/Bossman/wt-trio-audit                                                                     4c62adf1 [integrate/one-bossman-20261027]",
+    "C:/Users/asd/Bossman/wt-trio-claude                                                                    472a878b [agent/claude-20261026]",
+    "C:/Users/asd/Bossman/wt-unified-20261010                                                               08eaca59 [feat/bossman-2-2-20261013]",
+    "C:/Users/asd/Bossman/wt-unify-20261015                                                                 d5093a12 [unify/main-20261015]",
+    "C:/Users/asd/Bossman/wt-ux-polish-20261026                                                             7b79ee5a [ux/modern-smooth-buttons-20261026]",
+    "C:/Users/asd/Bossman/wt-vibe-20261011                                                                  49e073f5 [feat/vibe-studio-20261011]",
+    "C:/Users/asd/Bossman/wt-war-terminal-polish-20261018                                                   22301640 [feat/war-terminal-mobile-polish-20261018]",
+    "C:/Users/asd/Bossman/wt-war-terminal-polish-main-20261018                                              ce47a9f1 [feat/war-terminal-polish-20261018-main]",
+    "D:/Bossman/work/dev-orchestra/wt-dev1-glm                                                              72509f4a [orch/dev1-glm/O1]",
+    "D:/Bossman/work/dev-orchestra/wt-dev1-kimi                                                             f02a5aab [orch/dev1-kimi/S1]",
+    "D:/Bossman/work/dev-orchestra/wt-dev2-glm                                                              908e6a99 [orch/dev2-glm/S2]",
+    "D:/Bossman/work/dev-orchestra/wt-dev2-nemotron                                                         72509f4a [orch/dev2-nemotron/O2]",
+    "D:/Bossman/work/wt-p0                                                                                  72509f4a [feat/p0-hardening-20261029]",
+    "D:/Bossman/work/wt-readme                                                                              72509f4a (detached HEAD)",
+    "D:/Bossman/work/wt-ux                                                                                  72509f4a [integrate/evo-2-5-20261028]"
+  ],
+  "active_processes_readonly": [
+    {
+      "Id": 8312,
+      "ProcessName": "llama-server",
+      "StartTime": "/Date(1794168527485)/"
+    },
+    {
+      "Id": 3708,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794130974813)/"
+    },
+    {
+      "Id": 5592,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794130841554)/"
+    },
+    {
+      "Id": 10684,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794166076303)/"
+    },
+    {
+      "Id": 16028,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794128157210)/"
+    },
+    {
+      "Id": 17200,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794132019992)/"
+    },
+    {
+      "Id": 18252,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794128280080)/"
+    },
+    {
+      "Id": 21284,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794131253474)/"
+    },
+    {
+      "Id": 21648,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794166205136)/"
+    },
+    {
+      "Id": 21912,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794165850491)/"
+    },
+    {
+      "Id": 22480,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794166104966)/"
+    },
+    {
+      "Id": 22984,
+      "ProcessName": "node",
+      "StartTime": "/Date(1794165850449)/"
+    },
+    {
+      "Id": 3860,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794166104961)/"
+    },
+    {
+      "Id": 7668,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794130841549)/"
+    },
+    {
+      "Id": 8348,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794130974808)/"
+    },
+    {
+      "Id": 8680,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794132019986)/"
+    },
+    {
+      "Id": 9176,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794130974869)/"
+    },
+    {
+      "Id": 10200,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794166105020)/"
+    },
+    {
+      "Id": 12948,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794131253469)/"
+    },
+    {
+      "Id": 13532,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794130841655)/"
+    },
+    {
+      "Id": 13744,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794131253529)/"
+    },
+    {
+      "Id": 16588,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794165850454)/"
+    },
+    {
+      "Id": 18596,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794132020086)/"
+    },
+    {
+      "Id": 20952,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794166076298)/"
+    },
+    {
+      "Id": 20988,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794166076358)/"
+    },
+    {
+      "Id": 22508,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794166205189)/"
+    },
+    {
+      "Id": 23136,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794166205131)/"
+    },
+    {
+      "Id": 23420,
+      "ProcessName": "node_repl",
+      "StartTime": "/Date(1794165850526)/"
+    },
+    {
+      "Id": 18284,
+      "ProcessName": "ollama",
+      "StartTime": "/Date(1794128318652)/"
+    },
+    {
+      "Id": 19428,
+      "ProcessName": "ollama app",
+      "StartTime": "/Date(1794128317134)/"
+    },
+    {
+      "Id": 7224,
+      "ProcessName": "python",
+      "StartTime": "/Date(1794128207027)/"
+    },
+    {
+      "Id": 8428,
+      "ProcessName": "python",
+      "StartTime": "/Date(1794168603315)/"
+    },
+    {
+      "Id": 15420,
+      "ProcessName": "python",
+      "StartTime": "/Date(1794128156016)/"
+    },
+    {
+      "Id": 17232,
+      "ProcessName": "python",
+      "StartTime": "/Date(1794128209228)/"
+    },
+    {
+      "Id": 17392,
+      "ProcessName": "python",
+      "StartTime": "/Date(1794128202678)/"
+    },
+    {
+      "Id": 8480,
+      "ProcessName": "pythonw",
+      "StartTime": "/Date(1794128153370)/"
+    },
+    {
+      "Id": 8812,
+      "ProcessName": "pythonw",
+      "StartTime": "/Date(1794128153377)/"
+    }
+  ],
+  "invariants_enforced": {
+    "foreign_processes_untouched": true,
+    "second_backend_poller_trainer_not_started": true,
+    "roblox_studio_untouched": true,
+    "zero_token_trades_or_transfers": true,
+    "zero_sybil_or_fake_accounts": true,
+    "zero_pii_or_secrets_in_cloud_or_lora": true
+  }
+}

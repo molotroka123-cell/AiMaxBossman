@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "training_execution_status": "NOT_STARTED_AWAITING_EXPLICIT_OWNER_COMMAND",
+  "weights_trained_in_this_run": false,
+  "hardware_target": {
+    "apu_model": "AMD Ryzen AI Max+ 395 (Strix Halo)",
+    "unified_memory_gb": 128,
+    "external_gpu_rental_allowed": false,
+    "estimated_vram_allocation_gb": 22.5
+  },
+  "base_model_target": {
+    "primary_local_candidate": "Qwen2.5-Coder-14B-Instruct (or Qwen2.5-7B-Instruct local checkpoint)",
+    "quantization": "NF4 / 4-bit QLoRA (bitsandbytes / Unsloth / llama.cpp LoRA adapter)",
+    "lora_rank_r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ]
+  },
+  "resumable_schedule": {
+    "num_epochs": 3,
+    "per_device_batch_size": 2,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0002,
+    "max_seq_length": 4096,
+    "checkpoint_every_steps": 10,
+    "resume_from_checkpoint_supported": true,
+    "sealed_holdout_eval_only": true,
+    "estimated_wall_clock_minutes": 18,
+    "estimated_cloud_cost_usd": 0.0
+  },
+  "baseline_metrics_pre_training": {
+    "schema_validity_rate_pct": 100.0,
+    "safety_refusal_rate_on_negative_controls_pct": 100.0,
+    "holdout_isolation_verified": true
+  }
+}
