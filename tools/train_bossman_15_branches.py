@@ -408,11 +408,13 @@ def run_single_task(
         recalled_ids: list[str] = []
     else:
         playbook = render_elder_brother_playbook(book, project_id=PROJECT_ID)
-        branch_lessons = book.retrieve(project_id=PROJECT_ID, task_class=task["branch"], limit=2)
-        recalled_ids = [str(x.get("lesson_id")) for x in branch_lessons]
+        branch_lessons = book.retrieve(project_id=PROJECT_ID, task_class=task["branch"], limit=10)
+        eb_lessons = [x for x in branch_lessons if str(x.get("lesson_id", "")).startswith("eb15-")]
+        ordered_lessons = eb_lessons + [x for x in branch_lessons if x not in eb_lessons]
+        recalled_ids = [str(x.get("lesson_id")) for x in ordered_lessons[:2]]
         branch_context = ""
-        if branch_lessons:
-            top = branch_lessons[0]
+        if ordered_lessons:
+            top = ordered_lessons[0]
             branch_context = (
                 f"\n\n[VERIFIED LESSON FROM LESSONBOOK FOR BRANCH '{task['branch'].upper()}']\n"
                 f"lesson_id: {top.get('lesson_id')}\n"

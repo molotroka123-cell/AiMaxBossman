@@ -882,10 +882,11 @@ def render_elder_brother_playbook(book: LessonBook, *, project_id: str = PROJECT
         "Verified Branch Lessons (15 Directions):",
     ]
     for branch in CANONICAL_15_BRANCHES:
-        rows = book.retrieve(project_id=project_id, task_class=branch, limit=2)
+        rows = book.retrieve(project_id=project_id, task_class=branch, limit=10)
         if not rows:
             continue
-        top = rows[0]
+        eb_rows = [r for r in rows if str(r.get("lesson_id", "")).startswith("eb15-")]
+        top = eb_rows[0] if eb_rows else rows[0]
         lines.append(
             f"- [{branch.upper()}] Advice: {top.get('correction')} | Check: {top.get('check')}"
         )

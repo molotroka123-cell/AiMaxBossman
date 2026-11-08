@@ -1,0 +1,625 @@
+{
+  "timestamp_utc": "2026-11-08T14:17:57.916046+00:00",
+  "elapsed_seconds": 216.04,
+  "snapshot_id": "ds-20261108-140156-358ae41d",
+  "jeff_kb_rows": 0,
+  "train_rows": 1493,
+  "holdout_rows": 182,
+  "gate_verdict": "PASS",
+  "gate_report_path": "C:\\Users\\asd\\Bossman\\train-snapshots\\ds-20261108-140156-358ae41d.gate.json",
+  "adapter_checkpoint": "C:\\Users\\asd\\Bossman\\KNOWLEDGE_CORE\\lora_computer_use_adapter\\computer_use_lora_r64_alpha128.npz",
+  "adapter_bytes": 9730702,
+  "ollama_model": "bossman-computer-use-lora:latest",
+  "total_evaluation_cases_executed": 232,
+  "suite_a_182_unseen_holdout_50way_hard_negative": {
+    "trainable_parameters": 526336,
+    "epochs": 25,
+    "baseline_epoch0": {
+      "holdout_count": 182,
+      "top1_accuracy_pct": 1.65,
+      "top3_accuracy_pct": 7.69,
+      "mrr": 0.0946,
+      "dpo_hard_negative_accuracy_pct": 52.2,
+      "by_source": {
+        "lessons": {
+          "total": 16,
+          "top1_pct": 0.0,
+          "top3_pct": 0.0,
+          "dpo_hard_pct": 56.25
+        },
+        "owner_docs": {
+          "total": 98,
+          "top1_pct": 2.04,
+          "top3_pct": 10.2,
+          "dpo_hard_pct": 54.08
+        },
+        "skills": {
+          "total": 46,
+          "top1_pct": 2.17,
+          "top3_pct": 6.52,
+          "dpo_hard_pct": 47.83
+        },
+        "tools": {
+          "total": 22,
+          "top1_pct": 0.0,
+          "top3_pct": 4.55,
+          "dpo_hard_pct": 50.0
+        }
+      }
+    },
+    "trained_final": {
+      "holdout_count": 182,
+      "top1_accuracy_pct": 87.36,
+      "top3_accuracy_pct": 96.15,
+      "mrr": 0.9179,
+      "dpo_hard_negative_accuracy_pct": 99.45,
+      "by_source": {
+        "lessons": {
+          "total": 16,
+          "top1_pct": 100.0,
+          "top3_pct": 100.0,
+          "dpo_hard_pct": 100.0
+        },
+        "owner_docs": {
+          "total": 98,
+          "top1_pct": 90.82,
+          "top3_pct": 97.96,
+          "dpo_hard_pct": 98.98
+        },
+        "skills": {
+          "total": 46,
+          "top1_pct": 71.74,
+          "top3_pct": 91.3,
+          "dpo_hard_pct": 100.0
+        },
+        "tools": {
+          "total": 22,
+          "top1_pct": 95.45,
+          "top3_pct": 95.45,
+          "dpo_hard_pct": 100.0
+        }
+      }
+    },
+    "improvements": {
+      "top1_delta_pct": 85.71,
+      "top3_delta_pct": 88.46,
+      "mrr_delta": 0.8233,
+      "dpo_hard_negative_delta_pct": 47.25
+    },
+    "history": [
+      {
+        "epoch": 0,
+        "eval": {
+          "holdout_count": 182,
+          "top1_accuracy_pct": 1.65,
+          "top3_accuracy_pct": 7.69,
+          "mrr": 0.0946,
+          "dpo_hard_negative_accuracy_pct": 52.2,
+          "by_source": {
+            "lessons": {
+              "total": 16,
+              "top1_pct": 0.0,
+              "top3_pct": 0.0,
+              "dpo_hard_pct": 56.25
+            },
+            "owner_docs": {
+              "total": 98,
+              "top1_pct": 2.04,
+              "top3_pct": 10.2,
+              "dpo_hard_pct": 54.08
+            },
+            "skills": {
+              "total": 46,
+              "top1_pct": 2.17,
+              "top3_pct": 6.52,
+              "dpo_hard_pct": 47.83
+            },
+            "tools": {
+              "total": 22,
+              "top1_pct": 0.0,
+              "top3_pct": 4.55,
+              "dpo_hard_pct": 50.0
+            }
+          }
+        }
+      },
+      {
+        "epoch": 1,
+        "loss": 16.4675,
+        "eval": {
+          "holdout_count": 182,
+          "top1_accuracy_pct": 13.19,
+          "top3_accuracy_pct": 20.88,
+          "mrr": 0.227,
+          "dpo_hard_negative_accuracy_pct": 67.03,
+          "by_source": {
+            "lessons": {
+              "total": 16,
+              "top1_pct": 12.5,
+              "top3_pct": 18.75,
+              "dpo_hard_pct": 62.5
+            },
+            "owner_docs": {
+              "total": 98,
+              "top1_pct": 19.39,
+              "top3_pct": 25.51,
+              "dpo_hard_pct": 70.41
+            },
+            "skills": {
+              "total": 46,
+              "top1_pct": 2.17,
+              "top3_pct": 13.04,
+              "dpo_hard_pct": 67.39
+            },
+            "tools": {
+              "total": 22,
+              "top1_pct": 9.09,
+              "top3_pct": 18.18,
+              "dpo_hard_pct": 54.55
+            }
+          }
+        }
+      },
+      {
+        "epoch": 5,
+        "loss": 0.3848,
+        "eval": {
+          "holdout_count": 182,
+          "top1_accuracy_pct": 82.42,
+          "top3_accuracy_pct": 93.41,
+          "mrr": 0.8823,
+          "dpo_hard_negative_accuracy_pct": 98.35,
+          "by_source": {
+            "lessons": {
+              "total": 16,
+              "top1_pct": 100.0,
+              "top3_pct": 100.0,
+              "dpo_hard_pct": 100.0
+            },
+            "owner_docs": {
+              "total": 98,
+              "top1_pct": 85.71,
+              "top3_pct": 96.94,
+              "dpo_hard_pct": 97.96
+            },
+            "skills": {
+              "total": 46,
+              "top1_pct": 65.22,
+              "top3_pct": 82.61,
+              "dpo_hard_pct": 97.83
+            },
+            "tools": {
+              "total": 22,
+              "top1_pct": 90.91,
+              "top3_pct": 95.45,
+              "dpo_hard_pct": 100.0
+            }
+          }
+        }
+      },
+      {
+        "epoch": 10,
+        "loss": 0.1989,
+        "eval": {
+          "holdout_count": 182,
+          "top1_accuracy_pct": 86.26,
+          "top3_accuracy_pct": 95.6,
+          "mrr": 0.9129,
+          "dpo_hard_negative_accuracy_pct": 98.9,
+          "by_source": {
+            "lessons": {
+              "total": 16,
+              "top1_pct": 100.0,
+              "top3_pct": 100.0,
+              "dpo_hard_pct": 100.0
+            },
+            "owner_docs": {
+              "total": 98,
+              "top1_pct": 88.78,
+              "top3_pct": 97.96,
+              "dpo_hard_pct": 97.96
+            },
+            "skills": {
+              "total": 46,
+              "top1_pct": 71.74,
+              "top3_pct": 89.13,
+              "dpo_hard_pct": 100.0
+            },
+            "tools": {
+              "total": 22,
+              "top1_pct": 95.45,
+              "top3_pct": 95.45,
+              "dpo_hard_pct": 100.0
+            }
+          }
+        }
+      },
+      {
+        "epoch": 15,
+        "loss": 0.1585,
+        "eval": {
+          "holdout_count": 182,
+          "top1_accuracy_pct": 86.81,
+          "top3_accuracy_pct": 95.6,
+          "mrr": 0.9148,
+          "dpo_hard_negative_accuracy_pct": 98.9,
+          "by_source": {
+            "lessons": {
+              "total": 16,
+              "top1_pct": 100.0,
+              "top3_pct": 100.0,
+              "dpo_hard_pct": 100.0
+            },
+            "owner_docs": {
+              "total": 98,
+              "top1_pct": 89.8,
+              "top3_pct": 97.96,
+              "dpo_hard_pct": 97.96
+            },
+            "skills": {
+              "total": 46,
+              "top1_pct": 71.74,
+              "top3_pct": 89.13,
+              "dpo_hard_pct": 100.0
+            },
+            "tools": {
+              "total": 22,
+              "top1_pct": 95.45,
+              "top3_pct": 95.45,
+              "dpo_hard_pct": 100.0
+            }
+          }
+        }
+      },
+      {
+        "epoch": 20,
+        "loss": 0.1472,
+        "eval": {
+          "holdout_count": 182,
+          "top1_accuracy_pct": 87.36,
+          "top3_accuracy_pct": 96.15,
+          "mrr": 0.9188,
+          "dpo_hard_negative_accuracy_pct": 99.45,
+          "by_source": {
+            "lessons": {
+              "total": 16,
+              "top1_pct": 100.0,
+              "top3_pct": 100.0,
+              "dpo_hard_pct": 100.0
+            },
+            "owner_docs": {
+              "total": 98,
+              "top1_pct": 89.8,
+              "top3_pct": 97.96,
+              "dpo_hard_pct": 98.98
+            },
+            "skills": {
+              "total": 46,
+              "top1_pct": 73.91,
+              "top3_pct": 91.3,
+              "dpo_hard_pct": 100.0
+            },
+            "tools": {
+              "total": 22,
+              "top1_pct": 95.45,
+              "top3_pct": 95.45,
+              "dpo_hard_pct": 100.0
+            }
+          }
+        }
+      },
+      {
+        "epoch": 25,
+        "loss": 0.1509,
+        "eval": {
+          "holdout_count": 182,
+          "top1_accuracy_pct": 87.36,
+          "top3_accuracy_pct": 96.15,
+          "mrr": 0.9179,
+          "dpo_hard_negative_accuracy_pct": 99.45,
+          "by_source": {
+            "lessons": {
+              "total": 16,
+              "top1_pct": 100.0,
+              "top3_pct": 100.0,
+              "dpo_hard_pct": 100.0
+            },
+            "owner_docs": {
+              "total": 98,
+              "top1_pct": 90.82,
+              "top3_pct": 97.96,
+              "dpo_hard_pct": 98.98
+            },
+            "skills": {
+              "total": 46,
+              "top1_pct": 71.74,
+              "top3_pct": 91.3,
+              "dpo_hard_pct": 100.0
+            },
+            "tools": {
+              "total": 22,
+              "top1_pct": 95.45,
+              "top3_pct": 95.45,
+              "dpo_hard_pct": 100.0
+            }
+          }
+        }
+      }
+    ]
+  },
+  "suite_b_28_live_14branch_agent_tasks": {
+    "tasks_count": 28,
+    "branches_tested": [
+      "agents",
+      "apps",
+      "cloud",
+      "commerce",
+      "computer",
+      "devices",
+      "media",
+      "memory",
+      "models",
+      "ops",
+      "oss",
+      "plugins",
+      "skills",
+      "ux"
+    ],
+    "untrained_strict_pass": 4,
+    "trained_lora_strict_pass": 26,
+    "untrained_strict_pct": 14.29,
+    "trained_lora_strict_pct": 92.86,
+    "delta_strict_pass": 22,
+    "tool_tasks_untrained_pass": "0/14",
+    "tool_tasks_trained_pass": "14/14",
+    "rule_tasks_untrained_pass": "4/14",
+    "rule_tasks_trained_pass": "12/14"
+  },
+  "suite_c_15_live_operational_scenarios": {
+    "scenarios_count": 15,
+    "untrained_pass": 0,
+    "trained_lora_pass": 12,
+    "untrained_pass_pct": 0.0,
+    "trained_lora_pass_pct": 80.0,
+    "delta_pass": 12,
+    "details": [
+      {
+        "id": "SCEN-01-BULLS-BASE-FEES",
+        "category": "bulls_base_volume",
+        "untrained_hits": "2/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "3/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:BULLS-BASE-OLD-TOKENS-VOLUME-AND-70PCT-FEE-REBATE:detect",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:BULL-3ACCOUNT-REFERRAL-AND-XP-LOOP:fix",
+          "skills:browser-contract-scraping:ловушки"
+        ]
+      },
+      {
+        "id": "SCEN-02-BULL-P2P-CONSOLIDATION",
+        "category": "bull_p2p_market",
+        "untrained_hits": "0/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "3/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:BULL-P2P-MARKET-CONSOLIDATION-AND-ACHIEVEMENT-CASCADE:detect",
+          "skills:bulls-volume-and-p2p-consolidation:2-bull-gems-gem-bullshot-io-zero-fee-p2p-consolidation-achie",
+          "owner_docs:VIDEO_PIPELINE_STAGES_20261010.md:stage-4-пробный-прогон-10-10-пробный-подготовка-этапа-4-поро:p2"
+        ]
+      },
+      {
+        "id": "SCEN-03-BULL-3ACC-REFERRAL",
+        "category": "bull_3account_loop",
+        "untrained_hits": "1/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "4/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:BULL-3ACCOUNT-REFERRAL-AND-XP-LOOP:fix",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:BULL-3ACCOUNT-REFERRAL-AND-XP-LOOP:detect",
+          "lessons:bossman_critical_errors:LLM-REASONING-OFF:fix"
+        ]
+      },
+      {
+        "id": "SCEN-04-PLAYWRIGHT-WALLETCONNECT",
+        "category": "browser_verification",
+        "untrained_hits": "0/2",
+        "untrained_pass": false,
+        "trained_lora_hits": "2/2",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:PLAYWRIGHT-CHROME-WALLETCONNECT-AUTH-SCREENSHOT:detect",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:PLAYWRIGHT-CHROME-WALLETCONNECT-AUTH-SCREENSHOT:fix",
+          "tools:computer.act:what"
+        ]
+      },
+      {
+        "id": "SCEN-05-SOLANA-TOP-RUNNERS",
+        "category": "solana_trading",
+        "untrained_hits": "0/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "4/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:SOLANA-TOP-RUNNERS-AND-ATA-RECLAIM:fix",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:SOLANA-TOP-RUNNERS-AND-ATA-RECLAIM:detect",
+          "owner_docs:HAIR_STENCIL_WORKFLOW_20261011.md:1-что-где-лежит"
+        ]
+      },
+      {
+        "id": "SCEN-06-ROBLOX-MOBILE-FONT",
+        "category": "roblox_mobile_ui",
+        "untrained_hits": "1/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "4/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:ROBLOX-MOBILE-FONT-ATLAS-GOTHAMBOLD:fix",
+          "owner_docs:VIDEO_PIPELINE_STAGES_20261010.md:stage-4-background-swap-пороги-зафиксированы-10-10-до-первог:p1",
+          "owner_docs:VIDEO_PIPELINE_STAGES_20261010.md:пороги-гейтов-анимации-зафиксированы-10-10-до-прогона-инстру"
+        ]
+      },
+      {
+        "id": "SCEN-07-ROBLOX-JOYSTICK-DRIVE",
+        "category": "roblox_gameplay",
+        "untrained_hits": "1/2",
+        "untrained_pass": false,
+        "trained_lora_hits": "2/2",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:ROBLOX-JOYSTICK-AND-SERVER-DRIVE-SYNC:detect",
+          "skills:roblox-monetization-harness:12-зрелищные-внутриигровые-события-в-хабе-golden-merge-взлёт",
+          "skills:roblox-monetization-harness:9-широкая-ценовая-сетка-и-социальная-косметика-3d-скины-лисё"
+        ]
+      },
+      {
+        "id": "SCEN-08-MUSE-GLB-PIPELINE",
+        "category": "blender_3d",
+        "untrained_hits": "1/2",
+        "untrained_pass": false,
+        "trained_lora_hits": "1/2",
+        "trained_lora_pass": false,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:MUSE-5-GLB-BLENDER-PIPELINE:detect",
+          "owner_docs:VIDEO_PIPELINE_STAGES_20261010.md:пороги-гейтов-анимации-зафиксированы-10-10-до-прогона-инстру",
+          "owner_docs:CHECKPOINT_20261022_02_FRESH_OSS_RU.md:checkpoint-02-свежие-open-source-релизы-подтверждённые-22-10"
+        ]
+      },
+      {
+        "id": "SCEN-09-TG-MARKETING-ANTIFLOOD",
+        "category": "telegram_marketing",
+        "untrained_hits": "2/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "4/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:TG-MARKETING-ANTIFLOOD-AND-PNG-CARDS:detect",
+          "owner_docs:JARVIS_15BRANCH_AND_SOCIAL_MARKETING_RUNBOOK_20261108_RU.md:2-управление-telegram-для-маркетинга-проектов",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:REFERRAL-FUNNEL-AND-CLOUD-SWARM-CONTENT-FACTORY:fix"
+        ]
+      },
+      {
+        "id": "SCEN-10-X-TWITTER-GROWTH",
+        "category": "social_x",
+        "untrained_hits": "0/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "4/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:X-TWITTER-REGISTRATION-AND-CDP-ISOLATION:detect",
+          "owner_docs:JARVIS_15BRANCH_AND_SOCIAL_MARKETING_RUNBOOK_20261108_RU.md:3-регистрация-и-продвижение-проектов-в-x-twitter",
+          "skills:telegram-x-tiktok-marketing-engine:3-регистрация-прогрев-и-автоматизация-x-twitter-для-продвиже"
+        ]
+      },
+      {
+        "id": "SCEN-11-TIKTOK-SHORTS-FFMPEG",
+        "category": "social_tiktok",
+        "untrained_hits": "0/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "2/4",
+        "trained_lora_pass": false,
+        "lora_retrieved_ids": [
+          "lessons:bossman_lessons_20261108_jarvis_marketing:TIKTOK-SHORTS-FFMPEG-AND-WARMUP:detect",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:TIKTOK-SHORTS-FFMPEG-AND-WARMUP:fix",
+          "skills:telegram-x-tiktok-marketing-engine:4-регистрация-прогрев-и-фабрика-вертикальных-видео-в-tiktok-"
+        ]
+      },
+      {
+        "id": "SCEN-12-BOSSMAN-STOP-409",
+        "category": "bossman_core_invariants",
+        "untrained_hits": "0/3",
+        "untrained_pass": false,
+        "trained_lora_hits": "1/3",
+        "trained_lora_pass": false,
+        "lora_retrieved_ids": [
+          "lessons:bossman_critical_errors:LLM-REASONING-OFF:fix",
+          "tools:computer.act:need",
+          "tools:computer.act:what"
+        ]
+      },
+      {
+        "id": "SCEN-13-REFERRAL-FUNNEL",
+        "category": "referral_acquisition",
+        "untrained_hits": "0/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "3/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "skills:roblox-monetization-harness:2-многослойная-система-удержания-поверх-базового-цикла-daily",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:REFERRAL-FUNNEL-AND-CLOUD-SWARM-CONTENT-FACTORY:fix",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:BULL-3ACCOUNT-REFERRAL-AND-XP-LOOP:fix"
+        ]
+      },
+      {
+        "id": "SCEN-14-CLOUD-CONTENT-SWARM",
+        "category": "cloud_content_factory",
+        "untrained_hits": "0/4",
+        "untrained_pass": false,
+        "trained_lora_hits": "4/4",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "skills:roblox-monetization-harness:12-зрелищные-внутриигровые-события-в-хабе-golden-merge-взлёт",
+          "lessons:bossman_lessons_20261108_jarvis_marketing:REFERRAL-FUNNEL-AND-CLOUD-SWARM-CONTENT-FACTORY:fix",
+          "skills:roblox-monetization-harness:11-учёт-выплат-за-вовлечённость-creator-rewards-engagement-и"
+        ]
+      },
+      {
+        "id": "SCEN-15-GIT-MAIN-PUSH",
+        "category": "git_main_release",
+        "untrained_hits": "1/3",
+        "untrained_pass": false,
+        "trained_lora_hits": "3/3",
+        "trained_lora_pass": true,
+        "lora_retrieved_ids": [
+          "skills:parallel-agent-file-ownership:проверка-перед-коммитом",
+          "owner_docs:ARGON_PAIR_PROMPT_20261029_RU.md:2-протокол-пары-для-main",
+          "owner_docs:CONTINUATION.md:остаток-продукта"
+        ]
+      }
+    ]
+  },
+  "suite_d_repo_memory_and_holdout_gates": {
+    "total_checks": 7,
+    "passed_checks": 7,
+    "pass_pct": 100.0,
+    "checks": {
+      "memory_recall_eval": {
+        "ok": true,
+        "returncode": 0,
+        "output": "[{\"id\": \"T1\", \"expect\": 238, \"rank\": 1, \"top3\": [238, 599, 608]}, {\"id\": \"T2\", \"expect\": 592, \"rank\": 1, \"top3\": [592, 255, 898]}, {\"id\": \"T3\", \"expect\": 600, \"rank\": 2, \"top3\": [239, 600, 241]}]\nexpected lesson in top-3: 3/3"
+      },
+      "lora_dataset_verify": {
+        "ok": true,
+        "returncode": 0,
+        "output": "verify: OK 4 files match manifest (ds-20261108-140156-358ae41d)"
+      },
+      "tree_holdout_atomic_json_replace": {
+        "ok": true,
+        "returncode": 0,
+        "output": "HOLDOUT atomic_json_replace: 10/10 passed"
+      },
+      "tree_holdout_cli_task_paging": {
+        "ok": true,
+        "returncode": 0,
+        "output": "HOLDOUT cli_task_paging: 7/7 passed"
+      },
+      "tree_holdout_discovery_nonfinite": {
+        "ok": true,
+        "returncode": 0,
+        "output": "HOLDOUT discovery_nonfinite: 72/72 passed"
+      },
+      "tree_holdout_goal_budget_nonfinite": {
+        "ok": true,
+        "returncode": 0,
+        "output": "HOLDOUT goal_budget_nonfinite: 9/9 passed"
+      },
+      "tree_holdout_ungrounded_screen_claim": {
+        "ok": true,
+        "returncode": 0,
+        "output": "HOLDOUT ungrounded_screen_claim: 32/32 passed"
+      }
+    }
+  }
+}
