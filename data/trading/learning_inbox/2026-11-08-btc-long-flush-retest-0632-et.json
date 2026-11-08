@@ -1,0 +1,145 @@
+{
+  "case_id": "LEARNING-2026-11-08-BTC-LONG-FLUSH-RETEST-0632-ET",
+  "date": "2026-11-08",
+  "market": "BTC",
+  "source_type": "OWNER_PROVIDED_K1M6A_SCREENSHOT_SEQUENCE",
+  "learning_status": "UNVERIFIED",
+  "task": "Add Nov 8 cascade and post-flush retest to Bossman market memory without hindsight leakage or ungrounded trade signal.",
+  "provenance": {
+    "source": "User screenshots of K1m6a Coinwise BTCUSD 30m Coinbase chart; time shown New York; full exchange feed and exact video URL not established.",
+    "same_episode": true,
+    "cross_frame_order": [
+      "05:41:36 ET (approx screenshot display, earlier flush)",
+      "06:05:20 ET",
+      "06:15:06 ET",
+      "06:27:18 ET",
+      "06:32:51 ET"
+    ],
+    "raw_images": "Owner conversation uploads, not committed to repository. Request explicit source media or locally mounted files for deterministic frame hashes.",
+    "data_quality": "VISUAL_ONLY_APPROXIMATE",
+    "warning": "Coinwise chart BTCUSD (Coinbase) and left-side footprint/orderflow or right-hand trades may show different instruments/venues. Do not merge those prices, deltas or OI without identity match."
+  },
+  "observed_sequence": [
+    {
+      "time_et": "05:41:36",
+      "phase": "BREAKDOWN_LONG_LIQUIDATION_CASCADE",
+      "price_range_approx_usd": [
+        73500,
+        74500
+      ],
+      "price": "DOWN",
+      "cvd": "DOWN",
+      "oi": "DOWN",
+      "liquidations": "LONG_SPIKE",
+      "decision": "NO_SETUP: price and CVD capitulation alone are not evidence of a bottom"
+    },
+    {
+      "time_et": "06:05:20",
+      "phase": "POST_CASCADE_FIRST_REBOUND",
+      "price_range_approx_usd": [
+        74000,
+        74600
+      ],
+      "price": "UP_FROM_LOW",
+      "cvd": "SMALL_RECOVERY",
+      "oi": "LOW_AFTER_FLUSH",
+      "decision": "REVERSAL_WATCH: no accepted reclaim"
+    },
+    {
+      "time_et": "06:15:06",
+      "phase": "POST_CASCADE_RETEST",
+      "price_range_approx_usd": [
+        74000,
+        74800
+      ],
+      "price": "RECOVERING_BUT_BELOW_OLD_RANGE",
+      "cvd": "PARTIAL_RECOVERY",
+      "oi": "PARTIAL_RECOVERY",
+      "decision": "WAIT for reclaim/hold and retest; beware false breakout"
+    },
+    {
+      "time_et": "06:27:18",
+      "phase": "REBOUND_WITHOUT_CONFIRMED_ACCEPTANCE",
+      "price_range_approx_usd": [
+        74000,
+        74500
+      ],
+      "price": "BELOW_PRIOR_VALUE",
+      "cvd": "WEAK_RECOVERY",
+      "oi": "REMAINS_DEPRESSED",
+      "decision": "NO_SETUP until price recovers lost structure"
+    },
+    {
+      "time_et": "06:32:51",
+      "phase": "SECOND_TEST_AND_REBOUND_ATTEMPT",
+      "price_range_approx_usd": [
+        73900,
+        74700
+      ],
+      "price": "BOUNCE_AFTER_LONG_LOWER_WICK",
+      "cvd": "STABILIZING_AND_TICK_UP",
+      "oi": "PARTIAL_REBUILD",
+      "liquidations": "PRIOR_LONG_LIQUIDATION_SPIKE_VISIBLE",
+      "decision": "REVERSAL_WATCH, not confirmed LONG",
+      "structural_levels_approx_usd": {
+        "lower_support_zone": [
+          73900,
+          74250
+        ],
+        "near_reclaim_zone": [
+          74700,
+          75000
+        ],
+        "higher_reclaim_zone": [
+          75200,
+          75700
+        ]
+      }
+    }
+  ],
+  "key_lessons": [
+    "Multi-frame temporal evidence is more useful than isolated screenshot guesses.",
+    "Price↓ CVD↓ OI↓ plus large long liquidations indicates a deleveraging or cascade candidate, not an automatic bottom.",
+    "The first bounce can fail; confirm lost level reclaim, acceptance and retest before PROMOTED long setup.",
+    "CVD uptick with price flat is ambiguous; test bid/ask absorption versus buyer inefficiency using price response and depth.",
+    "OI alone is not a directional long/short count; new leverage can support either side.",
+    "Right-side trade tape and central BTCUSD Coinbase chart must not be treated as identical until symbols, venues and quote units verified.",
+    "Do not assert measured forecast probabilities (45/35/20) without calibrated out-of-sample validation.",
+    "Do not mark multiple crops of the same timestamp as independent evidence.",
+    "A post-flush rebound may fail; capture BOTH long and short outcomes and label NO_SETUP as valid."
+  ],
+  "training_workflow": {
+    "states": [
+      "CASCADE_ACTIVE",
+      "FIRST_BOUNCE",
+      "RETEST_PENDING",
+      "RECLAIM_CANDIDATE",
+      "ACCEPTED_RECLAIM_OR_FAILED_BOUNCE",
+      "OUTCOME_VERIFIED"
+    ],
+    "candidate_long": "Price holds/recovers zone after wick, CVD stabilizes or rises, reclaim above prior loss level and retest acceptance, costs/risk justified",
+    "candidate_short": "Failed reclaim at lost structure, subsequent price and CVD weakness, OI regime assessed; not blind short after cascade",
+    "leakage_guard": "For each decision timestamp use only data observable at or before that timestamp. Later screenshots label outcome, not prior features.",
+    "requested_outcomes": [
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "60m",
+      "4h",
+      "24h",
+      "7d"
+    ],
+    "verify_before_promotion": [
+      "exact timestamps and source video IDs",
+      "frame SHA256",
+      "symbol/exchange identity for Price CVD OI",
+      "calibrated chart ROI numeric extraction",
+      "reference levels and actual retests",
+      "forward MFE/MAE after trigger including slippage/fees",
+      "independent verifier and owner or replay outcome"
+    ]
+  },
+  "status_note": "Not a trading recommendation. No automated order authorization. Outcome not yet verified.",
+  "created_date": "2026-11-09"
+}
