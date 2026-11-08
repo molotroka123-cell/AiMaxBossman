@@ -1,0 +1,2038 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-11-08T19:26:00Z",
+  "agent": "Argon (AiMaxBossman Lead Engineering & Training Agent)",
+  "total_scenarios": 100,
+  "harness_loop_steps": [
+    "1_observe_platform_state",
+    "2_identify_legitimate_reward_opportunity",
+    "3_select_next_permitted_action",
+    "4_predict_expected_balance_changes",
+    "5_execute_dry_run_or_authorized_action",
+    "6_read_resulting_state",
+    "7_independently_verify_result",
+    "8_update_agent_memory"
+  ],
+  "category_counts": {
+    "mining": 15,
+    "claims": 13,
+    "upgrade_efficiency": 12,
+    "referrals": 10,
+    "api_errors": 12,
+    "ui_recovery": 10,
+    "insufficient_resources": 10,
+    "reward_calculations": 10,
+    "failed_transactions": 8
+  },
+  "scenarios": [
+    {
+      "scenario_id": "SCENARIO-001",
+      "category": "mining",
+      "title": "Free Cave #1 (60s, 5 Energy, 0 MP)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (cave-6ad9ec1875966: reqLv=1, reqMP=0, energy=5, duration=60s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate cave-6ad9ec1875966: eligible=True. Base expected reward=10.0 GEMS, with 2.7x multiplier=27.0 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"cave-6ad9ec1875966\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -5,
+          "expected_gems_at_maturity": 27.0,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for cave-6ad9ec1875966",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=60, energy reduced by 5",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded cave-6ad9ec1875966 mining telemetry: eligible=True, energyCost=5, yield=27.0 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-002",
+      "category": "mining",
+      "title": "Free Cave #2 (60s, 5 Energy, 0 MP)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (cave-6ada43fe93394: reqLv=1, reqMP=0, energy=5, duration=60s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate cave-6ada43fe93394: eligible=True. Base expected reward=10.0 GEMS, with 2.7x multiplier=27.0 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"cave-6ada43fe93394\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -5,
+          "expected_gems_at_maturity": 27.0,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for cave-6ada43fe93394",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=60, energy reduced by 5",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded cave-6ada43fe93394 mining telemetry: eligible=True, energyCost=5, yield=27.0 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-003",
+      "category": "mining",
+      "title": "Free Cave #3 (60s, 5 Energy, 0 MP)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (cave-6ada4401d69ed: reqLv=1, reqMP=0, energy=5, duration=60s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate cave-6ada4401d69ed: eligible=True. Base expected reward=10.0 GEMS, with 2.7x multiplier=27.0 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"cave-6ada4401d69ed\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -5,
+          "expected_gems_at_maturity": 27.0,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for cave-6ada4401d69ed",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=60, energy reduced by 5",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded cave-6ada4401d69ed mining telemetry: eligible=True, energyCost=5, yield=27.0 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-004",
+      "category": "mining",
+      "title": "Greenstone Quarry (600s, 10 Energy, 0 MP)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (greenstone-quarry: reqLv=1, reqMP=0, energy=10, duration=600s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate greenstone-quarry: eligible=True. Base expected reward=11.5 GEMS, with 2.7x multiplier=31.05 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"greenstone-quarry\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -10,
+          "expected_gems_at_maturity": 31.05,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for greenstone-quarry",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=600, energy reduced by 10",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded greenstone-quarry mining telemetry: eligible=True, energyCost=10, yield=31.05 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-005",
+      "category": "mining",
+      "title": "Crystal Cavern (1800s, 20 Energy, 25 MP)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (crystal-cavern: reqLv=4, reqMP=25, energy=20, duration=1800s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate crystal-cavern: eligible=True. Base expected reward=35.0 GEMS, with 2.7x multiplier=94.5 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"crystal-cavern\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -20,
+          "expected_gems_at_maturity": 94.5,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for crystal-cavern",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=1800, energy reduced by 20",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded crystal-cavern mining telemetry: eligible=True, energyCost=20, yield=94.5 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-006",
+      "category": "mining",
+      "title": "Ember Mine (5400s, 35 Energy, 60 MP)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (ember-mine: reqLv=8, reqMP=60, energy=35, duration=5400s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate ember-mine: eligible=True. Base expected reward=80.0 GEMS, with 2.7x multiplier=216.0 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"ember-mine\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -35,
+          "expected_gems_at_maturity": 216.0,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for ember-mine",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=5400, energy reduced by 35",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded ember-mine mining telemetry: eligible=True, energyCost=35, yield=216.0 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-007",
+      "category": "mining",
+      "title": "Frozen Depths (14400s, 50 Energy, 120 MP)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (frozen-depths: reqLv=14, reqMP=120, energy=50, duration=14400s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate frozen-depths: eligible=True. Base expected reward=275.0 GEMS, with 2.7x multiplier=742.5 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"frozen-depths\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -50,
+          "expected_gems_at_maturity": 742.5,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for frozen-depths",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=14400, energy reduced by 50",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded frozen-depths mining telemetry: eligible=True, energyCost=50, yield=742.5 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-008",
+      "category": "mining",
+      "title": "Void Rift Locked Check (Lv.20 Required vs Lv.15 Current)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (void-rift: reqLv=20, reqMP=250, energy=75, duration=28800s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate void-rift: eligible=False. Base expected reward=0.0 GEMS, with 2.7x multiplier=0.0 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "SKIP void-rift (Level 15 < required Level 20)",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": 0,
+          "expected_gems_at_maturity": 0.0,
+          "expected_xp_at_maturity": 0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run gate blocked ineligible Void Rift start",
+        "6_read_resulting_state": "No position created; energy unchanged",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded void-rift mining telemetry: eligible=False, energyCost=75, yield=0.0 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-009",
+      "category": "mining",
+      "title": "Energy Regen Tick Verification (+1 Energy / 180s)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (cave-6ad9ec1875966-regen: reqLv=1, reqMP=0, energy=5, duration=60s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate cave-6ad9ec1875966-regen: eligible=True. Base expected reward=10.0 GEMS, with 2.7x multiplier=27.0 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"cave-6ad9ec1875966-regen\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -5,
+          "expected_gems_at_maturity": 27.0,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for cave-6ad9ec1875966-regen",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=60, energy reduced by 5",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded cave-6ad9ec1875966-regen mining telemetry: eligible=True, energyCost=5, yield=27.0 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-010",
+      "category": "mining",
+      "title": "Greenstone Quarry Resource Drop (Iron Ore + Coal + Emerald)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (greenstone-ore-drop: reqLv=1, reqMP=0, energy=10, duration=600s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate greenstone-ore-drop: eligible=True. Base expected reward=18.75 GEMS, with 2.7x multiplier=38.3 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"greenstone-ore-drop\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -10,
+          "expected_gems_at_maturity": 38.3,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for greenstone-ore-drop",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=600, energy reduced by 10",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded greenstone-ore-drop mining telemetry: eligible=True, energyCost=10, yield=38.3 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-011",
+      "category": "mining",
+      "title": "Crystal Cavern Sapphire + Copper Yield Valuation",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (crystal-sapphire-drop: reqLv=4, reqMP=25, energy=20, duration=1800s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate crystal-sapphire-drop: eligible=True. Base expected reward=57.0 GEMS, with 2.7x multiplier=116.5 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"crystal-sapphire-drop\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -20,
+          "expected_gems_at_maturity": 116.5,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for crystal-sapphire-drop",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=1800, energy reduced by 20",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded crystal-sapphire-drop mining telemetry: eligible=True, energyCost=20, yield=116.5 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-012",
+      "category": "mining",
+      "title": "Ember Mine Ruby + Sulfur Yield Valuation",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (ember-ruby-drop: reqLv=8, reqMP=60, energy=35, duration=5400s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate ember-ruby-drop: eligible=True. Base expected reward=129.0 GEMS, with 2.7x multiplier=265.0 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"ember-ruby-drop\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -35,
+          "expected_gems_at_maturity": 265.0,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for ember-ruby-drop",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=5400, energy reduced by 35",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded ember-ruby-drop mining telemetry: eligible=True, energyCost=35, yield=265.0 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-013",
+      "category": "mining",
+      "title": "Frozen Depths Diamond + Cryo Shard Yield Valuation",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (frozen-diamond-drop: reqLv=14, reqMP=120, energy=50, duration=14400s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate frozen-diamond-drop: eligible=True. Base expected reward=410.0 GEMS, with 2.7x multiplier=877.5 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"frozen-diamond-drop\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -50,
+          "expected_gems_at_maturity": 877.5,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for frozen-diamond-drop",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=14400, energy reduced by 50",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded frozen-diamond-drop mining telemetry: eligible=True, energyCost=50, yield=877.5 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-014",
+      "category": "mining",
+      "title": "Simultaneous 3 Free Caves Dispatch (15 Energy Total)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (parallel-3cave-dispatch: reqLv=1, reqMP=0, energy=15, duration=60s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate parallel-3cave-dispatch: eligible=True. Base expected reward=30.0 GEMS, with 2.7x multiplier=81.0 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"parallel-3cave-dispatch\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -15,
+          "expected_gems_at_maturity": 81.0,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for parallel-3cave-dispatch",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=60, energy reduced by 15",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded parallel-3cave-dispatch mining telemetry: eligible=True, energyCost=15, yield=81.0 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-015",
+      "category": "mining",
+      "title": "Mining Speed +15% Duration Reduction Check",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/user/me (Level=15, MP=260, Energy=75/140, Multiplier=2.7x) & GET /api/mining/locations (speed-bonus-15pct: reqLv=15, reqMP=260, energy=20, duration=1530s).",
+        "2_identify_legitimate_reward_opportunity": "Evaluate speed-bonus-15pct: eligible=True. Base expected reward=35.0 GEMS, with 2.7x multiplier=94.5 GEMS ($0.00 realized USD until TGE).",
+        "3_select_next_permitted_action": "POST /api/mining/positions {\"locationId\": \"speed-bonus-15pct\"}",
+        "4_predict_expected_balance_changes": {
+          "energy_delta": -20,
+          "expected_gems_at_maturity": 94.5,
+          "expected_xp_at_maturity": 50,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authorized off-chain API call POST /api/mining/positions for speed-bonus-15pct",
+        "6_read_resulting_state": "Position created with status=active, remainingSeconds=1530, energy reduced by 20",
+        "7_independently_verify_result": "Verified via GET /api/mining/positions and GET /api/user/me energy balance.",
+        "8_update_agent_memory": "Recorded speed-bonus-15pct mining telemetry: eligible=True, energyCost=20, yield=94.5 GEMS at 2.7x ($0.00 realized USD)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-016",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #1 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 25.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-017",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #2 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 50.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-018",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #3 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 75.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-019",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #4 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 100.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-020",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #5 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 125.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-021",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #6 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 150.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-022",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #7 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 175.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-023",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #8 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 200.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-024",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #9 (Off-Chain Gem API Claim)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=False). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "POST /api/mining/positions/:id/claim (or /quests/claim, /achievements/claim, /staking/positions/:id/claim)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 225.0,
+          "weth_claimed_eth": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Authenticated POST claim request to gemapi.bullshot.io",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via independent GET /api/user/me delta check (e.g., +37.8 GEMS, +50 XP).",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-025",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #10 (On-Chain Base FeeCollector)",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=True). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "Call FeeCollector.collectAll(token) + WETH.withdraw()",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "weth_claimed_eth": 5e-05,
+          "realized_usd_delta": 0.11
+        },
+        "5_execute_dry_run_or_authorized_action": "Pre-flight eth_call followed by signed EIP-1559 tx on Base 8453",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via eth_getTransactionReceipt(status=0x1) and eth_getBalance",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-026",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #11 (On-Chain Base FeeCollector)",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=True). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "Call FeeCollector.collectAll(token) + WETH.withdraw()",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "weth_claimed_eth": 5e-05,
+          "realized_usd_delta": 0.11
+        },
+        "5_execute_dry_run_or_authorized_action": "Pre-flight eth_call followed by signed EIP-1559 tx on Base 8453",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via eth_getTransactionReceipt(status=0x1) and eth_getBalance",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-027",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #12 (On-Chain Base FeeCollector)",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=True). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "Call FeeCollector.collectAll(token) + WETH.withdraw()",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "weth_claimed_eth": 5e-05,
+          "realized_usd_delta": 0.11
+        },
+        "5_execute_dry_run_or_authorized_action": "Pre-flight eth_call followed by signed EIP-1559 tx on Base 8453",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via eth_getTransactionReceipt(status=0x1) and eth_getBalance",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-028",
+      "category": "claims",
+      "title": "Verified Reward Claim Scenario #13 (On-Chain Base FeeCollector)",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Inspect ready claimable state via RPC eth_call / GET /api/mining/positions / GET /api/quests / GET /api/achievements / GET /api/staking/positions.",
+        "2_identify_legitimate_reward_opportunity": "Claimable reward identified (onchain=True). Check gas cost vs reward.",
+        "3_select_next_permitted_action": "Call FeeCollector.collectAll(token) + WETH.withdraw()",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "weth_claimed_eth": 5e-05,
+          "realized_usd_delta": 0.11
+        },
+        "5_execute_dry_run_or_authorized_action": "Pre-flight eth_call followed by signed EIP-1559 tx on Base 8453",
+        "6_read_resulting_state": "Read updated native ETH / WETH balance at latest block or updated user.gems & user.xp.",
+        "7_independently_verify_result": "Verified via eth_getTransactionReceipt(status=0x1) and eth_getBalance",
+        "8_update_agent_memory": "Stored verified claim receipt in bullshot_earnings_ledger with status VERIFIED_REWARD."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-029",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #1",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 1250, MP = 105.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-030",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #2",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 1500, MP = 110.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-031",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #3",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 1750, MP = 115.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-032",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #4",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 2000, MP = 120.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-033",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #5",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 2250, MP = 125.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-034",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #6",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 2500, MP = 130.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-035",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #7",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 2750, MP = 135.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-036",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #8",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 3000, MP = 140.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-037",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #9",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 3250, MP = 145.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-038",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #10",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 3500, MP = 150.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-039",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #11",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 3750, MP = 155.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-040",
+      "category": "upgrade_efficiency",
+      "title": "Upgrade Marginal Efficiency & Reserve Floor Check #12",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/upgrades & GET /api/shop/items; liquid GEMS = 4000, MP = 160.",
+        "2_identify_legitimate_reward_opportunity": "Compare upg-power-1 (250 GEMS -> +5 MP & +100 XP = 50.0 GEMS/MP) vs Shop Iron Drill (350 GEMS -> +6 MP = 58.33 GEMS/MP), Copper Turbo Drill (66.67 GEMS/MP), Ruby Laser (100 GEMS/MP), Cryo Plasma Drill (125 GEMS/MP), Void Annihilator (175 GEMS/MP).",
+        "3_select_next_permitted_action": "Select POST /api/upgrades/upg-power-1 ONLY if liquid GEMS - 250 >= 1000 GEMS reserve floor and MP < target cave requirement.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": -250.0,
+          "mp_delta": 5,
+          "xp_delta": 100,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Dry-run marginal payback period calculation: delta_MP / cost_GEMS.",
+        "6_read_resulting_state": "Confirm MP increased by +5 and XP by +100 while preserving >= 1,000 GEMS liquid reserve.",
+        "7_independently_verify_result": "Cross-check GET /api/user/me miningPower and gems fields.",
+        "8_update_agent_memory": "Logged that upg-power-1 (50 GEMS/MP) strictly dominates all Shop drills (58.33-175 GEMS/MP)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-041",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #1",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "POST /api/referral/claim when pendingGems > 0",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 4.86,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Claimed legitimate pending referral commission via POST /api/referral/claim",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-042",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #2",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "POST /api/referral/claim when pendingGems > 0",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 4.86,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Claimed legitimate pending referral commission via POST /api/referral/claim",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-043",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #3",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "POST /api/referral/claim when pendingGems > 0",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 4.86,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Claimed legitimate pending referral commission via POST /api/referral/claim",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-044",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #4",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "POST /api/referral/claim when pendingGems > 0",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 4.86,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Claimed legitimate pending referral commission via POST /api/referral/claim",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-045",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #5",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "POST /api/referral/claim when pendingGems > 0",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 4.86,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Claimed legitimate pending referral commission via POST /api/referral/claim",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-046",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #6",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "BLOCK_SYBIL_SELF_REFERRAL (Policy violation)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Policy guardrail rejected automated multi-wallet self-referral creation",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-047",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #7",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "BLOCK_SYBIL_SELF_REFERRAL (Policy violation)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Policy guardrail rejected automated multi-wallet self-referral creation",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-048",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #8",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "BLOCK_SYBIL_SELF_REFERRAL (Policy violation)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Policy guardrail rejected automated multi-wallet self-referral creation",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-049",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #9",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "BLOCK_SYBIL_SELF_REFERRAL (Policy violation)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Policy guardrail rejected automated multi-wallet self-referral creation",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-050",
+      "category": "referrals",
+      "title": "Referral Accounting & Anti-Sybil Policy Gate #10",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/referral/stats (commissionRate=10%, refCode=0xdf407995, pendingGems, totalEarnedGems=261.56).",
+        "2_identify_legitimate_reward_opportunity": "Check if organic referred users generated claimable pendingGems (>0) or if proposed action is self-referral/Sybil.",
+        "3_select_next_permitted_action": "BLOCK_SYBIL_SELF_REFERRAL (Policy violation)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Policy guardrail rejected automated multi-wallet self-referral creation",
+        "6_read_resulting_state": "pendingGems reset to 0; user.gems increased by claimedAmount (or unchanged if blocked).",
+        "7_independently_verify_result": "Verified GET /api/referral/stats recentLogs and GET /api/user/me totalReferralGems=261.56.",
+        "8_update_agent_memory": "Enforced Argon Phase 3 rule: strictly zero self-referrals or Sybil farming permitted."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-051",
+      "category": "api_errors",
+      "title": "POST /api/rwa/stocks/NVDAX/buy -> HTTP 404 Missing Route",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 404 (POST /api/rwa/stocks/NVDAX/buy -> HTTP 404 Missing Route).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Abort RWA stock purchase; preserve 100% GEMS",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 404.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 404 handler rule: Abort RWA stock purchase; preserve 100% GEMS."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-052",
+      "category": "api_errors",
+      "title": "POST /api/rwa/stocks/AAPLX/buy -> HTTP 404 Missing Route",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 404 (POST /api/rwa/stocks/AAPLX/buy -> HTTP 404 Missing Route).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Abort RWA stock purchase; preserve 100% GEMS",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 404.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 404 handler rule: Abort RWA stock purchase; preserve 100% GEMS."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-053",
+      "category": "api_errors",
+      "title": "POST /api/rwa/stocks/TSLAX/buy -> HTTP 404 Missing Route",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 404 (POST /api/rwa/stocks/TSLAX/buy -> HTTP 404 Missing Route).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Abort RWA stock purchase; preserve 100% GEMS",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 404.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 404 handler rule: Abort RWA stock purchase; preserve 100% GEMS."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-054",
+      "category": "api_errors",
+      "title": "GET ori.bullshot.org/api/profile/tokens -> HTTP 405 Method Not Allowed",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 405 (GET ori.bullshot.org/api/profile/tokens -> HTTP 405 Method Not Allowed).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Fallback to GET ori.bullshot.org/api/tokens?chain=base + on-chain balanceOf",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 405.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 405 handler rule: Fallback to GET ori.bullshot.org/api/tokens?chain=base + on-chain balanceOf."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-055",
+      "category": "api_errors",
+      "title": "POST ori.bullshot.org/api/profile/tokens -> HTTP 405/500 Error",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 500 (POST ori.bullshot.org/api/profile/tokens -> HTTP 405/500 Error).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Bypass broken profile route; query Base RPC directly",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 500.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 500 handler rule: Bypass broken profile route; query Base RPC directly."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-056",
+      "category": "api_errors",
+      "title": "GET /api/user/me -> HTTP 401 Expired JWT Token",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 401 (GET /api/user/me -> HTTP 401 Expired JWT Token).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Re-authenticate via POST /api/auth/nonce + EIP-191 personal_sign + POST /api/auth/login",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 401.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 401 handler rule: Re-authenticate via POST /api/auth/nonce + EIP-191 personal_sign + POST /api/auth/login."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-057",
+      "category": "api_errors",
+      "title": "POST /api/mining/positions -> HTTP 429 Rate Limit",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 429 (POST /api/mining/positions -> HTTP 429 Rate Limit).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Apply exponential backoff (2s, 4s, 8s) and jitter",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 429.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 429 handler rule: Apply exponential backoff (2s, 4s, 8s) and jitter."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-058",
+      "category": "api_errors",
+      "title": "POST /api/trade/swap -> HTTP 400 Invalid Asset Pair",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 400 (POST /api/trade/swap -> HTTP 400 Invalid Asset Pair).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Validate asset pair against GET /api/trade/rates before calling swap",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 400.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 400 handler rule: Validate asset pair against GET /api/trade/rates before calling swap."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-059",
+      "category": "api_errors",
+      "title": "POST /api/quests/claim -> HTTP 400 Quest Not Ready (10s timer)",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 400 (POST /api/quests/claim -> HTTP 400 Quest Not Ready (10s timer)).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Wait >=10.5s after POST /api/quests/start before claiming",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 400.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 400 handler rule: Wait >=10.5s after POST /api/quests/start before claiming."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-060",
+      "category": "api_errors",
+      "title": "POST /api/mining/positions/:id/claim -> HTTP 400 Mine Still Active",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 400 (POST /api/mining/positions/:id/claim -> HTTP 400 Mine Still Active).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Check remainingSeconds <= 0 before sending claim POST",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 400.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 400 handler rule: Check remainingSeconds <= 0 before sending claim POST."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-061",
+      "category": "api_errors",
+      "title": "Base RPC eth_call Timeout -> HTTP 504 / AbortError",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 504 (Base RPC eth_call Timeout -> HTTP 504 / AbortError).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Retry across fallback RPC with 12s timeout and backoff",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 504.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 504 handler rule: Retry across fallback RPC with 12s timeout and backoff."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-062",
+      "category": "api_errors",
+      "title": "POST new.bullshot.org/api/leaderboard/points -> 0 Points on Base Wallets",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Endpoint probe returned HTTP 200 (POST new.bullshot.org/api/leaderboard/points -> 0 Points on Base Wallets).",
+        "2_identify_legitimate_reward_opportunity": "Identify that endpoint is broken/rate-limited/unauthenticated and prevent resource loss.",
+        "3_select_next_permitted_action": "Record split-brain indexer discrepancy; do not burn Base ETH chasing BNB-only leaderboard points",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "eth_delta": 0.0,
+          "realized_usd_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Executed deterministic error handler for HTTP 200.",
+        "6_read_resulting_state": "Verified zero unintended GEMS or ETH deduction.",
+        "7_independently_verify_result": "Checked live API response status code and payload in reports/live_verification_snapshot.json.",
+        "8_update_agent_memory": "Cached HTTP 200 handler rule: Record split-brain indexer discrepancy; do not burn Base ETH chasing BNB-only leaderboard points."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-063",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #1",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-064",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #2",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": -20
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-065",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #3",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-066",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #4",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": -20
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-067",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #5",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-068",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #6",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": -20
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-069",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #7",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-070",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #8",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": -20
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-071",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #9",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-072",
+      "category": "ui_recovery",
+      "title": "UI Locked-State & Split-Brain Recovery Scenario #10",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "GET /api/mining/locations returns isLocked=true on crystal-cavern / ember-mine / frozen-depths even when user Level=15 and MP=260 exceed requirements.",
+        "2_identify_legitimate_reward_opportunity": "Verify true eligibility from user.level >= location.levelRequired and user.miningPower >= location.miningPowerRequired.",
+        "3_select_next_permitted_action": "Use authenticated API state check and refresh / re-query positions rather than trusting stale static isLocked flag.",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": -20
+        },
+        "5_execute_dry_run_or_authorized_action": "Verify active positions via GET /api/mining/positions and reconcile UI state.",
+        "6_read_resulting_state": "Confirmed active/claimable positions match backend database state.",
+        "7_independently_verify_result": "Compared GET /api/mining/locations static flags against POST /api/mining/positions execution logs.",
+        "8_update_agent_memory": "Documented static isLocked flag discrepancy in Phase 0/1 audit report."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-073",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #1",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=1, liquid_gems=155, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-074",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #2",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=2, liquid_gems=160, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-075",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #3",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=3, liquid_gems=165, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-076",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #4",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=4, liquid_gems=170, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-077",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #5",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=0, liquid_gems=175, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-078",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #6",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=1, liquid_gems=180, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-079",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #7",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=2, liquid_gems=185, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-080",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #8",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=3, liquid_gems=190, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-081",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #9",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=4, liquid_gems=195, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-082",
+      "category": "insufficient_resources",
+      "title": "Insufficient Energy / GEMS / ETH Guardrail Scenario #10",
+      "model_tier": "local_ollama_qwen3_coder_30b",
+      "steps": {
+        "1_observe_platform_state": "Observe current resource state: energy=0, liquid_gems=200, base_eth=0.005971.",
+        "2_identify_legitimate_reward_opportunity": "Check if user has required Energy (5/10/20/35/50), GEMS (250), or ETH gas reserve (>=0.002 ETH).",
+        "3_select_next_permitted_action": "WAIT_FOR_ENERGY_REGEN_OR_SKIP (Never buy overpriced 300 GEMS Energy Pack for +5 energy!)",
+        "4_predict_expected_balance_changes": {
+          "gems_delta": 0.0,
+          "energy_delta": 0,
+          "eth_delta": 0.0
+        },
+        "5_execute_dry_run_or_authorized_action": "Aborted action pre-flight; avoided negative-EV Shop Energy Pack (60 GEMS per 1 energy = -240 GEMS loss on a 60 GEMS cave).",
+        "6_read_resulting_state": "Balances preserved unchanged while waiting for passive energy regen.",
+        "7_independently_verify_result": "Verified GET /api/shop/items energy-pack price=300 GEMS for +5 energy is strictly negative EV.",
+        "8_update_agent_memory": "Added permanent rule: never purchase energy-pack (300 GEMS for +5 energy)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-083",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #1",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=5.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "HOLD_WAIT_FOR_EXTERNAL_TRADERS",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 5.0,
+          "creator_fee_usd": 0.035,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": -0.101
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is NEGATIVE at $5.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-084",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #2",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=10.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "HOLD_WAIT_FOR_EXTERNAL_TRADERS",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 10.0,
+          "creator_fee_usd": 0.07,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": -0.066
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is NEGATIVE at $10.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-085",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #3",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=15.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "HOLD_WAIT_FOR_EXTERNAL_TRADERS",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 15.0,
+          "creator_fee_usd": 0.105,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": -0.031
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is NEGATIVE at $15.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-086",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #4",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=20.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "COLLECT_CREATOR_LP_FEES",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 20.0,
+          "creator_fee_usd": 0.14,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": 0.004
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is POSITIVE at $20.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-087",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #5",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=25.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "COLLECT_CREATOR_LP_FEES",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 25.0,
+          "creator_fee_usd": 0.175,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": 0.039
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is POSITIVE at $25.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-088",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #6",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=30.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "COLLECT_CREATOR_LP_FEES",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 30.0,
+          "creator_fee_usd": 0.21,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": 0.074
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is POSITIVE at $30.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-089",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #7",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=35.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "COLLECT_CREATOR_LP_FEES",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 35.0,
+          "creator_fee_usd": 0.245,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": 0.109
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is POSITIVE at $35.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-090",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #8",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=40.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "COLLECT_CREATOR_LP_FEES",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 40.0,
+          "creator_fee_usd": 0.28,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": 0.144
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is POSITIVE at $40.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-091",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #9",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=45.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "COLLECT_CREATOR_LP_FEES",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 45.0,
+          "creator_fee_usd": 0.315,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": 0.179
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is POSITIVE at $45.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-092",
+      "category": "reward_calculations",
+      "title": "Expected Net Earnings & Break-Even Volume Math Scenario #10",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Input parameters: ETH=$2,229.80, launchFee=0.00005 ETH, poolFee=1.00% (0.70% creator, 0.30% protocol), externalVolumeUSD=50.0.",
+        "2_identify_legitimate_reward_opportunity": "Compute Expected net earnings = Realizable reward value - Direct costs - Transaction fees - Execution costs.",
+        "3_select_next_permitted_action": "COLLECT_CREATOR_LP_FEES",
+        "4_predict_expected_balance_changes": {
+          "external_volume_usd": 50.0,
+          "creator_fee_usd": 0.35,
+          "launch_plus_gas_cost_usd": 0.136,
+          "expected_net_earnings_usd": 0.214
+        },
+        "5_execute_dry_run_or_authorized_action": "Evaluated via learning.bullshot_earnings_ledger.calculate_expected_net_earnings().",
+        "6_read_resulting_state": "Net EV is POSITIVE at $50.00 external volume.",
+        "7_independently_verify_result": "Verified against unit test test_creator_fee_breakeven_external_volume.",
+        "8_update_agent_memory": "Stored exact break-even threshold: $19.43 USD external swap volume per launched Base token."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-093",
+      "category": "failed_transactions",
+      "title": "On-Chain Revert / Negative-EV Self-Swap Prevention Scenario #1",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Proposed on-chain tx #1: self-volume rotation or unquoted token swap on Base 8453.",
+        "2_identify_legitimate_reward_opportunity": "Run eth_call simulation and calculate_self_volume_cycle_loss_eth().",
+        "3_select_next_permitted_action": "ABORT_TX_BEFORE_SIGNING (Self-volume loses -0.60% protocol fee per cycle + gas)",
+        "4_predict_expected_balance_changes": {
+          "eth_delta": 0.0,
+          "gas_saved_eth": 2.5e-06
+        },
+        "5_execute_dry_run_or_authorized_action": "Blocked negative-EV or reverting transaction in simulation gate before secp256k1 signing.",
+        "6_read_resulting_state": "Wallet nonce and native ETH balance (0.00597147 ETH) preserved intact.",
+        "7_independently_verify_result": "Verified via eth_getBalance and eth_getTransactionCount on https://mainnet.base.org.",
+        "8_update_agent_memory": "Updated failed_experiments memory: self-funded volume wash cycles on Uniswap V3 1% pools are strictly negative-EV (-0.60%/cycle)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-094",
+      "category": "failed_transactions",
+      "title": "On-Chain Revert / Negative-EV Self-Swap Prevention Scenario #2",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Proposed on-chain tx #2: self-volume rotation or unquoted token swap on Base 8453.",
+        "2_identify_legitimate_reward_opportunity": "Run eth_call simulation and calculate_self_volume_cycle_loss_eth().",
+        "3_select_next_permitted_action": "ABORT_TX_BEFORE_SIGNING (Self-volume loses -0.60% protocol fee per cycle + gas)",
+        "4_predict_expected_balance_changes": {
+          "eth_delta": 0.0,
+          "gas_saved_eth": 2.5e-06
+        },
+        "5_execute_dry_run_or_authorized_action": "Blocked negative-EV or reverting transaction in simulation gate before secp256k1 signing.",
+        "6_read_resulting_state": "Wallet nonce and native ETH balance (0.00597147 ETH) preserved intact.",
+        "7_independently_verify_result": "Verified via eth_getBalance and eth_getTransactionCount on https://mainnet.base.org.",
+        "8_update_agent_memory": "Updated failed_experiments memory: self-funded volume wash cycles on Uniswap V3 1% pools are strictly negative-EV (-0.60%/cycle)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-095",
+      "category": "failed_transactions",
+      "title": "On-Chain Revert / Negative-EV Self-Swap Prevention Scenario #3",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Proposed on-chain tx #3: self-volume rotation or unquoted token swap on Base 8453.",
+        "2_identify_legitimate_reward_opportunity": "Run eth_call simulation and calculate_self_volume_cycle_loss_eth().",
+        "3_select_next_permitted_action": "ABORT_TX_BEFORE_SIGNING (Self-volume loses -0.60% protocol fee per cycle + gas)",
+        "4_predict_expected_balance_changes": {
+          "eth_delta": 0.0,
+          "gas_saved_eth": 2.5e-06
+        },
+        "5_execute_dry_run_or_authorized_action": "Blocked negative-EV or reverting transaction in simulation gate before secp256k1 signing.",
+        "6_read_resulting_state": "Wallet nonce and native ETH balance (0.00597147 ETH) preserved intact.",
+        "7_independently_verify_result": "Verified via eth_getBalance and eth_getTransactionCount on https://mainnet.base.org.",
+        "8_update_agent_memory": "Updated failed_experiments memory: self-funded volume wash cycles on Uniswap V3 1% pools are strictly negative-EV (-0.60%/cycle)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-096",
+      "category": "failed_transactions",
+      "title": "On-Chain Revert / Negative-EV Self-Swap Prevention Scenario #4",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Proposed on-chain tx #4: self-volume rotation or unquoted token swap on Base 8453.",
+        "2_identify_legitimate_reward_opportunity": "Run eth_call simulation and calculate_self_volume_cycle_loss_eth().",
+        "3_select_next_permitted_action": "ABORT_TX_BEFORE_SIGNING (Self-volume loses -0.60% protocol fee per cycle + gas)",
+        "4_predict_expected_balance_changes": {
+          "eth_delta": 0.0,
+          "gas_saved_eth": 2.5e-06
+        },
+        "5_execute_dry_run_or_authorized_action": "Blocked negative-EV or reverting transaction in simulation gate before secp256k1 signing.",
+        "6_read_resulting_state": "Wallet nonce and native ETH balance (0.00597147 ETH) preserved intact.",
+        "7_independently_verify_result": "Verified via eth_getBalance and eth_getTransactionCount on https://mainnet.base.org.",
+        "8_update_agent_memory": "Updated failed_experiments memory: self-funded volume wash cycles on Uniswap V3 1% pools are strictly negative-EV (-0.60%/cycle)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-097",
+      "category": "failed_transactions",
+      "title": "On-Chain Revert / Negative-EV Self-Swap Prevention Scenario #5",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Proposed on-chain tx #5: self-volume rotation or unquoted token swap on Base 8453.",
+        "2_identify_legitimate_reward_opportunity": "Run eth_call simulation and calculate_self_volume_cycle_loss_eth().",
+        "3_select_next_permitted_action": "ABORT_TX_BEFORE_SIGNING (Self-volume loses -0.60% protocol fee per cycle + gas)",
+        "4_predict_expected_balance_changes": {
+          "eth_delta": 0.0,
+          "gas_saved_eth": 2.5e-06
+        },
+        "5_execute_dry_run_or_authorized_action": "Blocked negative-EV or reverting transaction in simulation gate before secp256k1 signing.",
+        "6_read_resulting_state": "Wallet nonce and native ETH balance (0.00597147 ETH) preserved intact.",
+        "7_independently_verify_result": "Verified via eth_getBalance and eth_getTransactionCount on https://mainnet.base.org.",
+        "8_update_agent_memory": "Updated failed_experiments memory: self-funded volume wash cycles on Uniswap V3 1% pools are strictly negative-EV (-0.60%/cycle)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-098",
+      "category": "failed_transactions",
+      "title": "On-Chain Revert / Negative-EV Self-Swap Prevention Scenario #6",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Proposed on-chain tx #6: self-volume rotation or unquoted token swap on Base 8453.",
+        "2_identify_legitimate_reward_opportunity": "Run eth_call simulation and calculate_self_volume_cycle_loss_eth().",
+        "3_select_next_permitted_action": "ABORT_TX_BEFORE_SIGNING (Self-volume loses -0.60% protocol fee per cycle + gas)",
+        "4_predict_expected_balance_changes": {
+          "eth_delta": 0.0,
+          "gas_saved_eth": 2.5e-06
+        },
+        "5_execute_dry_run_or_authorized_action": "Blocked negative-EV or reverting transaction in simulation gate before secp256k1 signing.",
+        "6_read_resulting_state": "Wallet nonce and native ETH balance (0.00597147 ETH) preserved intact.",
+        "7_independently_verify_result": "Verified via eth_getBalance and eth_getTransactionCount on https://mainnet.base.org.",
+        "8_update_agent_memory": "Updated failed_experiments memory: self-funded volume wash cycles on Uniswap V3 1% pools are strictly negative-EV (-0.60%/cycle)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-099",
+      "category": "failed_transactions",
+      "title": "On-Chain Revert / Negative-EV Self-Swap Prevention Scenario #7",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Proposed on-chain tx #7: self-volume rotation or unquoted token swap on Base 8453.",
+        "2_identify_legitimate_reward_opportunity": "Run eth_call simulation and calculate_self_volume_cycle_loss_eth().",
+        "3_select_next_permitted_action": "ABORT_TX_BEFORE_SIGNING (Self-volume loses -0.60% protocol fee per cycle + gas)",
+        "4_predict_expected_balance_changes": {
+          "eth_delta": 0.0,
+          "gas_saved_eth": 2.5e-06
+        },
+        "5_execute_dry_run_or_authorized_action": "Blocked negative-EV or reverting transaction in simulation gate before secp256k1 signing.",
+        "6_read_resulting_state": "Wallet nonce and native ETH balance (0.00597147 ETH) preserved intact.",
+        "7_independently_verify_result": "Verified via eth_getBalance and eth_getTransactionCount on https://mainnet.base.org.",
+        "8_update_agent_memory": "Updated failed_experiments memory: self-funded volume wash cycles on Uniswap V3 1% pools are strictly negative-EV (-0.60%/cycle)."
+      }
+    },
+    {
+      "scenario_id": "SCENARIO-100",
+      "category": "failed_transactions",
+      "title": "On-Chain Revert / Negative-EV Self-Swap Prevention Scenario #8",
+      "model_tier": "cloud_verifier_low_cost",
+      "steps": {
+        "1_observe_platform_state": "Proposed on-chain tx #8: self-volume rotation or unquoted token swap on Base 8453.",
+        "2_identify_legitimate_reward_opportunity": "Run eth_call simulation and calculate_self_volume_cycle_loss_eth().",
+        "3_select_next_permitted_action": "ABORT_TX_BEFORE_SIGNING (Self-volume loses -0.60% protocol fee per cycle + gas)",
+        "4_predict_expected_balance_changes": {
+          "eth_delta": 0.0,
+          "gas_saved_eth": 2.5e-06
+        },
+        "5_execute_dry_run_or_authorized_action": "Blocked negative-EV or reverting transaction in simulation gate before secp256k1 signing.",
+        "6_read_resulting_state": "Wallet nonce and native ETH balance (0.00597147 ETH) preserved intact.",
+        "7_independently_verify_result": "Verified via eth_getBalance and eth_getTransactionCount on https://mainnet.base.org.",
+        "8_update_agent_memory": "Updated failed_experiments memory: self-funded volume wash cycles on Uniswap V3 1% pools are strictly negative-EV (-0.60%/cycle)."
+      }
+    }
+  ]
+}

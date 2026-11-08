@@ -1,0 +1,1347 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-11-08T19:26:00Z",
+  "mission": "ARGON MASTER PROMPT 1 — BOSSMAN FIRST VERIFIED EARNINGS",
+  "overall_verdict": "NOT_PROVEN",
+  "overall_blocker": "1) On-chain Bullshot.io (Base 8453) creator fee claims via FeeCollector.collectAll() are VERIFIED_REWARD (reclaimed 0.00049765 ETH / $1.33 USD in WETH fees + recovered 0.00152448 ETH from token inventory), but self-funded swap cycles incur a 0.30% protocol fee cut per swap (0.60% per buy+sell round-trip) plus a 0.00005 ETH token creation fee, resulting in negative full-lifecycle net realized P&L without external buyer volume (> $19.43 USD external volume per token required to break even). 2) Off-chain Bull GEMS (gem.bullshot.io) farming accumulated 47,537.52 liquid GEMS (60,802.52 net worth GEMS, Level 15, 260 MP) at $0.00 gas cost (VERIFIED_REWARD), but GEMS/XP/ores are currently backend-only database records with no on-chain withdrawal/redemption contract deployed yet ($0.00 confirmed realized USD income under strict accounting).",
+  "authorized_wallets": {
+    "base_mainnet_8453": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+    "bnb_chain_56": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2"
+  },
+  "owner_capital_accounting_base_8453": {
+    "initial_owner_deposit_eth": 0.01298828,
+    "initial_owner_deposit_usd_at_deposit": 26.8,
+    "bridged_to_bnb_chain_56_eth": 0.00549411,
+    "current_bnb_chain_56_balance_bnb": 0.01732926,
+    "current_base_native_eth_balance": 0.00597147,
+    "remaining_5_held_token_bags_quoted_eth": 0.00029405,
+    "total_creator_weth_fees_claimed_onchain_eth": 0.00049765,
+    "total_creator_weth_fees_claimed_onchain_usd": 1.3336,
+    "net_base_campaign_realized_loss_eth": -0.00157882,
+    "net_base_campaign_realized_loss_usd": -4.2388
+  },
+  "earnings_ledger": {
+    "summary": {
+      "total_experiments": 6,
+      "status_counts": {
+        "NOT_STARTED": 0,
+        "SIMULATED": 0,
+        "PENDING": 0,
+        "VERIFIED_REWARD": 5,
+        "VERIFIED_NET_PROFIT": 0,
+        "FAILED": 1
+      },
+      "verified_reward_experiment_ids": [
+        "EXP-01-BASE-BSENT-LAUNCH-AND-FEE-CLAIM",
+        "EXP-02-BASE-ROBLOX3D-LAUNCH-AND-CAPITAL-RECOVERY",
+        "EXP-03-BASE-6TOKEN-ROTATION-AND-FEE-HARVEST",
+        "EXP-04-PHASE3-LIVE-BSENT-BAG-EXIT-AND-FEE-CLAIM",
+        "EXP-05-GEM-BULLSHOT-OFFCHAIN-MINING-QUESTS-STAKING"
+      ],
+      "verified_net_profit_experiment_ids": [],
+      "total_cash_out_proceeds_usd": 5.3987,
+      "total_direct_costs_usd": 5.1666,
+      "total_gas_and_protocol_fees_usd": 4.4709,
+      "total_execution_costs_usd": 0.0,
+      "total_net_realized_pnl_usd": -4.2388,
+      "total_net_realized_pnl_eth": -0.00158224,
+      "overall_verdict": "NOT_PROVEN",
+      "blocker": "1) On-chain Bullshot.io (Base 8453) creator fee claims via FeeCollector.collectAll() are VERIFIED_REWARD (reclaimed 0.00049765 ETH / $1.33 USD in WETH fees + recovered 0.00152448 ETH from token inventory), but self-funded swap cycles incur a 0.30% protocol fee cut per swap (0.60% per buy+sell round-trip) plus a 0.00005 ETH token creation fee, resulting in negative full-lifecycle net realized P&L without external buyer volume (> $19.43 USD external volume per token required to break even). 2) Off-chain Bull GEMS (gem.bullshot.io) farming accumulated 47,537.52 liquid GEMS (60,802.52 net worth GEMS, Level 15, 260 MP) at $0.00 gas cost (VERIFIED_REWARD), but GEMS/XP/ores are currently backend-only database records with no on-chain withdrawal/redemption contract deployed yet ($0.00 confirmed realized USD income under strict accounting)."
+    },
+    "entries": [
+      {
+        "experiment_id": "EXP-01-BASE-BSENT-LAUNCH-AND-FEE-CLAIM",
+        "timestamp": "2026-11-07T16:38:06Z",
+        "chain": "Base Mainnet (8453)",
+        "wallet_or_account": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+        "tx_hashes": [
+          "0x0f7ebccb07eda0da0d0c97cd897dc9d566ee754e2b1736db1ff6da3a8a7d73e1",
+          "0x1c64dfb75c27b0e8d44f08d608e33fc2475f7889304823482442c0549be5534f",
+          "0xb77217aa82480886729c01980b1593c98723476867477a3f53953445f6166a41",
+          "0x6a9be17c5ef373915a66c1cf051f3339f21dc764438e688318661411d133e326"
+        ],
+        "initial_balances": {
+          "ETH": 0.01298828
+        },
+        "outside_deposits": {
+          "ETH": 0.01298828
+        },
+        "operations_performed": [
+          "BaseFactory.createToken($BSENT #315 -> 0xaf17eede03d9d8fde2c0560a08964cc6c7c118ab)",
+          "32 Uniswap V3 Buy/Sell swaps rotating 0.064 ETH ($171.52 USD) volume",
+          "FeeCollector.collectAll($BSENT) reclaiming 70% creator LP fees (0.0002123 ETH)",
+          "WETH.withdraw(0.0002123 ETH) to native ETH"
+        ],
+        "rewards_received": {
+          "WETH_creator_fees_eth": 0.0002123,
+          "WETH_creator_fees_usd": 0.569
+        },
+        "is_reward_monetizable_onchain": true,
+        "cash_out_proceeds_usd": 0.569,
+        "direct_costs_usd": 0.134,
+        "gas_and_protocol_fees_usd": 2.3598,
+        "execution_costs_usd": 0.0,
+        "net_realized_pnl_usd": -1.9248,
+        "net_realized_pnl_eth": -0.00071826,
+        "independent_verification_method": "Base Mainnet RPC eth_getTransactionReceipt & eth_getBalance (0.01298828 ETH -> 0.01227002 ETH; base_campaign_result.json)",
+        "status": "VERIFIED_REWARD",
+        "notes": "Verified that FeeCollector.collectAll() pays 70% of the 1% pool fee to the creator in real WETH (+0.0002123 ETH / $0.569), but self-swapping loses 0.30% per swap to the protocol (-0.00071826 ETH net)."
+      },
+      {
+        "experiment_id": "EXP-02-BASE-ROBLOX3D-LAUNCH-AND-CAPITAL-RECOVERY",
+        "timestamp": "2026-11-07T17:36:54Z",
+        "chain": "Base Mainnet (8453)",
+        "wallet_or_account": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+        "tx_hashes": [
+          "0xe510847f3054999de23be4fe603da617fbffaa518331ac84e34cf75fe6f9aab8",
+          "0x223d673dffbd4fe8c8630fefd8d55ef2c46d9eb55921b8886fc83ce395a20b1d",
+          "0x497ac27ebef628d17a9eacb3bc692db05973c9f5164d6766652069cfae598eb4",
+          "0x2a8c1ec6bb3fae6a3126c3389cea2d221bc97a38b3b1891162d730da6df34336"
+        ],
+        "initial_balances": {
+          "ETH_before_launch": 0.01227002,
+          "ETH_before_recovery": 0.01067756
+        },
+        "outside_deposits": {
+          "ETH": 0.0
+        },
+        "operations_performed": [
+          "BaseFactory.createToken($ROBLOX3D #320 -> 0x061827f4829e53c2fe61f52c8e5740844c7068b9) + initial buy (0.00159246 ETH)",
+          "SwapRouter02.multicall([exactInputSingle, unwrapWETH9]) liquidating held $ROBLOX3D inventory",
+          "FeeCollector.collectAll($ROBLOX3D & $SWAPME) + WETH.withdraw()"
+        ],
+        "rewards_received": {
+          "ETH_recovered_from_inventory_and_fees": 0.0014679
+        },
+        "is_reward_monetizable_onchain": true,
+        "cash_out_proceeds_usd": 3.934,
+        "direct_costs_usd": 3.934,
+        "gas_and_protocol_fees_usd": 0.3338,
+        "execution_costs_usd": 0.0,
+        "net_realized_pnl_usd": -0.3338,
+        "net_realized_pnl_eth": -0.00012456,
+        "independent_verification_method": "Base Mainnet RPC eth_getBalance across full launch-to-exit lifecycle (0.01227002 ETH pre-launch -> 0.01067756 ETH post-launch -> 0.01214546 ETH post-recovery; maximum_growth_mission_log.json)",
+        "status": "VERIFIED_REWARD",
+        "notes": "Isolated recovery step returned +0.00146790 ETH (+$3.93 USD) for 0.00000226 ETH gas, but full launch-to-exit lifecycle net P&L was -0.00012456 ETH (-$0.33 USD)."
+      },
+      {
+        "experiment_id": "EXP-03-BASE-6TOKEN-ROTATION-AND-FEE-HARVEST",
+        "timestamp": "2026-11-08T13:25:20Z",
+        "chain": "Base Mainnet (8453)",
+        "wallet_or_account": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+        "tx_hashes": [
+          "0xce83c744451295d567faca5b85f1ce058b398714bbc35d434e8ff5c81ebcac8b",
+          "0x016759797aa17ba72fa3f7794e57cc7c9100ba23b7ed53894e21d9e5ac946c58",
+          "0x70ba5a70824c0d25993b0f6d5aab621c652d7b1ea5c5b04630ebbf9e68ac3289"
+        ],
+        "initial_balances": {
+          "ETH": 0.012145
+        },
+        "outside_deposits": {
+          "ETH": 0.0
+        },
+        "operations_performed": [
+          "55 on-chain Base transactions across 6 created tokens ($BSENT, $SWAPME, $ROBLOX3D, $PRG420, $GEMMA, $BULLAI)",
+          "Rotated 0.09036 ETH swap volume + retained ~33,782 tokens per coin (6 * 0.00006 ETH = 0.00036 ETH inventory)",
+          "Reclaimed 0.000285 ETH ($0.76 USD) in WETH creator fees via FeeCollector.collectAll()"
+        ],
+        "rewards_received": {
+          "WETH_creator_fees_eth": 0.000285,
+          "held_tokens_each": 33782.0
+        },
+        "is_reward_monetizable_onchain": true,
+        "cash_out_proceeds_usd": 0.7638,
+        "direct_costs_usd": 0.9648,
+        "gas_and_protocol_fees_usd": 1.7715,
+        "execution_costs_usd": 0.0,
+        "net_realized_pnl_usd": -1.9725,
+        "net_realized_pnl_eth": -0.000736,
+        "independent_verification_method": "Base Mainnet RPC eth_getTransactionReceipt (55 txs in old_tokens_boost_receipt.json)",
+        "status": "VERIFIED_REWARD",
+        "notes": "Reclaimed 0.000285 ETH in creator fees, but net liquid ETH decreased by 0.000736 ETH (including 0.00036 ETH in 6 held bags)."
+      },
+      {
+        "experiment_id": "EXP-04-PHASE3-LIVE-BSENT-BAG-EXIT-AND-FEE-CLAIM",
+        "timestamp": "2026-11-08T19:24:11Z",
+        "chain": "Base Mainnet (8453)",
+        "wallet_or_account": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+        "tx_hashes": [
+          "0x6f39ee6456fd0f06bdf3c13ec77badea412e7b6fb791b6738d1327611ae2dda4",
+          "0x30d196c245890feb6f9ebc9fbc8e95123ec43edeb131fa68c75b506ab9602ebf",
+          "0x03701058c4cb96b02df4328bd51bad300c04053f35dfe4d78551644a0ad193b3"
+        ],
+        "initial_balances": {
+          "ETH": 0.00591489,
+          "BSENT": 33780.2526
+        },
+        "outside_deposits": {
+          "ETH": 0.0
+        },
+        "operations_performed": [
+          "Pre-flight eth_call quote on SwapRouter02 (quoted 0.00005881 ETH)",
+          "SwapRouter02.multicall([exactInputSingle(33,780.25 BSENT -> WETH), unwrapWETH9]) at block 54876438",
+          "FeeCollector.collectAll($BSENT) at block 54876447 (+0.00000035 WETH + 370.3101 BSENT fee tokens)",
+          "WETH.withdraw(0.00000035 WETH) at block 54876457"
+        ],
+        "rewards_received": {
+          "ETH_gross_proceeds": 5.916e-05,
+          "BSENT_fee_tokens": 370.3101
+        },
+        "is_reward_monetizable_onchain": true,
+        "cash_out_proceeds_usd": 0.1319,
+        "direct_costs_usd": 0.1338,
+        "gas_and_protocol_fees_usd": 0.0058,
+        "execution_costs_usd": 0.0,
+        "net_realized_pnl_usd": -0.0077,
+        "net_realized_pnl_eth": -3.42e-06,
+        "independent_verification_method": "Base Mainnet RPC blocks 54876432..54876464 (0.00591489 ETH -> 0.00597147 ETH; reports/phase3_live_onchain_experiment.json)",
+        "status": "VERIFIED_REWARD",
+        "notes": "Live Phase 3 execution recovered +0.00005658 ETH (+$0.126 USD) into liquid native ETH after gas, proving on-chain liquidation & FeeCollector work deterministically. Relative to the 0.00006000 ETH entry cost of that bag, full-lifecycle P&L is -0.00000342 ETH (-$0.0077 USD)."
+      },
+      {
+        "experiment_id": "EXP-05-GEM-BULLSHOT-OFFCHAIN-MINING-QUESTS-STAKING",
+        "timestamp": "2026-11-08T19:15:24Z",
+        "chain": "Off-Chain Backend (gemapi.bullshot.io)",
+        "wallet_or_account": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+        "tx_hashes": [],
+        "initial_balances": {
+          "GEMS": 0.0,
+          "XP": 0.0,
+          "ETH_spent": 0.0
+        },
+        "outside_deposits": {
+          "ETH": 0.0
+        },
+        "operations_performed": [
+          "SIWE authentication (POST /api/auth/nonce + POST /api/auth/login)",
+          "Completed legitimate daily/weekly/one-time quests -> unlocked 2.7x mining multiplier",
+          "Upgraded Mining Power I (upg-power-1) at 250 GEMS (+5 MP, +100 XP) to 260 MP & Level 15 (34,445 XP)",
+          "Staked 2 Ruby (12% APY) & 3 Sapphire (14% APY) in 0-day lock pools",
+          "Live Phase 3 claim of ready cave-6ad9ec1875966 position (+37.8 GEMS, +50 XP -> 47,537.5217 liquid GEMS)"
+        ],
+        "rewards_received": {
+          "liquid_GEMS": 47537.5217,
+          "net_worth_GEMS": 60802.5217,
+          "XP": 34445.0,
+          "level": 15.0,
+          "mining_power": 260.0
+        },
+        "is_reward_monetizable_onchain": false,
+        "cash_out_proceeds_usd": 0.0,
+        "direct_costs_usd": 0.0,
+        "gas_and_protocol_fees_usd": 0.0,
+        "execution_costs_usd": 0.0,
+        "net_realized_pnl_usd": 0.0,
+        "net_realized_pnl_eth": 0.0,
+        "independent_verification_method": "Authenticated GET https://gemapi.bullshot.io/api/user/me & POST /api/mining/positions/:id/claim (User ID 3523304; reports/live_verification_snapshot.json)",
+        "status": "VERIFIED_REWARD",
+        "notes": "Zero-gas off-chain accumulation verified (+47,537.52 liquid GEMS). Valued at $0.00 realized USD income because gem.bullshot.io has no on-chain token withdrawal or redemption contract live yet."
+      },
+      {
+        "experiment_id": "EXP-06-GEM-RWA-STOCK-BUY-ENDPOINT-PROBE",
+        "timestamp": "2026-11-08T19:15:24Z",
+        "chain": "Off-Chain Backend (gemapi.bullshot.io)",
+        "wallet_or_account": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+        "tx_hashes": [],
+        "initial_balances": {
+          "GEMS": 47499.7217
+        },
+        "outside_deposits": {
+          "ETH": 0.0
+        },
+        "operations_performed": [
+          "GET /api/rwa/stocks (returned HTTP 200 with 8 synthetic stocks: NVDAX, AAPLX, TSLAX, MSFTX, AMZNX, METAX, GOOGLX, COIN)",
+          "POST /api/rwa/stocks/NVDAX/buy with {symbol: 'NVDAX', amountGems: 100}"
+        ],
+        "rewards_received": {},
+        "is_reward_monetizable_onchain": false,
+        "cash_out_proceeds_usd": 0.0,
+        "direct_costs_usd": 0.0,
+        "gas_and_protocol_fees_usd": 0.0,
+        "execution_costs_usd": 0.0,
+        "net_realized_pnl_usd": 0.0,
+        "net_realized_pnl_eth": 0.0,
+        "independent_verification_method": "Live HTTP probe to https://gemapi.bullshot.io/api/rwa/stocks/NVDAX/buy -> HTTP 404 {'error': 'Endpoint not found: POST /api/rwa/stocks/NVDAX/buy', 'code': 404}",
+        "status": "FAILED",
+        "notes": "Backend route POST /api/rwa/stocks/:symbol/buy is unimplemented (HTTP 404); zero GEMS deducted."
+      }
+    ]
+  },
+  "phase3_live_onchain_experiment": {
+    "executed_at": "2026-11-08T19:24:11.457Z",
+    "chain": "Base Mainnet (8453)",
+    "wallet": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+    "token_symbol": "BSENT",
+    "token_address": "0xaf17eede03d9d8fde2c0560a08964cc6c7c118ab",
+    "entry_buy_tx_reference": "0x70ba5a70824c0d25993b0f6d5aab621c652d7b1ea5c5b04630ebbf9e68ac3289",
+    "entry_cost_eth": 6e-05,
+    "start_block": 54876432,
+    "end_block": 54876464,
+    "start_native_eth": 0.00591489,
+    "end_native_eth": 0.00597147,
+    "start_bsent_tokens": 33780.2526,
+    "end_bsent_tokens": 370.3101,
+    "preflight_quoted_eth": 5.881e-05,
+    "creator_weth_claimed_eth": 3.5e-07,
+    "total_gas_cost_eth": 2.58e-06,
+    "isolated_recovery_delta_eth": 5.658e-05,
+    "full_lifecycle_net_pnl_eth": -3.42e-06,
+    "transactions": [
+      {
+        "label": "LIQUIDATE_BSENT_INVENTORY",
+        "tx_hash": "0x6f39ee6456fd0f06bdf3c13ec77badea412e7b6fb791b6738d1327611ae2dda4",
+        "block_number": 54876438,
+        "gas_used": 119543,
+        "effective_gas_price_wei": "6500000",
+        "gas_cost_eth": 7.77e-07
+      },
+      {
+        "label": "CLAIM_BSENT_CREATOR_LP_FEES",
+        "tx_hash": "0x30d196c245890feb6f9ebc9fbc8e95123ec43edeb131fa68c75b506ab9602ebf",
+        "block_number": 54876447,
+        "gas_used": 246931,
+        "effective_gas_price_wei": "6500000",
+        "gas_cost_eth": 1.605e-06
+      },
+      {
+        "label": "UNWRAP_CLAIMED_CREATOR_WETH",
+        "tx_hash": "0x03701058c4cb96b02df4328bd51bad300c04053f35dfe4d78551644a0ad193b3",
+        "block_number": 54876457,
+        "gas_used": 30304,
+        "effective_gas_price_wei": "6500000",
+        "gas_cost_eth": 1.97e-07
+      }
+    ],
+    "accounting_verdict": {
+      "creator_fee_claim_status": "VERIFIED_REWARD",
+      "isolated_capital_recovery_positive": true,
+      "full_lifecycle_net_profit_positive": false,
+      "overall_lifecycle_verdict": "NOT_PROVEN",
+      "explanation": "Liquidating held BSENT inventory + claiming 70% creator fee via FeeCollector recovered +0.000056 ETH in cash, but relative to the 0.000060 ETH entry cost of the bag, the 0.30% protocol fee cut per swap + gas results in a -0.000004 ETH full-lifecycle delta. Positive net lifecycle profit requires external trader swap volume."
+    }
+  },
+  "live_platform_verification_snapshot": {
+    "verified_at": "2026-11-08T19:15:24.966Z",
+    "wallet": "0x5171eDD56A53b9a7436E88050b17E45F2Db59be2",
+    "base_mainnet_8453": {
+      "block_number": 54873834,
+      "native_eth_balance": 0.00591489,
+      "weth_balance": 0,
+      "gas_price_gwei": 0.006,
+      "token_holdings": {
+        "BSENT": {
+          "id": 315,
+          "address": "0xaf17eede03d9d8fde2c0560a08964cc6c7c118ab",
+          "balance_tokens": 33780.2526,
+          "balance_wei": "33780252585704263705763",
+          "collectAll_eth_call_ok": true,
+          "collectAll_eth_call_return": "0x"
+        },
+        "SWAPME": {
+          "id": 316,
+          "address": "0x0f56cbf2af34bdd02f9fc0fb0a9bcf2042b1dcc2",
+          "balance_tokens": 33781.898,
+          "balance_wei": "33781898048893745265539",
+          "collectAll_eth_call_ok": true,
+          "collectAll_eth_call_return": "0x"
+        },
+        "PRG420": {
+          "id": 317,
+          "address": "0xabb19577538fea8e9210cecde8c327647ca4c9b0",
+          "balance_tokens": 33782.3955,
+          "balance_wei": "33782395462774313057254",
+          "collectAll_eth_call_ok": true,
+          "collectAll_eth_call_return": "0x"
+        },
+        "GEMMA": {
+          "id": 318,
+          "address": "0x59c62d1f4444c4807b8f05fad99965bbbe2fa8d8",
+          "balance_tokens": 33782.5561,
+          "balance_wei": "33782556099546754435262",
+          "collectAll_eth_call_ok": true,
+          "collectAll_eth_call_return": "0x"
+        },
+        "BULLAI": {
+          "id": 319,
+          "address": "0xb0d573170b19f789a08c3a7c283685dd66d2a9af",
+          "balance_tokens": 33782.5561,
+          "balance_wei": "33782556099546754435262",
+          "collectAll_eth_call_ok": true,
+          "collectAll_eth_call_return": "0x"
+        },
+        "ROBLOX3D": {
+          "id": 320,
+          "address": "0x061827f4829e53c2fe61f52c8e5740844c7068b9",
+          "balance_tokens": 33782.359,
+          "balance_wei": "33782358974337532336932",
+          "collectAll_eth_call_ok": true,
+          "collectAll_eth_call_return": "0x"
+        }
+      },
+      "indexed_tokens_on_ori": []
+    },
+    "phase0_discrepancy_verification": {
+      "finding_1_base_vs_bnb_leaderboard_split_brain": {
+        "new_bullshot_points_response": {
+          "points": 0,
+          "referral": 0,
+          "transaction": 0,
+          "creation": 0,
+          "volume_usd": 0,
+          "friends": 5
+        },
+        "new_bullshot_profile_bnb_created_count": 0,
+        "ori_bullshot_indexed_base_tokens_count": 0,
+        "still_valid": false
+      },
+      "finding_2_ori_profile_tokens_broken_routing": {
+        "get_status": 405,
+        "post_status": 405,
+        "post_body": {
+          "raw": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"robots\" content=\"noindex,nofollow,noarchive\" />\n    <title>An Error Occurred: Method Not Allowed</title>\n    <link rel=\"icon\" href=\"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>❌</text></svg>\" />\n    <style>body { background-color: #fff; color: #222; font: 16px/1.5 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica "
+        },
+        "still_valid": false
+      },
+      "finding_3_rwa_stocks_buy_missing_route": {
+        "get_stocks_status": 200,
+        "post_buy_nvdax_status": 404,
+        "post_buy_nvdax_body": {
+          "error": "Endpoint not found: POST /api/rwa/stocks/NVDAX/buy",
+          "code": 404
+        },
+        "still_valid": true
+      },
+      "finding_4_upg_power_1_flat_cost": {
+        "upgrades_sample": [
+          {
+            "id": "upg-power-1",
+            "type": "miningPower",
+            "name": "Mining Power I",
+            "increment": 5,
+            "cost": 250
+          },
+          {
+            "id": "upg-energy-1",
+            "type": "energyCapacity",
+            "name": "Energy Capacity I",
+            "increment": 20,
+            "cost": 180,
+            "baseCost": 180,
+            "maxCapacity": 320,
+            "currentCapacity": 100,
+            "isCapped": false
+          },
+          {
+            "id": "upg-speed-1",
+            "type": "miningSpeed",
+            "name": "Mining Speed I",
+            "increment": 5,
+            "cost": 350
+          }
+        ],
+        "shop_sample": [
+          {
+            "id": "copper-turbo-drill",
+            "name": "Copper Turbo Drill",
+            "description": "High-speed turbocharged copper mining drill (+15 Mining Power)",
+            "type": "equipment",
+            "currency": "GEMS",
+            "price": 1000,
+            "effect": {
+              "miningPower": 15
+            },
+            "imageUrl": "/images/tools/copper-turbo-drill.png"
+          },
+          {
+            "id": "cryo-plasma-drill",
+            "name": "Cryo Plasma Drill",
+            "description": "Sub-zero cryo plasma drill for deep rock mining (+80 Mining Power)",
+            "type": "equipment",
+            "currency": "GEMS",
+            "price": 10000,
+            "effect": {
+              "miningPower": 80
+            },
+            "imageUrl": "/images/tools/cryo-plasma-drill.png"
+          },
+          {
+            "id": "energy-pack",
+            "name": "Energy Pack",
+            "description": "Restores +5 energy instantly",
+            "type": "energy",
+            "currency": "GEMS",
+            "price": 300,
+            "effect": {
+              "energy": 5
+            },
+            "imageUrl": "/images/resources/energy-resources.PNG"
+          },
+          {
+            "id": "iron-drill",
+            "name": "Iron Drill",
+            "description": "Heavy-duty mechanical iron drill (+6 Mining Power)",
+            "type": "equipment",
+            "currency": "GEMS",
+            "price": 350,
+            "effect": {
+              "miningPower": 6
+            },
+            "imageUrl": "/images/tools/iron-drill.png"
+          },
+          {
+            "id": "iron-pickaxe",
+            "name": "Iron Pickaxe",
+            "description": "Standard reliable mining pickaxe (+2 Mining Power)",
+            "type": "equipment",
+            "currency": "GEMS",
+            "price": 100,
+            "effect": {
+              "miningPower": 2
+            },
+            "imageUrl": "/images/tools/iron-pickaxe.png"
+          },
+          {
+            "id": "ruby-laser",
+            "name": "Ruby Laser",
+            "description": "Thermal laser mining cutter powered by ruby optics (+35 Mining Power)",
+            "type": "equipment",
+            "currency": "GEMS",
+            "price": 3500,
+            "effect": {
+              "miningPower": 35
+            },
+            "imageUrl": "/images/tools/ruby-laser.png"
+          },
+          {
+            "id": "rusty-pickaxe",
+            "name": "Rusty Pickaxe",
+            "description": "Basic pickaxe",
+            "type": "equipment",
+            "currency": "GEMS",
+            "price": 10,
+            "effect": {
+              "miningPower": 0
+            },
+            "imageUrl": "/assets/tools/rusty-pickaxe.PNG"
+          },
+          {
+            "id": "void-annihilator",
+            "name": "Void Annihilator",
+            "description": "Ultimate dimensional apex mining tool (+200 Mining Power)",
+            "type": "equipment",
+            "currency": "GEMS",
+            "price": 35000,
+            "effect": {
+              "miningPower": 200
+            },
+            "imageUrl": "/images/tools/void-annihilator.png"
+          }
+        ]
+      },
+      "finding_5_emerald_1to1_zero_fee_swap": {
+        "trade_rates": {
+          "rates": {
+            "bronze-wire_GEMS": 3.5,
+            "coal_GEMS": 0.35,
+            "copper-ore_GEMS": 0.6,
+            "cryo-shard_GEMS": 3,
+            "diamond_GEMS": 30,
+            "emerald_GEMS": 1,
+            "GEMS_coal": 2.857143,
+            "GEMS_copper-ore": 1.666667,
+            "GEMS_emerald": 1,
+            "GEMS_iron-ore": 4,
+            "GEMS_steel-ingot": 0.4,
+            "iron-ore_GEMS": 0.25,
+            "obsidian_GEMS": 90,
+            "ruby_GEMS": 10,
+            "sapphire_GEMS": 3.5,
+            "steel-ingot_GEMS": 2.5,
+            "sulfur_GEMS": 1.2,
+            "thermal-core_GEMS": 25,
+            "void-dust_GEMS": 8,
+            "void-gem_GEMS": 300,
+            "void-reactor_GEMS": 450
+          },
+          "assetValues": {
+            "iron-ore": 0.25,
+            "coal": 0.35,
+            "copper-ore": 0.6,
+            "sulfur": 1.2,
+            "cryo-shard": 3,
+            "void-dust": 8,
+            "steel-ingot": 2.5,
+            "bronze-wire": 3.5,
+            "thermal-core": 25,
+            "void-reactor": 450,
+            "emerald": 1,
+            "sapphire": 3.5,
+            "ruby": 10,
+            "diamond": 30,
+            "obsidian": 90,
+            "void-gem": 300,
+            "GEMS": 1
+          }
+        }
+      }
+    },
+    "gem_bullshot_live_state": {
+      "user_before": {
+        "id": "3523304",
+        "walletAddress": "0x5171edd56a53b9a7436e88050b17e45f2db59be2",
+        "username": "Miner_5171ed",
+        "displayName": "0x5171...9be2",
+        "email": null,
+        "twitterHandle": "bossmanai_hub",
+        "role": "user",
+        "gems": 47499.7217,
+        "energy": 2,
+        "miningPower": 260,
+        "level": 15,
+        "xp": 34395,
+        "energyCapacity": 140,
+        "miningSpeed": 15,
+        "lastEnergyRegen": 1794165056,
+        "memberSince": "2026-11-07 14:28:40",
+        "totpEnabled": false,
+        "refCode": "0xdf407995",
+        "referredBy": null,
+        "customReferralRate": null,
+        "pendingReferralGems": 0,
+        "totalReferralGems": 261.56,
+        "referralCount": 0,
+        "miningMultiplier": {
+          "multiplier": 2.7,
+          "base": 1,
+          "dailyBonus": 0.4,
+          "weeklyBonus": 0.9,
+          "oneTimeBonus": 0.4,
+          "dailyCount": 2,
+          "weeklyCount": 3,
+          "oneTimeCount": 4,
+          "dailyResetsIn": 17256,
+          "weeklyResetsIn": 17256
+        }
+      },
+      "user_after": {
+        "id": "3523304",
+        "walletAddress": "0x5171edd56a53b9a7436e88050b17e45f2db59be2",
+        "username": "Miner_5171ed",
+        "displayName": "0x5171...9be2",
+        "email": null,
+        "twitterHandle": "bossmanai_hub",
+        "role": "user",
+        "gems": 47537.5217,
+        "energy": 2,
+        "miningPower": 260,
+        "level": 15,
+        "xp": 34445,
+        "energyCapacity": 140,
+        "miningSpeed": 15,
+        "lastEnergyRegen": 1794165056,
+        "memberSince": "2026-11-07 14:28:40",
+        "totpEnabled": false,
+        "refCode": "0xdf407995",
+        "referredBy": null,
+        "customReferralRate": null,
+        "pendingReferralGems": 0,
+        "totalReferralGems": 261.56,
+        "referralCount": 0,
+        "miningMultiplier": {
+          "multiplier": 2.7,
+          "base": 1,
+          "dailyBonus": 0.4,
+          "weeklyBonus": 0.9,
+          "oneTimeBonus": 0.4,
+          "dailyCount": 2,
+          "weeklyCount": 3,
+          "oneTimeCount": 4,
+          "dailyResetsIn": 17256,
+          "weeklyResetsIn": 17256
+        }
+      },
+      "gems_delta": 37.8,
+      "xp_delta": 50,
+      "legitimate_actions_executed": [
+        {
+          "type": "claim_mining_position",
+          "positionId": "mine-6af0c8d492d464.878262100f740c0c",
+          "locationId": "cave-6ad9ec1875966",
+          "status": 200,
+          "ok": true,
+          "response": {
+            "status": "success",
+            "baseGemsEarned": 14,
+            "gemsEarned": 37.8,
+            "multiplier": 2.7,
+            "multiplierInfo": {
+              "multiplier": 2.7,
+              "base": 1,
+              "dailyBonus": 0.4,
+              "weeklyBonus": 0.9,
+              "oneTimeBonus": 0.4,
+              "dailyCount": 2,
+              "weeklyCount": 3,
+              "oneTimeCount": 4,
+              "dailyResetsIn": 17256,
+              "weeklyResetsIn": 17256
+            },
+            "rewards": [],
+            "expectedRewards": [
+              "37.8 GEMS (2.7x)"
+            ],
+            "user": {
+              "id": "3523304",
+              "walletAddress": "0x5171edd56a53b9a7436e88050b17e45f2db59be2",
+              "username": "Miner_5171ed",
+              "displayName": "0x5171...9be2",
+              "email": null,
+              "twitterHandle": "bossmanai_hub",
+              "role": "user",
+              "gems": 47537.5217,
+              "energy": 2,
+              "miningPower": 260,
+              "level": 15,
+              "xp": 34445,
+              "energyCapacity": 140,
+              "miningSpeed": 15,
+              "lastEnergyRegen": 1794165056,
+              "memberSince": "2026-11-07 14:28:40",
+              "totpEnabled": false,
+              "refCode": "0xdf407995",
+              "referredBy": null,
+              "customReferralRate": null,
+              "pendingReferralGems": 0,
+              "totalReferralGems": 261.56,
+              "referralCount": 0
+            }
+          }
+        }
+      ],
+      "mining_locations": [
+        {
+          "id": "cave-6ad9ec1875966",
+          "name": "",
+          "description": "",
+          "levelRequired": 1,
+          "energyCost": 5,
+          "durationSeconds": 60,
+          "miningPowerRequired": 0,
+          "possibleRewards": [
+            "GEMS"
+          ],
+          "rewardRanges": {
+            "GEMS": {
+              "min": 5,
+              "max": 15
+            }
+          },
+          "imageUrl": "/assets/caves/greenstone-quarry.PNG",
+          "isLocked": false
+        },
+        {
+          "id": "cave-6ada43fe93394",
+          "name": "",
+          "description": "",
+          "levelRequired": 1,
+          "energyCost": 5,
+          "durationSeconds": 60,
+          "miningPowerRequired": 0,
+          "possibleRewards": [
+            "GEMS"
+          ],
+          "rewardRanges": {
+            "GEMS": {
+              "min": 5,
+              "max": 15
+            }
+          },
+          "imageUrl": "/assets/caves/greenstone-quarry.PNG",
+          "isLocked": false
+        },
+        {
+          "id": "cave-6ada4401d69ed",
+          "name": "",
+          "description": "",
+          "levelRequired": 1,
+          "energyCost": 5,
+          "durationSeconds": 60,
+          "miningPowerRequired": 0,
+          "possibleRewards": [
+            "GEMS"
+          ],
+          "rewardRanges": {
+            "GEMS": {
+              "min": 5,
+              "max": 15
+            }
+          },
+          "imageUrl": "/assets/caves/greenstone-quarry.PNG",
+          "isLocked": false
+        },
+        {
+          "id": "crystal-cavern",
+          "name": "Crystal Cavern",
+          "description": "A glowing cavern full of copper veins and sapphire crystals.",
+          "levelRequired": 4,
+          "energyCost": 20,
+          "durationSeconds": 1800,
+          "miningPowerRequired": 25,
+          "possibleRewards": [
+            "Copper Ore",
+            "Iron Ore",
+            "Sapphire",
+            "GEMS"
+          ],
+          "rewardRanges": {
+            "Copper Ore": {
+              "min": 20,
+              "max": 35
+            },
+            "Iron Ore": {
+              "min": 10,
+              "max": 20
+            },
+            "Sapphire": {
+              "min": 1,
+              "max": 3
+            },
+            "GEMS": {
+              "min": 25,
+              "max": 45
+            }
+          },
+          "imageUrl": "/assets/caves/crystal-cavern.PNG",
+          "isLocked": true
+        },
+        {
+          "id": "ember-mine",
+          "name": "Ember Mine",
+          "description": "A scorching volcanic mine with sulfur deposits and rare rubies.",
+          "levelRequired": 8,
+          "energyCost": 35,
+          "durationSeconds": 5400,
+          "miningPowerRequired": 60,
+          "possibleRewards": [
+            "Sulfur",
+            "Coal",
+            "Ruby",
+            "GEMS"
+          ],
+          "rewardRanges": {
+            "Sulfur": {
+              "min": 15,
+              "max": 30
+            },
+            "Coal": {
+              "min": 15,
+              "max": 25
+            },
+            "Ruby": {
+              "min": 1,
+              "max": 2
+            },
+            "GEMS": {
+              "min": 60,
+              "max": 100
+            }
+          },
+          "imageUrl": "/assets/caves/ember-mine.PNG",
+          "isLocked": true
+        },
+        {
+          "id": "frozen-depths",
+          "name": "Frozen Depths",
+          "description": "A freezing deep subterranean cavern with diamond and obsidian crystals.",
+          "levelRequired": 14,
+          "energyCost": 50,
+          "durationSeconds": 14400,
+          "miningPowerRequired": 120,
+          "possibleRewards": [
+            "Cryo Shard",
+            "Diamond",
+            "Obsidian",
+            "GEMS"
+          ],
+          "rewardRanges": {
+            "Cryo Shard": {
+              "min": 20,
+              "max": 40
+            },
+            "Diamond": {
+              "min": 1,
+              "max": 2
+            },
+            "Obsidian": {
+              "min": 0,
+              "max": 1
+            },
+            "GEMS": {
+              "min": 200,
+              "max": 350
+            }
+          },
+          "imageUrl": "/assets/caves/frozen-depths.PNG",
+          "isLocked": true
+        },
+        {
+          "id": "greenstone-quarry",
+          "name": "Greenstone Quarry",
+          "description": "A rich quarry containing iron ore, coal, emeralds and gems.",
+          "levelRequired": 1,
+          "energyCost": 10,
+          "durationSeconds": 600,
+          "miningPowerRequired": 0,
+          "possibleRewards": [
+            "Iron Ore",
+            "Coal",
+            "Emerald",
+            "GEMS"
+          ],
+          "rewardRanges": {
+            "Iron Ore": {
+              "min": 15,
+              "max": 25
+            },
+            "Coal": {
+              "min": 5,
+              "max": 10
+            },
+            "Emerald": {
+              "min": 0,
+              "max": 2
+            },
+            "GEMS": {
+              "min": 8,
+              "max": 15
+            }
+          },
+          "imageUrl": "/assets/caves/greenstone-quarry.PNG",
+          "isLocked": false
+        },
+        {
+          "id": "void-rift",
+          "name": "Void Rift",
+          "description": "A reality-distorting cosmic rift rich in void dust and mythical void gems.",
+          "levelRequired": 20,
+          "energyCost": 75,
+          "durationSeconds": 28800,
+          "miningPowerRequired": 250,
+          "possibleRewards": [
+            "Void Dust",
+            "Void Gem",
+            "Obsidian",
+            "GEMS"
+          ],
+          "rewardRanges": {
+            "Void Dust": {
+              "min": 30,
+              "max": 50
+            },
+            "Void Gem": {
+              "min": 1,
+              "max": 1
+            },
+            "Obsidian": {
+              "min": 0,
+              "max": 1
+            },
+            "GEMS": {
+              "min": 500,
+              "max": 800
+            }
+          },
+          "imageUrl": "/assets/caves/void-rift.PNG",
+          "isLocked": true
+        }
+      ],
+      "staking_pools": [
+        {
+          "id": "diamond-pool",
+          "assetId": "diamond",
+          "assetName": "Diamond",
+          "apy": 22,
+          "totalStaked": 461980,
+          "lockDurationDays": 0
+        },
+        {
+          "id": "emerald-pool",
+          "assetId": "emerald",
+          "assetName": "Emerald",
+          "apy": 18,
+          "totalStaked": 11529966,
+          "lockDurationDays": 0
+        },
+        {
+          "id": "obsidian-pool",
+          "assetId": "obsidian",
+          "assetName": "Obsidian",
+          "apy": 28,
+          "totalStaked": 173645,
+          "lockDurationDays": 0
+        },
+        {
+          "id": "ruby-pool",
+          "assetId": "ruby",
+          "assetName": "Ruby",
+          "apy": 12,
+          "totalStaked": 1468497,
+          "lockDurationDays": 0
+        },
+        {
+          "id": "sapphire-pool",
+          "assetId": "sapphire",
+          "assetName": "Sapphire",
+          "apy": 14,
+          "totalStaked": 4540817,
+          "lockDurationDays": 0
+        },
+        {
+          "id": "void-gem-pool",
+          "assetId": "void-gem",
+          "assetName": "Void Gem",
+          "apy": 35,
+          "totalStaked": 178670,
+          "lockDurationDays": 0
+        }
+      ],
+      "staking_positions": [
+        {
+          "id": "stk-6af0b88e62a29",
+          "userId": "3523304",
+          "poolId": "ruby-pool",
+          "assetId": "ruby",
+          "amount": 2,
+          "stakedAt": "2026-11-08 17:59:42",
+          "lastClaimAt": "2026-11-08 17:59:42",
+          "accruedRewards": 0.0003,
+          "status": "active"
+        },
+        {
+          "id": "stk-6af07846ccf02",
+          "userId": "3523304",
+          "poolId": "sapphire-pool",
+          "assetId": "sapphire",
+          "amount": 3,
+          "stakedAt": "2026-11-08 13:25:26",
+          "lastClaimAt": "2026-11-08 17:59:42",
+          "accruedRewards": 0.0007,
+          "status": "active"
+        }
+      ],
+      "referral_stats": {
+        "refCode": "0xdf407995",
+        "refLink": "https://gem.bullshot.io/r/0xdf407995",
+        "alternativeLink": "https://gem.bullshot.io/0xdf407995",
+        "commissionRate": 10,
+        "isCustomRate": false,
+        "totalReferred": 21,
+        "pendingGems": 0,
+        "totalEarnedGems": 261.56,
+        "referredUsers": [
+          {
+            "id": "3814971",
+            "walletAddress": "0x7d33b912b279a8a7bee3c0db4dfec329b17bff39",
+            "maskedWallet": "0x7d33...ff39",
+            "username": "Miner_7d33b9",
+            "displayName": "0x7d33...ff39",
+            "level": 1,
+            "joinedAt": "2026-11-08 19:01:13",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3814961",
+            "walletAddress": "0x090915d4623e2dc979d810c2dc5847a8c00182e6",
+            "maskedWallet": "0x0909...82e6",
+            "username": "Miner_090915",
+            "displayName": "0x0909...82e6",
+            "level": 1,
+            "joinedAt": "2026-11-08 19:01:09",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3814953",
+            "walletAddress": "0x1da9f64721836ad994fa466ba4d0488364b3706a",
+            "maskedWallet": "0x1da9...706a",
+            "username": "Miner_1da9f6",
+            "displayName": "0x1da9...706a",
+            "level": 1,
+            "joinedAt": "2026-11-08 19:01:08",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3814947",
+            "walletAddress": "0x20e1e305ae9ab7733116e4332aa910c2facb36d7",
+            "maskedWallet": "0x20e1...36d7",
+            "username": "Miner_20e1e3",
+            "displayName": "0x20e1...36d7",
+            "level": 1,
+            "joinedAt": "2026-11-08 19:01:07",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3813170",
+            "walletAddress": "0x23a6b6dcabffd546c9eee0227c3123d06f85ca1b",
+            "maskedWallet": "0x23a6...ca1b",
+            "username": "Miner_23a6b6",
+            "displayName": "0x23a6...ca1b",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:53:58",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3813142",
+            "walletAddress": "0x4f990ca7af093ab42e9300751b689c72452aff18",
+            "maskedWallet": "0x4f99...ff18",
+            "username": "Miner_4f990c",
+            "displayName": "0x4f99...ff18",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:53:53",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3812746",
+            "walletAddress": "0xd0fc54c925d50a04136bae3361dbcf1ad0ea6321",
+            "maskedWallet": "0xd0fc...6321",
+            "username": "Miner_d0fc54",
+            "displayName": "0xd0fc...6321",
+            "level": 3,
+            "joinedAt": "2026-11-08 18:52:02",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3812683",
+            "walletAddress": "0x9f6ec8d964428042fe23f391e7d7a53b64951414",
+            "maskedWallet": "0x9f6e...1414",
+            "username": "Miner_9f6ec8",
+            "displayName": "0x9f6e...1414",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:51:41",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3812361",
+            "walletAddress": "0x6758acda07f9150ac039df97cb903df679df97e3",
+            "maskedWallet": "0x6758...97e3",
+            "username": "Miner_6758ac",
+            "displayName": "0x6758...97e3",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:49:37",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3812351",
+            "walletAddress": "0x6664a87c5cf33668a9252bd14b8b5c552e8c8505",
+            "maskedWallet": "0x6664...8505",
+            "username": "Miner_6664a8",
+            "displayName": "0x6664...8505",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:49:33",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3811882",
+            "walletAddress": "0x195a81ed001fca4c5bed330bd6c0383833f797a9",
+            "maskedWallet": "0x195a...97a9",
+            "username": "Miner_195a81",
+            "displayName": "0x195a...97a9",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:46:31",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3811860",
+            "walletAddress": "0x60bb963701e648ae1f9f97ba0d893b3e3760a926",
+            "maskedWallet": "0x60bb...a926",
+            "username": "Miner_60bb96",
+            "displayName": "0x60bb...a926",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:46:27",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3811579",
+            "walletAddress": "0x8dfdb658c390d65eff853bfd1e1b93bc64aa5381",
+            "maskedWallet": "0x8dfd...5381",
+            "username": "Miner_8dfdb6",
+            "displayName": "0x8dfd...5381",
+            "level": 3,
+            "joinedAt": "2026-11-08 18:44:56",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3811574",
+            "walletAddress": "0x7da08434f99e925fedf5173c4d18a99fc02bb10e",
+            "maskedWallet": "0x7da0...b10e",
+            "username": "Miner_7da084",
+            "displayName": "0x7da0...b10e",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:44:53",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3810690",
+            "walletAddress": "0x333b6cf83632d2d60b9482ce23c1fa1f28b67058",
+            "maskedWallet": "0x333b...7058",
+            "username": "Miner_333b6c",
+            "displayName": "0x333b...7058",
+            "level": 4,
+            "joinedAt": "2026-11-08 18:41:34",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3810410",
+            "walletAddress": "0x80e04886bfaa8bd0517e5a232ce4382aa7c009f7",
+            "maskedWallet": "0x80e0...09f7",
+            "username": "Miner_80e048",
+            "displayName": "0x80e0...09f7",
+            "level": 3,
+            "joinedAt": "2026-11-08 18:40:28",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3764859",
+            "walletAddress": "0xb0ae117de9f36c78852c3d9cdf9a02c9e6c1469d",
+            "maskedWallet": "0xb0ae...469d",
+            "username": "Miner_b0ae11",
+            "displayName": "0xb0ae...469d",
+            "level": 5,
+            "joinedAt": "2026-11-08 12:48:37",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3764465",
+            "walletAddress": "0x023f204e94d6ca1bef2318c3390a5e9053f40553",
+            "maskedWallet": "0x023f...0553",
+            "username": "Miner_023f20",
+            "displayName": "0x023f...0553",
+            "level": 5,
+            "joinedAt": "2026-11-08 12:45:01",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3764206",
+            "walletAddress": "0x4593bc591bd3547a9d4ecd52bbe8faae23022c81",
+            "maskedWallet": "0x4593...2c81",
+            "username": "Miner_4593bc",
+            "displayName": "0x4593...2c81",
+            "level": 5,
+            "joinedAt": "2026-11-08 12:42:39",
+            "commissionGenerated": 0
+          },
+          {
+            "id": "3752022",
+            "walletAddress": "0x176c7fe44d9fc655119b75fe3532bc04da0c1226",
+            "maskedWallet": "0x176c...1226",
+            "username": "Miner_176c7f",
+            "displayName": "0x176c...1226",
+            "level": 10,
+            "joinedAt": "2026-11-08 10:46:28",
+            "commissionGenerated": 113.87
+          },
+          {
+            "id": "3751821",
+            "walletAddress": "0xb17a253b11f88a23c454486adb2aa0bc1397e496",
+            "maskedWallet": "0xb17a...e496",
+            "username": "Miner_b17a25",
+            "displayName": "0xb17a...e496",
+            "level": 10,
+            "joinedAt": "2026-11-08 10:45:10",
+            "commissionGenerated": 147.69
+          }
+        ],
+        "recentLogs": [
+          {
+            "id": "3751821",
+            "minedGems": 1476.9,
+            "commissionRate": 10,
+            "commissionGems": 147.69,
+            "status": "summary",
+            "miningCount": 48,
+            "createdAt": "2026-11-08 18:26:18",
+            "refereeMasked": "0xb17a...e496",
+            "refereeUsername": "Miner_b17a25"
+          },
+          {
+            "id": "3752022",
+            "minedGems": 1138.7,
+            "commissionRate": 10,
+            "commissionGems": 113.87,
+            "status": "summary",
+            "miningCount": 45,
+            "createdAt": "2026-11-08 18:24:13",
+            "refereeMasked": "0x176c...1226",
+            "refereeUsername": "Miner_176c7f"
+          }
+        ]
+      },
+      "inventory": [
+        {
+          "id": 67526817,
+          "assetId": "rusty-pickaxe",
+          "name": "Rusty Pickaxe",
+          "type": "equipment",
+          "quantity": 1,
+          "rarity": "common"
+        },
+        {
+          "id": 67889540,
+          "assetId": "iron-drill",
+          "name": "Iron Drill",
+          "type": "equipment",
+          "quantity": 1,
+          "rarity": "common"
+        },
+        {
+          "id": 67911435,
+          "assetId": "copper-turbo-drill",
+          "name": "Copper Turbo Drill",
+          "type": "equipment",
+          "quantity": 1,
+          "rarity": "common"
+        },
+        {
+          "id": 68427043,
+          "assetId": "iron-pickaxe",
+          "name": "Iron Pickaxe",
+          "type": "equipment",
+          "quantity": 1,
+          "rarity": "common"
+        },
+        {
+          "id": 67721226,
+          "assetId": "iron-ore",
+          "name": "Iron Ore",
+          "type": "resource",
+          "quantity": 87,
+          "rarity": "common"
+        },
+        {
+          "id": 77698952,
+          "assetId": "copper-ore",
+          "name": "Copper Ore",
+          "type": "resource",
+          "quantity": 53,
+          "rarity": "uncommon"
+        },
+        {
+          "id": 77993551,
+          "assetId": "coal",
+          "name": "Coal",
+          "type": "resource",
+          "quantity": 31,
+          "rarity": "common"
+        },
+        {
+          "id": 79508678,
+          "assetId": "sulfur",
+          "name": "Sulfur",
+          "type": "resource",
+          "quantity": 29,
+          "rarity": "rare"
+        }
+      ],
+      "leaderboard_top5": []
+    }
+  }
+}
