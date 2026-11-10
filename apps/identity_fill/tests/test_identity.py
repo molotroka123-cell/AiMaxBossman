@@ -118,3 +118,27 @@ def test_signup_templates_use_only_placeholders_and_known_fields():
 
 def test_find_identity_returns_a_list_without_raising():
     assert isinstance(vault.find_identity(), list)
+
+
+def test_sealed_drive_roundtrip_and_wrong_passphrase():
+    import json
+    from apps.identity_fill import drive
+    rec = mrz.parse_td3(L1, L2)
+    blob = drive.seal(rec, "correct horse battery")
+    dumped = json.dumps(blob)
+    for secret in ("ERIKSSON", "L898902C3", "1974"):
+        assert secret not in dumped
+    assert drive.unseal(blob, "correct horse battery").resolve("{{id.surname}}") == "ERIKSSON"
+    with pytest.raises(vault.VaultError):
+        drive.unseal(blob, "wrong passphrase!!")
+    tampered = dict(blob, ct=blob["ct"][:-4] + "AAAA")
+    with pytest.raises(vault.VaultError):
+        drive.unseal(tampered, "correct horse battery")
+
+
+def test_short_passphrase_and_unknown_field_refused():
+    from apps.identity_fill import drive
+    with pytest.raises(vault.VaultError):
+        drive.seal({"surname": "X"}, "short")
+    with pytest.raises(vault.VaultError):
+        drive.seal({"password": "x"}, "long enough passphrase")
