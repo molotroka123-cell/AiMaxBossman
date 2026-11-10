@@ -31,6 +31,7 @@ def read_mrz_lines(image: Path, url: str, model: str) -> tuple[str, str]:
     req = urllib.request.Request(assert_local(url).rstrip("/") + "/api/generate", data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
     text = json.loads(urllib.request.urlopen(req, timeout=300).read()).get("response", "")
+    text = re.sub(r"</?[A-Za-z][A-Za-z0-9_]*>", "\n", text)  # the OCR model wraps its answer in tags like </doc>
     lines = [x for x in MRZ_LINE.findall(text.upper().replace(" ", "")) if "<" in x]
     for i, first in enumerate(lines[:-1]):
         if first.startswith("P"):
