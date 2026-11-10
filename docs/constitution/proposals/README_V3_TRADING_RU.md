@@ -8,6 +8,6 @@
 
 Принять (только владелец, в своём окне PowerShell, не из сессии агента):
 
-    powershell -ExecutionPolicy Bypass -File toolsdopt_constitution_v2.ps1 -Draft docs\constitution\proposals\BOSSMAN_CONSTITUTION_v3_TRADING_DRAFT.md
+    powershell -ExecutionPolicy Bypass -File tools/adopt_constitution_v2.ps1 -Draft docs/constitution/proposals/BOSSMAN_CONSTITUTION_v3_TRADING_DRAFT.md
 
 Скрипт покажет разницу и закрепит новый хеш. Агент этот шаг выполнить не может — так задумано.
