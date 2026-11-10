@@ -85,3 +85,16 @@ def test_make_drive_writes_worker_config_and_start_script(tmp_path):
     assert cfg["coordinator"] == "http://192.168.1.10:8850" and len(cfg["token"]) >= 32
     with pytest.raises(ValueError):
         make_drive.prepare(str(tmp_path / "d2"), "192.168.1.10:8850", str(tmp_path / "mesh.token"))
+
+
+def test_dashboard_needs_the_token_and_escapes_names(mesh_url):
+    import urllib.request
+    mesh, url = mesh_url
+    mesh.register({"hostname": "<b>pc</b>", "cpu_count": 8, "models": ["m1", "m2"]})
+    mesh.submit("ping", {})
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(url + "/dashboard?token=wrong", timeout=10)
+    assert e.value.code == 401
+    page = urllib.request.urlopen(url + "/dashboard?token=" + TOKEN, timeout=10).read().decode("utf-8")
+    assert "PCs online: 1 of 1" in page and "queued 1" in page
+    assert "<b>pc</b>" not in page and "&lt;b&gt;pc&lt;/b&gt;" in page

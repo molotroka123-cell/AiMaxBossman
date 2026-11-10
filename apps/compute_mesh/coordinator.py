@@ -76,6 +76,33 @@ class Mesh:
             return {"workers": workers, "jobs": jobs}
 
 
+def dashboard_html(status: dict) -> str:
+    """One self-refreshing page: which PCs are connected and what the jobs are doing. Values are HTML-escaped."""
+    import html
+
+    def cell(v) -> str:
+        return "<td>" + html.escape(str(v if v is not None else "")) + "</td>"
+
+    workers = "".join(
+        "<tr>" + cell(w.get("hostname")) + cell("online" if w.get("online") else "offline") + cell(w.get("cpu_count"))
+        + cell(len(w.get("models") or [])) + cell(wid[:8]) + "</tr>" for wid, w in status["workers"].items())
+    jobs = "".join(
+        "<tr>" + cell(jid[:8]) + cell(j["type"]) + cell(j["state"]) + cell((j["worker"] or "")[:8]) + "</tr>"
+        for jid, j in list(status["jobs"].items())[-50:])
+    counts: dict[str, int] = {}
+    for j in status["jobs"].values():
+        counts[j["state"]] = counts.get(j["state"], 0) + 1
+    online = sum(1 for w in status["workers"].values() if w.get("online"))
+    summary = html.escape(f"PCs online: {online} of {len(status['workers'])} | jobs: " + (", ".join(f"{k} {v}" for k, v in sorted(counts.items())) or "none"))
+    style = ("body{font:15px Arial,sans-serif;margin:24px;background:#111827;color:#e5e7eb}h1{font-size:20px}"
+             "table{border-collapse:collapse;margin:8px 0 24px 0}td,th{border:1px solid #374151;padding:6px 12px;text-align:left}"
+             "th{background:#1f2937}")
+    return ("<!doctype html><html><head><meta charset='utf-8'><meta http-equiv='refresh' content='5'><title>Bossman mesh</title>"
+            f"<style>{style}</style></head><body><h1>Bossman compute mesh</h1><p>{summary}</p>"
+            "<table><tr><th>PC</th><th>State</th><th>CPU threads</th><th>Models</th><th>Worker id</th></tr>" + workers + "</table>"
+            "<table><tr><th>Job</th><th>Type</th><th>State</th><th>Worker</th></tr>" + jobs + "</table></body></html>")
+
+
 def make_handler(mesh: Mesh):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -96,6 +123,18 @@ def make_handler(mesh: Mesh):
             return json.loads(self.rfile.read(n) or b"{}")
 
         def do_GET(self):
+            if self.path.startswith("/dashboard"):
+                # browser view: the token comes in the query string (?token=...), same constant-time check
+                token = self.path.partition("token=")[2].split("&")[0]
+                if not mesh.authorised("Bearer " + token):
+                    return self._send(401, {"error": "open /dashboard?token=<pairing token>"})
+                page = dashboard_html(mesh.status()).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(page)))
+                self.end_headers()
+                self.wfile.write(page)
+                return
             if not mesh.authorised(self.headers.get("Authorization")):
                 return self._send(401, {"error": "unauthorised"})
             if self.path == "/status":
