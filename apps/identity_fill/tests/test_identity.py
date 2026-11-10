@@ -99,3 +99,22 @@ def test_repair_does_not_rescue_a_wrong_digit():
 
 def test_repair_leaves_a_correct_mrz_unchanged():
     assert mrz.repair_td3(L1, L2) == (L1, L2)
+
+
+def test_signup_templates_use_only_placeholders_and_known_fields():
+    import json, pathlib
+    folder = pathlib.Path(__file__).parent.parent / "templates"
+    files = sorted(folder.glob("*.json"))
+    assert {f.stem for f in files} == {"instagram", "reddit", "telegram", "tiktok", "x"}
+    for f in files:
+        tpl = json.loads(f.read_text(encoding="utf-8"))
+        assert tpl["url"].startswith("https://") and "captcha" in tpl["owner_steps"]
+        for step in tpl["steps"]:
+            names = vault.PLACEHOLDER.findall(step["value"])
+            assert names, f"{f.name}: a step without a placeholder would carry a literal value"
+            assert all(n in vault.FIELDS for n, _ in names)
+            assert vault.PLACEHOLDER.sub("", step["value"]).strip() == ""  # nothing but placeholders and spaces
+
+
+def test_find_identity_returns_a_list_without_raising():
+    assert isinstance(vault.find_identity(), list)

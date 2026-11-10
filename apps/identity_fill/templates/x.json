@@ -1,0 +1,42 @@
+{
+  "service": "X (Twitter)",
+  "url": "https://x.com/i/flow/signup",
+  "steps": [
+    {
+      "field": "Name",
+      "value": "{{id.given_names}} {{id.surname}}"
+    },
+    {
+      "field": "Email",
+      "value": "{{id.email}}"
+    },
+    {
+      "field": "Date of birth: month",
+      "value": "{{id.birth_date:month}}"
+    },
+    {
+      "field": "Date of birth: day",
+      "value": "{{id.birth_date:day}}"
+    },
+    {
+      "field": "Date of birth: year",
+      "value": "{{id.birth_date:year}}"
+    }
+  ],
+  "owner_steps": [
+    "captcha",
+    "email_code",
+    "sms_code",
+    "2fa_setup"
+  ],
+  "not_from_vault": [
+    "username",
+    "password"
+  ],
+  "rules": [
+    "one account per person per service",
+    "the identity on the drive belongs to the person registering and they agreed",
+    "captcha, email/SMS codes and 2FA are entered by the owner",
+    "username and password are chosen by the owner or a local password manager, never by a cloud model"
+  ]
+}

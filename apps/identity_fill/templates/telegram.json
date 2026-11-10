@@ -1,0 +1,34 @@
+{
+  "service": "Telegram",
+  "url": "https://web.telegram.org/",
+  "steps": [
+    {
+      "field": "Phone number",
+      "value": "{{id.phone}}"
+    },
+    {
+      "field": "First name",
+      "value": "{{id.given_names}}"
+    },
+    {
+      "field": "Last name",
+      "value": "{{id.surname}}"
+    }
+  ],
+  "owner_steps": [
+    "captcha",
+    "email_code",
+    "sms_code",
+    "2fa_setup"
+  ],
+  "not_from_vault": [
+    "username",
+    "password"
+  ],
+  "rules": [
+    "one account per person per service",
+    "the identity on the drive belongs to the person registering and they agreed",
+    "captcha, email/SMS codes and 2FA are entered by the owner",
+    "username and password are chosen by the owner or a local password manager, never by a cloud model"
+  ]
+}

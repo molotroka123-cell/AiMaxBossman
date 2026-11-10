@@ -1,0 +1,38 @@
+{
+  "service": "TikTok",
+  "url": "https://www.tiktok.com/signup/phone-or-email/email",
+  "steps": [
+    {
+      "field": "Birthday: month",
+      "value": "{{id.birth_date:month}}"
+    },
+    {
+      "field": "Birthday: day",
+      "value": "{{id.birth_date:day}}"
+    },
+    {
+      "field": "Birthday: year",
+      "value": "{{id.birth_date:year}}"
+    },
+    {
+      "field": "Email address",
+      "value": "{{id.email}}"
+    }
+  ],
+  "owner_steps": [
+    "captcha",
+    "email_code",
+    "sms_code",
+    "2fa_setup"
+  ],
+  "not_from_vault": [
+    "username",
+    "password"
+  ],
+  "rules": [
+    "one account per person per service",
+    "the identity on the drive belongs to the person registering and they agreed",
+    "captcha, email/SMS codes and 2FA are entered by the owner",
+    "username and password are chosen by the owner or a local password manager, never by a cloud model"
+  ]
+}
