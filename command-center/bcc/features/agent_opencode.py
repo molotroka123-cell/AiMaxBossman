@@ -641,6 +641,34 @@ MODEL_TIERS: list[dict[str, Any]] = [
 ]
 
 
+def provider_url_is_loopback(url: Any) -> bool:
+    """True only for an address on THIS PC: localhost, 127.0.0.0/8, ::1. Anything else, garbage included, is False."""
+    from .chat_projects import _is_loopback
+    try:
+        return _is_loopback(str(url or "").strip())
+    except Exception:  # noqa: BLE001 - an unparseable address is never "local"
+        return False
+
+
+def agent_model_is_cloud(model: dict | None, provider: dict | None) -> bool:
+    """Does a turn on this model leave the PC? Decided by the model kind and the provider ADDRESS.
+
+    providers.kind is an adapter kind (`openai_compat` / `anthropic`), not a locality: local Ollama on
+    127.0.0.1 is `openai_compat` too, so the old test on it made every local agent "cloud" and the phone pult
+    (allow_cloud=False for local agents) got CLOUD_NOT_ENABLED. Fail closed: a provider whose address is
+    missing, unparseable or not loopback is cloud, and so is a loopback Ollama `:cloud` model (it forwards
+    the prompt to ollama.com)."""
+    from ..provider_governance import is_cloud_offload
+    model = model if isinstance(model, dict) else {}
+    if model.get("kind") == "cloud":
+        return True
+    if not provider:
+        return False
+    if not provider_url_is_loopback(provider.get("base_url")):
+        return True
+    return bool(is_cloud_offload(provider, model))
+
+
 async def _cached_catalog(svc: Any) -> tuple[list, dict, dict]:
     st_orch = _orch(svc)
     now = time.monotonic()
@@ -2245,17 +2273,17 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                     m_sel = _mds.get(ag_row_sel.get("model_id")) or {}
                     p_sel = _prvs.get(m_sel.get("provider_id")) or {}
                     ag_model_name = str(m_sel.get("alias") or m_sel.get("name") or "")
-                    ag_is_cloud = (
-                        m_sel.get("kind") == "cloud"
-                        or (bool(p_sel) and p_sel.get("kind") not in (None, "local", "ollama"))
-                    )
+                    ag_is_cloud = agent_model_is_cloud(m_sel, p_sel)
             allow_cloud = (
                 body.allow_cloud
                 if body.allow_cloud is not None
                 else (True if (body.agent_id is not None and ag_is_cloud) else cfg["allow_cloud"])
             )
             req_model = body.model or (ag_model_name if body.agent_id is not None and ag_model_name else cfg["model"])
-            req_worker = body.worker if body.worker is not None else cfg["worker"]
+            # A request that names an agent runs on THAT agent: a worker left in the session config by an earlier
+            # cloud turn is not inherited (it sent a local agent into the worker branch -> CLOUD_NOT_ENABLED) and
+            # is cleared below, because req_worker (None) != cfg["worker"].
+            req_worker = body.worker if body.worker is not None else (None if body.agent_id is not None else cfg["worker"])
 
             # Update persistent session config if changed
             if (effective_mode != cfg["mode"] or bypass_permissions != cfg["bypass_permissions"]
