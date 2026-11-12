@@ -71,6 +71,21 @@ def test_qwen3_coder_xml_tool_call_text_becomes_a_real_call_only_for_granted_too
     assert parse_text_tool_calls("<function=filesystem_delete>\n<parameter=path>\nC:/\n</parameter>\n</function>", [spec]) == []
 
 
+def test_total_control_lifts_only_the_generic_terminal_asks():
+    from bcc.features.tools_terminal import SPECS
+    from bcc.tools import decide_effect
+    run = next(s for s in SPECS if s.name == "terminal.run")
+    perms = {k: True for k in po.TOTAL_CONTROL}
+    op = {"role": po.ROLE, "permissions": perms}
+    other = {"role": "worker", "permissions": perms}
+    assert decide_effect(run, {"command": "hostname"}, op)[0] == "auto"
+    assert decide_effect(run, {"command": "hostname", "mode": "project_host"}, op)[0] == "auto"
+    assert decide_effect(run, {"command": "hostname", "mode": "project_host"}, other)[0] == "ask"
+    assert decide_effect(run, {"command": "hostname"}, {"role": po.ROLE, "permissions": {"terminal.run": True}})[0] == "ask"
+    assert decide_effect(run, {"command": "git push origin main", "mode": "project_host"}, op)[0] == "ask"
+    assert decide_effect(run, {"command": "rm -rf /", "mode": "project_host"}, op)[0] == "deny"
+
+
 async def test_warm_reports_an_error_instead_of_hanging(env):
     await make_stack(env.client)     # provider 127.0.0.1:8080 is not running in tests
     r = (await env.client.post("/api/operator/warm")).json()

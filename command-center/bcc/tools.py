@@ -268,6 +268,26 @@ class ToolRegistry:
 
 # ---------------------------------------------------------------- права
 
+#: hook ASK reasons the PC operator's «Полный доступ» lifts (tools_terminal._run_effect). Nothing else.
+OPERATOR_RELAXABLE_ASK = frozenset({
+    "команда песочницы вне read/build-списка",
+    "host shell always requires owner approval",
+    "включение сети в песочнице",
+})
+
+
+def _operator_total_control(agent: dict, spec: "ToolSpec") -> bool:
+    """True only for the role ``pc-operator`` agent holding every PC permission (bcc.features.pc_operator)."""
+    try:
+        from .features.pc_operator import ROLE, TOTAL_CONTROL
+        from .permissions import agent_allowed
+    except Exception:  # noqa: BLE001 - feature missing = no relaxation
+        return False
+    if not isinstance(agent, dict) or agent.get("role") != ROLE or spec.permission not in TOTAL_CONTROL:
+        return False
+    return all(agent_allowed(agent, p) for p in TOTAL_CONTROL)
+
+
 def decide_effect(spec: ToolSpec, args: dict, agent: dict,
                   policy_rules: list[dict] | None = None) -> tuple[Effect, str]:
     """AUTO/ASK/DENY для конкретного вызова. Возвращает (эффект, причина).
@@ -304,6 +324,12 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
             hinted = spec.effect_hook(args)
         except Exception:
             hinted = ("ask", f"хук политики {spec.name} упал — на всякий случай ASK")
+        if (hinted and hinted[0] == "ask" and hinted[1] in OPERATOR_RELAXABLE_ASK
+                and _operator_total_control(agent, spec)):
+            # Constitution v3 (owner 11.11): the ONE PC operator with «Полный доступ» does not ask for each step.
+            # Only these generic «unknown command / host shell» asks are lifted; hard DENY, git push, sudo,
+            # package installs and every other hook reason keep their floor.
+            hinted = ("auto", f"полный доступ управленца ПК ({hinted[1]})")
         if hinted:
             hint_effect, hint_reason = hinted
             if spec.hook_is_floor or hint_effect == "deny":
