@@ -3357,6 +3357,26 @@ def parse_text_tool_calls(text: str, tool_specs: list[Any], *, step: int = 1) ->
             continue
         out.append(ToolCall(id=f"textcall_{step}_{idx}", name=spec.api_name,
                             arguments=args, raw_arguments=json.dumps(args, ensure_ascii=False)))
+    if out:
+        return out
+    # Qwen3-Coder native format (owner pult 12.11: «модели не отвечают» — the call came back as TEXT through Ollama's
+    # OpenAI-compatible route and the run failed as no_verified_action):
+    #   <function=terminal_run>\n<parameter=command>\nhostname\n</parameter>\n</function>
+    for idx, (name, body) in enumerate(re.findall(r"<function=([\w.\-]+)>(.*?)</function>", text, flags=re.DOTALL), 1):
+        spec = by_name.get(name.strip())
+        if spec is None:
+            continue
+        args = {}
+        for key, val in re.findall(r"<parameter=([\w.\-]+)>\s*\n?(.*?)\n?\s*</parameter>", body, flags=re.DOTALL):
+            v = val.strip()
+            if v[:1] in "[{" or v in ("true", "false", "null") or re.fullmatch(r"-?\d+(\.\d+)?", v):
+                try:
+                    v = json.loads(v)
+                except Exception:
+                    pass
+            args[key.strip()] = v
+        out.append(ToolCall(id=f"textcall_{step}_x{idx}", name=spec.api_name,
+                            arguments=args, raw_arguments=json.dumps(args, ensure_ascii=False)))
     return out
 
 

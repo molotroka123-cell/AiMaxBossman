@@ -60,6 +60,17 @@ async def test_no_local_model_is_an_honest_not_ready(env):
     assert v["agent"] is None and v["ready"] is False and v["reason"]
 
 
+def test_qwen3_coder_xml_tool_call_text_becomes_a_real_call_only_for_granted_tools():
+    from types import SimpleNamespace
+    from bcc.engine import parse_text_tool_calls
+    spec = SimpleNamespace(name="terminal.run", api_name="terminal_run")
+    text = ("<function=terminal_run>\n<parameter=command>\nhostname\n</parameter>\n<parameter=timeout>\n30\n</parameter>\n"
+            "</function>\n</tool_call>")
+    calls = parse_text_tool_calls(text, [spec], step=2)
+    assert len(calls) == 1 and calls[0].name == "terminal_run" and calls[0].arguments == {"command": "hostname", "timeout": 30}
+    assert parse_text_tool_calls("<function=filesystem_delete>\n<parameter=path>\nC:/\n</parameter>\n</function>", [spec]) == []
+
+
 async def test_warm_reports_an_error_instead_of_hanging(env):
     await make_stack(env.client)     # provider 127.0.0.1:8080 is not running in tests
     r = (await env.client.post("/api/operator/warm")).json()
