@@ -202,6 +202,14 @@ def hard_deny_reason(command: str) -> str:
     return ""
 
 
+def path_guard_deny(command: str, cwd: str | None = None) -> str:
+    """Best-effort path guard (architecture P0 step 1): DENY when the command's file arguments touch a class that
+    ``filesystem.read_any`` refuses (chat DBs, browser profiles, keys/vault, Grechka, media, mail, hives). Defence in
+    depth only, obfuscated commands can evade it; see terminal_path_guard."""
+    from .terminal_path_guard import path_guard_reason
+    return path_guard_reason(command, cwd)
+
+
 def extra_ask_reason(command: str) -> str:
     for pattern, reason in ASK_EXTRA:
         if pattern.search(command or ""):
@@ -377,6 +385,11 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
                           one_line=f"terminal.run: запрещено ({deny})", error=True)
 
     cwd, roots = await _resolve_cwd(ctx, args)
+    guard = path_guard_deny(command, str(cwd))
+    if guard:
+        return ToolResult(content=f"команда запрещена: путь в закрытом классе ({guard}) — "
+                                  f"не выполнять и не искать обход",
+                          one_line=f"terminal.run: запрещено ({guard.split(':')[0]})", error=True)
     # V2.2 §9: чужая рабочая область агента закрыта раньше проверки корней —
     # она внутри разрешённого корня, и общая проверка её бы пропустила.
     blocked = scratch.check(ctx, cwd)
@@ -530,6 +543,10 @@ def _run_effect(args: dict) -> tuple[str, str] | None:
     deny = hard_deny_reason(command)
     if deny:
         return "deny", f"деструктивная команда: {deny}"
+    raw_cwd = str(args.get("cwd") or "").strip()
+    guard = path_guard_deny(command, None if raw_cwd in ("", SCRATCH_ALIAS) else raw_cwd)
+    if guard:
+        return "deny", f"путь в закрытом классе: {guard}"
     ask = extra_ask_reason(command)
     if ask:
         return "ask", f"требует подтверждения: {ask}"
