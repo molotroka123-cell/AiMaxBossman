@@ -236,7 +236,13 @@ async def _view(svc) -> dict:
             "candidates": [{"id": m["id"], "alias": m.get("alias"), "name": m.get("name")} for m in cands][:50],
             "total_control": all(perms.get(k) is True for k in TOTAL_CONTROL),
             "read_everything": perms.get(READ_PERM) is True and TOOL_NAME in _tools(agent),
-            "ready": reason is None, "reason": reason}
+            "ready": reason is None, "reason": reason, **_registry_view()}
+
+
+def _registry_view() -> dict:
+    """Architecture P0 step 2: this module is the ONE operator the pult resolves; the others are legacy-hidden."""
+    from .. import operator_registry as reg
+    return {"entry": reg.operator_entry(), "legacy_hidden": reg.legacy_names()}
 
 
 @router.get("/operator")

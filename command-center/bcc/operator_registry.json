@@ -1,0 +1,10 @@
+{
+  "_comment": "Architecture P0 step 2 (12.11.2026). One operator: pc_operator. Others stay mounted (nothing deleted) but are marked legacy and are never resolved on the pult operator path. Flip \"legacy\" to false (or set BCC_OPERATOR_LEGACY_VISIBLE=name1,name2) to roll back.",
+  "entry": "pc_operator",
+  "implementations": {
+    "pc_operator":    {"role": "entry",     "legacy": false, "module": "bcc.features.pc_operator", "note": "GET/PUT /api/operator, agent role pc-operator; the only operator the pult resolves"},
+    "qwen_operator":  {"role": "operator",  "legacy": true,  "module": "bcc.features.qwen_operator", "note": "Stage 2.2 lab operator (/work); own queue"},
+    "pc_agent":       {"role": "operator",  "legacy": true,  "module": "bcc.features.pc_agent", "note": "Argon PC-Agent, own tables and policy; Argon WIP, do not touch"},
+    "agent_opencode": {"role": "transport", "legacy": true,  "module": "bcc.features.agent_opencode", "note": "NOT an operator any more: /api/agent/sessions/* is only the message transport the /m/op/ UI posts to, with agent_id = the pc_operator agent"}
+  }
+}
