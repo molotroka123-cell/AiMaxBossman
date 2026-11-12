@@ -162,7 +162,12 @@ def test_serve_restarts_listener_that_died_while_process_alive(tmp_path, monkeyp
         assert sup.server is not srv, "a fresh uvicorn Server (fresh app, fresh httpx clients) must be serving"
         # the restarted app still serves the full API, not just health
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+        # /m/ is a 307 to the operator UI (/m/op/) since 11.11; the static shell itself must still be served
         conn.request("GET", "/m/")
+        resp = conn.getresponse()
+        assert resp.status == 307 and resp.getheader("location") == "/m/op/"
+        resp.read()
+        conn.request("GET", "/m/op/")
         assert conn.getresponse().status == 200
         conn.close()
     finally:

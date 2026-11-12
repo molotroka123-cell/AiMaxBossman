@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bossman">
+<meta name="format-detection" content="telephone=no">
+<title>Bossman</title>
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="../icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png">
+<link rel="preload" href="../fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="op.css">
+<script type="module" src="op.js"></script>
+</head>
+<body>
+
+<section id="login" class="login" hidden>
+  <form id="login-form" class="login-card" autocomplete="off" novalidate>
+    <h1 class="login-title">Bossman</h1>
+    <p class="muted">Оператор вашего ПК. Введите код сопряжения из Bossman на ПК или откройте ссылку сопряжения.</p>
+    <label class="field-label" for="login-token">Код сопряжения</label>
+    <input id="login-token" class="field" type="text" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false"
+           autocomplete="one-time-code" enterkeyhint="go" required>
+    <button id="login-btn" class="btn primary block" type="submit">Войти</button>
+    <div id="login-error" class="login-error" role="alert"></div>
+    <a class="link-quiet" href="/m/index.html">Классический пульт</a>
+  </form>
+</section>
+
+<div id="app" class="app" hidden>
+  <header class="top">
+    <button id="btn-history" class="iconbtn" type="button" aria-label="История разговоров" aria-haspopup="dialog">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h11M4 17h16"/></svg>
+    </button>
+    <div class="brand">
+      <span class="title">Bossman</span>
+      <div id="status" class="status" role="status" aria-live="polite" aria-label="Состояние">
+        <span id="status-dot" class="dot ok" aria-hidden="true"></span><span id="status-text">подключаюсь…</span>
+      </div>
+    </div>
+    <button id="btn-stop" class="stopbtn" type="button" aria-label="STOP: остановить все действия на ПК">STOP</button>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main id="log" class="log" aria-label="Разговор с оператором ПК">
+    <div id="empty" class="empty" hidden>
+      <p class="empty-title">Что сделать на ПК?</p>
+      <p class="muted">Пишите обычным языком. Оператор покажет каждый шаг и спросит разрешения на опасные действия.</p>
+      <div class="suggest">
+        <button class="chip" type="button" data-suggest="Что сейчас открыто на экране?">Что сейчас на экране?</button>
+        <button class="chip" type="button" data-suggest="Сколько свободного места на дисках?">Свободное место на дисках</button>
+        <button class="chip" type="button" data-suggest="Покажи последние файлы в Загрузках">Последние загрузки</button>
+      </div>
+    </div>
+  </main>
+
+  <button id="to-bottom" class="to-bottom" type="button" aria-label="Прокрутить вниз" hidden>↓ вниз</button>
+
+  <footer class="dock">
+    <div id="queue" class="queue" hidden></div>
+    <div id="slash" class="slash" role="listbox" aria-label="Команды" hidden></div>
+    <div id="files" class="files" hidden></div>
+    <form id="composer" class="composer" autocomplete="off">
+      <textarea id="input" class="input" rows="1" enterkeyhint="enter" aria-label="Сообщение оператору" placeholder="Задача для ПК…"></textarea>
+      <div class="actions">
+        <button id="btn-photo" class="tool" type="button" aria-label="Прикрепить фото">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2l1.5-2h4l1.5 2h2A2.5 2.5 0 0 1 20 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z"/><path d="M12 15.5a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/></svg>
+          <span>Фото</span>
+        </button>
+        <button id="btn-video" class="tool" type="button" aria-label="Прикрепить видео">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2z"/><path d="m15.5 10.5 5-3v9l-5-3"/></svg>
+          <span>Видео</span>
+        </button>
+        <span class="spacer"></span>
+        <button id="btn-send" class="send" type="submit" aria-label="Отправить" disabled>Отправить</button>
+      </div>
+      <div id="hint" class="hint" hidden></div>
+    </form>
+    <input id="pick-photo" class="offscreen" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true">
+    <input id="pick-video" class="offscreen" type="file" accept="video/*" tabindex="-1" aria-hidden="true">
+    <input id="pick-file" class="offscreen" type="file" multiple tabindex="-1" aria-hidden="true">
+  </footer>
+</div>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-head">
+      <h2 id="sheet-title" class="sheet-title">История разговоров</h2>
+      <button id="sheet-close" class="iconbtn" type="button" aria-label="Закрыть">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div id="sheet-list" class="sheet-list"></div>
+    <div class="sheet-foot">
+      <a class="link-quiet" href="/m/index.html">Классический пульт</a>
+      <button id="sheet-logout" class="link-quiet" type="button">Выйти на этом телефоне</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

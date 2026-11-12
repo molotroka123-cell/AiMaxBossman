@@ -235,6 +235,13 @@ class MemoryIn(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class OperatorIn(BaseModel):
+    """PUT /m/api/operator: swap the operator's model and/or flip «Полный доступ к ПК». Nothing else is forwarded."""
+    model_config = ConfigDict(extra="forbid")
+    model_id: int | None = Field(default=None, ge=1)
+    total_control: bool | None = None
+
+
 class UnloadIn(BaseModel):
     agent_id: int
 
@@ -427,9 +434,12 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                                     "default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; "
                                     "connect-src 'self'; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
                                     "form-action 'self'")
-            if p.startswith("/m/api/") or p.endswith("sw.js"):
+            if p.startswith("/m/api/") or p.endswith("sw.js") or p in ("/m", "/m/"):
+                # /m and /m/ are redirects to the operator UI (/m/op/): never cached, so a later change of the landing
+                # page reaches the phone at once
                 resp.headers["Cache-Control"] = "no-store"
-            elif p in ("/m/", "/m/index.html") or p.endswith((".js", ".css", ".webmanifest")):
+            elif (p == "/m/index.html" or p.endswith((".js", ".css", ".webmanifest"))
+                  or (p.startswith("/m/op/") and (p.endswith("/") or p.endswith(".html")))):
                 resp.headers["Cache-Control"] = "no-cache"   # revalidate (ETag): phones get a new shell at once
         return resp
 
@@ -732,6 +742,78 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                 "hidden_not_local": len(items) - len(allowed),
                 "rule": "локальные модели этого ПК; облачные только те, которым владелец явно разрешил мобильный доступ "
                         "(без фото и файлов); остальные облачные скрыты и отклоняются сервером"}
+
+    # ------------------------------------------------------------------ the ONE PC operator (owner 11.11, /m/op/ UI)
+    OPERATOR_KEYS = ("agent", "model", "candidates", "total_control", "ready", "reason")
+
+    def operator_view(body: Any) -> dict:
+        """Only the documented keys of Bossman's GET/PUT /api/operator reach the phone."""
+        b = body if isinstance(body, dict) else {}
+        out = {k: b.get(k) for k in OPERATOR_KEYS}
+        out["candidates"] = [c for c in (out["candidates"] or []) if isinstance(c, dict)][:50]
+        out["total_control"] = bool(out["total_control"])
+        out["ready"] = bool(out["ready"])
+        return out
+
+    async def operator_fallback() -> dict:
+        """An older Bossman has no /api/operator: the operator is the phone's default local agent, preferring the
+        PC operator (computer.observe) over a plain chat agent. No model swap, no total-control switch."""
+        items = [a for a in await agents_view() if a["allowed"]]
+        pick = next((a for a in items if a["local"] and "computer.observe" in a["tools"]), None)
+        if pick is None:
+            did = pick_default(items)
+            pick = next((a for a in items if a["id"] == did), None)
+        if pick is None:
+            return {"agent": None, "model": None, "candidates": [], "total_control": False, "ready": False,
+                    "reason": "на ПК нет локального агента, разрешённого для телефона", "legacy": True}
+        m = pick.get("model") or {}
+        return {"agent": {"id": pick["id"], "name": pick.get("name")},
+                "model": {"id": None, "alias": m.get("alias"), "name": m.get("name"),
+                          "context_window": m.get("context_window"), "health": m.get("health"), "loaded": None},
+                "candidates": [], "total_control": False, "ready": True, "reason": None, "legacy": True}
+
+    def _operator_unsupported() -> HTTPException:
+        return fail(501, "Bossman на ПК старой версии: смена модели оператора и прогрев недоступны",
+                    "BM_OPERATOR_UNSUPPORTED", "обновите Bossman на ПК")
+
+    @app.get("/m/api/operator")
+    async def operator_get(_=Depends(session)):
+        try:
+            return operator_view(await call("GET", "/api/operator"))
+        except HTTPException as exc:
+            # only «no such route» (an older Bossman) falls back; a coded 404 from a new Bossman is a real answer
+            if exc.status_code != 404 or (isinstance(exc.detail, dict) and exc.detail.get("code")):
+                raise
+        return await operator_fallback()
+
+    @app.put("/m/api/operator")
+    async def operator_put(body: OperatorIn, _=Depends(session)):
+        payload = body.model_dump(exclude_none=True)
+        if not payload:
+            raise fail(422, "нечего менять: укажите model_id или total_control", "BM_OPERATOR_EMPTY")
+        try:
+            res = await call("PUT", "/api/operator", json=payload, timeout=60)
+        except HTTPException as exc:
+            if exc.status_code == 404 and not (isinstance(exc.detail, dict) and exc.detail.get("code")):
+                raise _operator_unsupported() from None
+            raise
+        cache.pop("agents", None)               # the operator agent's model changed: the next send decides on fresh data
+        return operator_view(res)
+
+    @app.post("/m/api/operator/warm")
+    async def operator_warm(_=Depends(session)):
+        """Load the operator's model into memory (a big local model can take minutes)."""
+        try:
+            res = await call("POST", "/api/operator/warm", json={}, timeout=300)
+        except HTTPException as exc:
+            if exc.status_code == 404 and not (isinstance(exc.detail, dict) and exc.detail.get("code")):
+                raise _operator_unsupported() from None
+            raise
+        r = res if isinstance(res, dict) else {}
+        load_ms = r.get("load_ms")
+        return {"ok": bool(r.get("ok")), "loaded": bool(r.get("loaded")),
+                "load_ms": int(load_ms) if isinstance(load_ms, (int, float)) and not isinstance(load_ms, bool) else 0,
+                "error": r.get("error") if isinstance(r.get("error"), str) else None}
 
     def _is_eval_thread(item: Any) -> bool:
         if not isinstance(item, dict):
@@ -2589,9 +2671,16 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         raise fail(404, "нет такого вызова", "BM_NOT_ALLOWED")
 
     # ------------------------------------------------------------------ app shell
+    # Owner 11.11 «просто open code в телефоне»: /m/ lands on the one-chat PC-operator UI. The classic pult stays at
+    # /m/index.html. Registered before the static mount so it wins over StaticFiles(html=True). The pairing link
+    # /m/#pair=<tok> keeps working: browsers carry the #fragment across a redirect.
     @app.get("/m", include_in_schema=False)
     async def m_root():
-        return RedirectResponse("/m/", status_code=307)
+        return RedirectResponse("/m/op/", status_code=307, headers={"Cache-Control": "no-store"})
+
+    @app.get("/m/", include_in_schema=False)
+    async def m_root_slash():
+        return RedirectResponse("/m/op/", status_code=307, headers={"Cache-Control": "no-store"})
 
     if UI_DIR.exists():
         app.mount("/m", StaticFiles(directory=str(UI_DIR), html=True), name="m")
