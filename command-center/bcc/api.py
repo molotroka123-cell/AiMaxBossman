@@ -161,6 +161,7 @@ class Services:
         # выходящие. Поэтому снимаем его здесь, а не полагаемся на то, что
         # так никто не делает.
         self._stopping.clear()
+        self.engine.reset_stop()
         trace = self.startup = StartupTrace()   # повторный start() после stop() — новая трасса
         trace.begin()
         async with trace.phase("db.create_all"):
@@ -180,8 +181,10 @@ class Services:
                 asyncio.create_task(self.scheduler.loop(), name="bcc-scheduler"),
                 asyncio.create_task(self.metrics.loop(), name="bcc-metrics"),
             ]
+            worker = asyncio.create_task(self.engine.worker_loop(), name="bcc-worker")
+            graceful.append(worker)         # leaves via engine.request_stop(), not by a mid-query cancel
             self._tasks += [
-                asyncio.create_task(self.engine.worker_loop(), name="bcc-worker"),
+                worker,
                 # V2.1: решение по approval возвращает ожидающий run в очередь
                 asyncio.create_task(self.engine.approval_watcher(), name="bcc-approvals"),
             ] + graceful
@@ -234,6 +237,7 @@ class Services:
         # внутри драйвера, и вернуть его в пул нельзя уже ничем: dispose() до
         # выданных соединений не достаёт. Петля, вышедшая сама, отдаёт всё.
         self._stopping.set()
+        self.engine.request_stop()
         soft = [t for t in self._graceful if not t.done()]
         if soft:
             await asyncio.wait(soft, timeout=self.STOP_GRACE)

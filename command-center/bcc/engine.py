@@ -28,6 +28,7 @@ from .db import (Database, agents as agents_t, approvals as approvals_t,
 from . import approval_scope as _scope
 from . import mission_budget as _budget
 from .events import EventBus
+from .lifecycle import sleep_or_stop
 from .plugin_security import redact as _ps_redact, redact_text as _ps_redact_text
 from .providers import ChatResult, ProviderError
 from .registry import Registry
@@ -144,6 +145,7 @@ class TaskEngine:
         # (features/chat_threads.steer). In memory: an unread one goes out as the chat's next turn (thread queue).
         self.steer_inbox: dict[int, list[str]] = {}
         self._cancelling: set[int] = set()               # hard cancel по Stop
+        self._stop_requested = asyncio.Event()           # shutdown: worker_loop exits at its own safe point
         # FL-01: fence, под которым ЭТОТ движок держит run; условные записи
         # сравнивают с ним. Run без записи здесь (execute() напрямую) принимает
         # текущий fence из БД при старте.
@@ -408,6 +410,7 @@ class TaskEngine:
             active_ids = [int(r[0]) for r in res.fetchall()]
             await s.commit()
         await self._reject_parked_approvals(task_id)
+        to_cancel: list[asyncio.Task] = []
         try:
             await self.bus.emit("task.stopped", task_id=task_id)
         finally:
@@ -421,8 +424,16 @@ class TaskEngine:
                     # state is observed by completion/interrupt handling after the
                     # callback unwinds, so only cancel a different worker task.
                     if worker is not asyncio.current_task():
-                        worker.cancel()
-        await self._stop_delegated_children(task_id)
+                        to_cancel.append(worker)
+            # Architecture P0 step 4 (flaky test_stop_leaves_no_connection_behind): a request handler that stops its
+            # own run (an HTTP call made from inside the run, an ASGI middleware task) is awaited BY that run, so
+            # cancelling the run cancels this very handler. Cancelling before the children's DB work cut a query
+            # mid-flight and stranded a connection (reproduced under load). All DB work first, the cancel LAST.
+            try:
+                await self._stop_delegated_children(task_id)
+            finally:
+                for worker in to_cancel:
+                    worker.cancel()
         return {"ok": True, "status": "stopped"}
 
     async def _stop_delegated_children(self, parent_id: int) -> list[int]:
@@ -550,13 +561,21 @@ class TaskEngine:
         пула читалась бы завышенной сразу после окончания run'а."""
         return [rid for rid, task in self._active.items() if not task.done()]
 
+    def request_stop(self) -> None:
+        """Shutdown: ask worker_loop to leave at the top of its loop instead of cancelling it in the middle of a
+        claim/recover query (a cancelled query strands the pooled connection)."""
+        self._stop_requested.set()
+
+    def reset_stop(self) -> None:
+        self._stop_requested.clear()
+
     async def worker_loop(self) -> None:
         """Worker Pool: держит до self.workers параллельных run'ов.
         claim атомарен (status=queued→leased), поэтому один run не достанется двоим."""
         await self.recover()
         last_recover = time.monotonic()
         try:
-            while True:
+            while not self._stop_requested.is_set():
                 self.last_tick = time.monotonic()
                 try:
                     if time.monotonic() - last_recover >= self.recover_every:
@@ -576,12 +595,12 @@ class TaskEngine:
                         allow_cloud = allow_local = len(self._active) < self.workers
                     if not (allow_local or allow_cloud):
                         self.last_error = None
-                        await asyncio.sleep(self.poll_interval / 2)
+                        await sleep_or_stop(self._stop_requested, self.poll_interval / 2)
                         continue
                     run_id = await self.claim(allow_local=allow_local, allow_cloud=allow_cloud)
                     self.last_error = None
                     if run_id is None:
-                        await asyncio.sleep(self.poll_interval)
+                        await sleep_or_stop(self._stop_requested, self.poll_interval)
                         continue
                     if self.cloud_workers > 0 and self._claimed_cloud.pop(run_id, False):
                         self._cloud_runs.add(run_id)
@@ -592,7 +611,7 @@ class TaskEngine:
                 except Exception as exc:  # worker не должен умирать от одной задачи
                     self.last_error = f"{type(exc).__name__}: {exc}"[:200]
                     await self.bus.emit("worker.error", message=f"{type(exc).__name__}: {exc}")
-                    await asyncio.sleep(self.poll_interval)
+                    await sleep_or_stop(self._stop_requested, self.poll_interval)
         finally:
             # выключение процесса: незавершённые run'ы отдаём lease-recovery.
             # ВАЖНО: не «cancel и забыли» — дожидаемся, пока каждая отменённая
