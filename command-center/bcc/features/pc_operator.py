@@ -35,6 +35,13 @@ MIN_STEPS = 30
 TOTAL_CONTROL = ("filesystem.write", "terminal.run", "git.write", "browser.control",
                  "computer.observe", "computer.control", "desktop.control")
 NON_CHAT_KINDS = {"embedding", "embed", "image", "video", "tts", "stt", "audio", "rerank"}
+#: owner 11.11 night «по пути создавая tools and skills»: the operator reuses and saves its procedures
+#: (bcc.features.tools_selfext). Granted to this agent only; other agents get them only by an explicit grant.
+SELFEXT_TOOLS = ("skill.find", "skill.read", "skill.save", "tool.create", "tool.list_custom", "tool.run_custom")
+SELFEXT_MARK = "[навыки v1]"
+SELFEXT_RULE = (f"{SELFEXT_MARK} Перед задачей вызови skill.find; нашёл навык — skill.read и следуй ему. "
+                "Решил задачу в несколько шагов и проверил результат — сохрани skill.save (точные шаги). "
+                "Повторяешь одну и ту же команду/скрипт — tool.create, дальше tool.run_custom.")
 
 
 class OperatorPut(BaseModel):
@@ -87,11 +94,29 @@ async def _local_models(s) -> list[dict]:
     return out
 
 
+async def _with_selfext(s, agent: dict) -> dict:
+    """Idempotently give the operator its self-extension tools and the one-paragraph rule (no other change)."""
+    tools = _tools(agent)
+    prompt = str(agent.get("system_prompt") or "")
+    values: dict = {}
+    missing = [t for t in SELFEXT_TOOLS if t not in tools]
+    if missing:
+        values["tools"] = tools + missing
+    if SELFEXT_MARK not in prompt:
+        values["system_prompt"] = (prompt.rstrip() + "\n\n" + SELFEXT_RULE).strip()
+    if not values:
+        return agent
+    await s.execute(sa.update(agents_t).where(agents_t.c.id == agent["id"]).values(**values))
+    await s.commit()
+    log.info("pc_operator: agent %s self-extension tools/rule added (%s)", agent["id"], ",".join(sorted(values)))
+    return {**agent, **values}
+
+
 async def _ensure_agent(s) -> dict | None:
     """The operator row; created once from the best existing local PC agent (the one with computer tools)."""
     rows = await _rows(s, agents_t, agents_t.c.role == ROLE)
     if rows:
-        return sorted(rows, key=lambda a: a["id"])[0]
+        return await _with_selfext(s, sorted(rows, key=lambda a: a["id"])[0])
     local_ids = {m["id"] for m in await _local_models(s)}
     if not local_ids:
         return None
@@ -109,7 +134,7 @@ async def _ensure_agent(s) -> dict | None:
     await s.commit()
     new_id = res.inserted_primary_key[0]
     log.info("pc_operator: created agent %s from template %s", new_id, tpl["id"])
-    return (await _rows(s, agents_t, agents_t.c.id == new_id))[0]
+    return await _with_selfext(s, (await _rows(s, agents_t, agents_t.c.id == new_id))[0])
 
 
 def _ollama_root(provider: dict) -> str:
@@ -212,4 +237,14 @@ async def warm_operator(request: Request):
     return {"ok": True, "loaded": True, "load_ms": int((time.monotonic() - t0) * 1000), "error": None}
 
 
-FEATURE = Feature(name="pc_operator", router=router)
+async def _setup(svc) -> None:
+    """At startup: an EXISTING operator row gets the self-extension tools/rule (no row is created here)."""
+    try:
+        async with svc.db.session() as s:
+            for agent in await _rows(s, agents_t, agents_t.c.role == ROLE):
+                await _with_selfext(s, agent)
+    except Exception as exc:  # noqa: BLE001 - never block startup; GET /api/operator retries it
+        log.warning("pc_operator: self-extension upgrade skipped: %s", type(exc).__name__)
+
+
+FEATURE = Feature(name="pc_operator", router=router, setup=_setup)
