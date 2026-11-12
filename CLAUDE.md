@@ -2,9 +2,14 @@
 
 Read [AGENTS.md](AGENTS.md) first. Follow its owner approval / privacy / STOP / RunPod rules and all existing engineering gates.
 
-**Main goal (owner 26.10.2026, AGENTS.md §0):** bring Bossman as far as possible, by the strongest PROVEN means, to the product the owner planned — one local-first Bossman, an operator of the owner's PC, a Higgsfield-level local studio, a stack chosen by measurement. `main` receives only ONE unified finished Bossman version, merged overnight by the Claude integrator under the audit conditions in AGENTS.md §0.
+**Main goal (owner redirect 11.11.2026, AGENTS.md §0 «OWNER REDIRECT 11.11.2026 — one PC operator from the phone»):** Bossman is ONE
+local «PC operator» agent driven from the phone pult chat `/m/`, with one swappable local model and total control of the PC
+(scope, limits and protected items are defined only in that AGENTS.md subsection). Work order: owner-visible pult defects,
+then the operator's reliability on real tasks, then training/replacing its model, then everything else. `main` still receives only finished, proven work under the AGENTS.md §0 audit conditions.
 
 ## Owner directive for 23 October 2026: verified 2x performance program
+
+*Secondary to the 11.11.2026 redirect above: this performance program does not outrank the operator/pult priorities.*
 
 **Required read-before-code**: [docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md](docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md).
 
