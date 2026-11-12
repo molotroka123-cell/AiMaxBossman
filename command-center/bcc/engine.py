@@ -134,7 +134,12 @@ class TaskEngine:
         # Resource Brain через before_run решает, сколько РЕАЛЬНО позволить.
         import os
         self.workers = workers if workers is not None else int(os.environ.get("BCC_WORKERS", "3"))
+        # Cloud pool (owner 12.11): runs whose agent model is a cloud provider do not touch the local GPU/Ollama
+        # (-np 1), so they get their own slots and are never starved by long local runs. 0 = old single pool.
+        self.cloud_workers = int(os.environ.get("BCC_CLOUD_WORKERS", "2"))
         self._active: dict[int, asyncio.Task] = {}       # run_id → задача исполнения
+        self._cloud_runs: set[int] = set()
+        self._claimed_cloud: dict[int, bool] = {}               # run_id'ы, занявшие cloud-слот
         # Owner 31.10 «Steer»: owner messages for a RUNNING task (task_id -> texts), read between model steps
         # (features/chat_threads.steer). In memory: an unread one goes out as the chat's next turn (thread queue).
         self.steer_inbox: dict[int, list[str]] = {}
@@ -561,16 +566,25 @@ class TaskEngine:
                     for rid, t in list(self._active.items()):
                         if t.done():
                             self._active.pop(rid, None)
+                            self._cloud_runs.discard(rid)
                             self._cancelling.discard(rid)
-                    if len(self._active) >= self.workers:
+                    local_busy = len([r for r in self._active if r not in self._cloud_runs])
+                    cloud_busy = len(self._cloud_runs & set(self._active))
+                    allow_local = local_busy < self.workers
+                    allow_cloud = self.cloud_workers > 0 and cloud_busy < self.cloud_workers
+                    if self.cloud_workers <= 0:      # legacy: one shared pool
+                        allow_cloud = allow_local = len(self._active) < self.workers
+                    if not (allow_local or allow_cloud):
                         self.last_error = None
                         await asyncio.sleep(self.poll_interval / 2)
                         continue
-                    run_id = await self.claim()
+                    run_id = await self.claim(allow_local=allow_local, allow_cloud=allow_cloud)
                     self.last_error = None
                     if run_id is None:
                         await asyncio.sleep(self.poll_interval)
                         continue
+                    if self.cloud_workers > 0 and self._claimed_cloud.pop(run_id, False):
+                        self._cloud_runs.add(run_id)
                     self._active[run_id] = asyncio.create_task(
                         self._execute_pooled(run_id), name=f"bcc-run-{run_id}")
                 except asyncio.CancelledError:
@@ -696,19 +710,41 @@ class TaskEngine:
                              f"{'да' if logged else 'нет'})"))
         return done
 
-    async def claim(self) -> int | None:
-        """Взять run с наименьшим priority/id и поставить аренду на lease_seconds."""
+    @staticmethod
+    def _is_cloud_row(base_url: Any, name: Any, alias: Any) -> bool:
+        """Agent model on a non-local provider (or an Ollama :cloud tag). Unknown -> local (conservative)."""
+        if base_url is None:
+            return False
+        from .providers import is_local_url
+        from .provider_governance import is_cloud_offload
+        return not is_local_url(base_url or "") or is_cloud_offload(
+            {"base_url": base_url}, {"name": name, "alias": alias})
+
+    async def claim(self, allow_local: bool = True, allow_cloud: bool = True) -> int | None:
+        """Взять run с наименьшим priority/id и поставить аренду на lease_seconds.
+
+        allow_local/allow_cloud: which pool has a free slot; a run of the other class is skipped, so a
+        saturated local pool never blocks cloud-provider agents (and vice versa)."""
         now = utcnow()
         async with self.db.session() as s:
             res = await s.execute(
-                sa.select(runs_t.c.id)
-                .join(tasks_t, tasks_t.c.id == runs_t.c.task_id)
+                sa.select(runs_t.c.id, providers_t.c.base_url, models_t.c.name, models_t.c.alias)
+                .select_from(runs_t.join(tasks_t, tasks_t.c.id == runs_t.c.task_id)
+                             .outerjoin(agents_t, agents_t.c.id == tasks_t.c.agent_id)
+                             .outerjoin(models_t, models_t.c.id == agents_t.c.model_id)
+                             .outerjoin(providers_t, providers_t.c.id == models_t.c.provider_id))
                 .where(runs_t.c.status == "queued",
                        tasks_t.c.status.in_(("queued", "running")),
                        sa.or_(runs_t.c.worker_lease_until.is_(None),
                               runs_t.c.worker_lease_until <= now))
-                .order_by(tasks_t.c.priority.asc(), runs_t.c.id.asc()).limit(1))
-            row = res.first()
+                .order_by(tasks_t.c.priority.asc(), runs_t.c.id.asc()).limit(50))
+            row = None
+            is_cloud = False
+            for cand in res.all():
+                c = self._is_cloud_row(cand[1], cand[2], cand[3])
+                if (allow_cloud if c else allow_local):
+                    row, is_cloud = cand, c
+                    break
             if row is None:
                 return None
             run_id = int(row[0])
@@ -723,6 +759,7 @@ class TaskEngine:
             fence = (await s.execute(sa.select(runs_t.c.fence).where(runs_t.c.id == run_id))).scalar()
         self._fences[run_id] = int(fence or 0)
         self._held_since[run_id] = now
+        self._claimed_cloud[run_id] = is_cloud
         return run_id
 
     async def recover(self) -> int:
