@@ -41,7 +41,7 @@ async def test_total_control_grants_only_pc_permissions_and_is_reversible(env):
     assert on["total_control"] is True
     async with env.svc.db.session() as s:
         perms = (await s.execute(sa.select(agents_t.c.permissions).where(agents_t.c.role == po.ROLE))).scalar_one()
-    assert set(k for k, v in perms.items() if v) == set(po.TOTAL_CONTROL)
+    assert set(k for k, v in perms.items() if v) == set(po.TOTAL_CONTROL) | {po.READ_PERM}   # read-only grant is default ON
     for never in ("email.send", "channel.send", "invoice.create", "deploy.production", "settings.write", "cli.bypass"):
         assert never not in perms
     off = (await env.client.put("/api/operator", json={"total_control": False})).json()

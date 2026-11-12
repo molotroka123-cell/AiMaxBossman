@@ -38,16 +38,28 @@ NON_CHAT_KINDS = {"embedding", "embed", "image", "video", "tts", "stt", "audio",
 #: owner 11.11 night «по пути создавая tools and skills»: the operator reuses and saves its procedures
 #: (bcc.features.tools_selfext). Granted to this agent only; other agents get them only by an explicit grant.
 SELFEXT_TOOLS = ("skill.find", "skill.read", "skill.save", "tool.create", "tool.list_custom", "tool.run_custom")
+TOOL_NAME = "filesystem.read_any"
 SELFEXT_MARK = "[навыки v1]"
 SELFEXT_RULE = (f"{SELFEXT_MARK} Перед задачей вызови skill.find; нашёл навык — skill.read и следуй ему. "
                 "Решил задачу в несколько шагов и проверил результат — сохрани skill.save (точные шаги). "
                 "Повторяешь одну и ту же команду/скрипт — tool.create, дальше tool.run_custom.")
 
 
+#: owner 11.11 «доступ ко всем файлам, read-only, чаты не читаем»: tool filesystem.read_any (features/tools_fs_read),
+#: DENY list in features/fs_read_policy. Default ON for the operator; PUT read_everything toggles it for the operator
+#: and for every existing local-model agent (permission ``filesystem.read_any`` + tool name).
+READ_PERM = "filesystem.read_any"
+READ_MARK = "[чтение ПК v1]"
+READ_RULE = (f"{READ_MARK} Любые файлы ПК читай ТОЛЬКО через filesystem.read_any (read-only: read/list/find). "
+             "Чаты, браузерные профили, ключи/токены/vault, фото и видео закрыты политикой: не пытайся обойти "
+             "их другими инструментами, а отвечай, что это закрыто.")
+
+
 class OperatorPut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     model_id: int | None = Field(default=None, ge=1)
     total_control: bool | None = None
+    read_everything: bool | None = None
 
 
 def _loopback(url: Any) -> bool:
@@ -112,11 +124,40 @@ async def _with_selfext(s, agent: dict) -> dict:
     return {**agent, **values}
 
 
+async def _set_read(s, agent: dict, on: bool, prompt: bool = False) -> dict:
+    """Grant/revoke filesystem.read_any on one agent (permission + tool name; monotone: nothing else changes)."""
+    perms, tools = _perms(agent), _tools(agent)
+    if on:
+        perms[READ_PERM] = True
+        if TOOL_NAME not in tools:
+            tools.append(TOOL_NAME)
+    else:
+        perms[READ_PERM] = False
+        tools = [t for t in tools if t != TOOL_NAME]
+    values: dict = {"permissions": perms, "tools": tools}
+    prompt_s = str(agent.get("system_prompt") or "")
+    if prompt and on and READ_MARK not in prompt_s:
+        values["system_prompt"] = f"{prompt_s.rstrip()}{chr(10)}{chr(10)}{READ_RULE}".strip()
+    await s.execute(sa.update(agents_t).where(agents_t.c.id == agent["id"]).values(**values))
+    await s.commit()
+    return {**agent, **values}
+
+
+async def _with_read(s, agent: dict) -> dict:
+    """Default ON for the operator unless the owner switched it off explicitly (permission stored as False)."""
+    perms = _perms(agent)
+    if perms.get(READ_PERM) is False:
+        return agent
+    if perms.get(READ_PERM) is True and TOOL_NAME in _tools(agent) and READ_MARK in str(agent.get("system_prompt") or ""):
+        return agent
+    return await _set_read(s, agent, True, prompt=True)
+
+
 async def _ensure_agent(s) -> dict | None:
     """The operator row; created once from the best existing local PC agent (the one with computer tools)."""
     rows = await _rows(s, agents_t, agents_t.c.role == ROLE)
     if rows:
-        return await _with_selfext(s, sorted(rows, key=lambda a: a["id"])[0])
+        return await _with_read(s, await _with_selfext(s, sorted(rows, key=lambda a: a["id"])[0]))
     local_ids = {m["id"] for m in await _local_models(s)}
     if not local_ids:
         return None
@@ -134,7 +175,7 @@ async def _ensure_agent(s) -> dict | None:
     await s.commit()
     new_id = res.inserted_primary_key[0]
     log.info("pc_operator: created agent %s from template %s", new_id, tpl["id"])
-    return await _with_selfext(s, (await _rows(s, agents_t, agents_t.c.id == new_id))[0])
+    return await _with_read(s, await _with_selfext(s, (await _rows(s, agents_t, agents_t.c.id == new_id))[0]))
 
 
 def _ollama_root(provider: dict) -> str:
@@ -177,6 +218,7 @@ async def _view(svc) -> dict:
     return {"agent": {"id": agent["id"], "name": agent.get("name")}, "model": view,
             "candidates": [{"id": m["id"], "alias": m.get("alias"), "name": m.get("name")} for m in cands][:50],
             "total_control": all(perms.get(k) is True for k in TOTAL_CONTROL),
+            "read_everything": perms.get(READ_PERM) is True and TOOL_NAME in _tools(agent),
             "ready": reason is None, "reason": reason}
 
 
@@ -188,7 +230,7 @@ async def get_operator(request: Request):
 @router.put("/operator")
 async def put_operator(body: OperatorPut, request: Request):
     svc = request.app.state.svc
-    if body.model_id is None and body.total_control is None:
+    if body.model_id is None and body.total_control is None and body.read_everything is None:
         raise HTTPException(422, {"code": "BM_OPERATOR_EMPTY", "message": "нечего менять"})
     async with svc.db.session() as s:
         agent = await _ensure_agent(s)
@@ -208,8 +250,22 @@ async def put_operator(body: OperatorPut, request: Request):
                 else:
                     perms.pop(k, None)
             values["permissions"] = perms
-        await s.execute(sa.update(agents_t).where(agents_t.c.id == agent["id"]).values(**values))
-        await s.commit()
+        if values:
+            await s.execute(sa.update(agents_t).where(agents_t.c.id == agent["id"]).values(**values))
+            await s.commit()
+        if body.read_everything is not None:
+            agent = {**agent, **values}
+            await _set_read(s, agent if "permissions" in values else (await _rows(s, agents_t, agents_t.c.id == agent["id"]))[0],
+                            body.read_everything, prompt=True)
+            local_ids = {m["id"] for m in await _local_models(s)}
+            for other in await _rows(s, agents_t):
+                if other["id"] == agent["id"]:
+                    continue
+                if body.read_everything and other.get("model_id") in local_ids:
+                    await _set_read(s, other, True)
+                elif not body.read_everything and (_perms(other).get(READ_PERM) or TOOL_NAME in _tools(other)):
+                    await _set_read(s, other, False)
+            log.warning("operator_read_everything agent=%s value=%s", agent["id"], body.read_everything)
     if body.total_control is not None:
         log.warning("operator_total_control agent=%s value=%s", agent["id"], body.total_control)
     return await _view(svc)
@@ -242,7 +298,7 @@ async def _setup(svc) -> None:
     try:
         async with svc.db.session() as s:
             for agent in await _rows(s, agents_t, agents_t.c.role == ROLE):
-                await _with_selfext(s, agent)
+                await _with_read(s, await _with_selfext(s, agent))
     except Exception as exc:  # noqa: BLE001 - never block startup; GET /api/operator retries it
         log.warning("pc_operator: self-extension upgrade skipped: %s", type(exc).__name__)
 

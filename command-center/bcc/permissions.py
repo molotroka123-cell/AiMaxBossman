@@ -30,13 +30,15 @@ ALL_PERMISSIONS = (
     "media.generate",
     # obs_lite.record: records the owner's screen to a file - the same data exposure as computer.observe.
     "desktop.control",
+    # filesystem.read_any (features/tools_fs_read): READ-ONLY whole-PC reads, DENY list in fs_read_policy (owner 11.11).
+    "filesystem.read_any",
 )
 
 DANGEROUS = frozenset({
     "filesystem.write", "terminal.run", "git.write", "browser.control",
     "model.unload", "email.send", "deploy.preview", "deploy.production",
     "invoice.create", "settings.write", "channel.send",
-    "computer.observe", "computer.control", "cli.bypass", "desktop.control",
+    "computer.observe", "computer.control", "cli.bypass", "desktop.control", "filesystem.read_any",
 })
 
 
