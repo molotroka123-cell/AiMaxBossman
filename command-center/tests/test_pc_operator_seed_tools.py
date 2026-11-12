@@ -62,3 +62,18 @@ def test_seed_tools_pass_the_operator_code_policy():
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "pc_operator_seed_tools" / "install.py"), "--check"],
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_disk_free_skill_points_to_the_per_drive_tool_not_system_info():
+    """12.11 defect: «free on D:» answered 58 GB (C:) from pc.system_info. The committed skill must name disk_free."""
+    from bcc.v2.skill_library import SkillLibrary
+    root = ROOT / ".agents" / "skills"
+    lib = SkillLibrary([root], root)
+    ids = {s.id: s for s in lib.discover()}
+    assert not lib.errors
+    sk = ids["disk-free-space"]
+    text = (root / "disk-free-space" / "SKILL.md").read_text(encoding="utf-8")
+    assert "disk_free" in text and "tool.run_custom" in text
+    assert "pc.system_info" not in (sk.manifest.get("required_tools") if isinstance(getattr(sk, "manifest", None), dict) else [])
+    assert "pc.system_info" in text and "только системный" in text      # kept only as a warning
+    assert "get-hostname" in ids
