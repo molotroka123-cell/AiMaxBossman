@@ -90,12 +90,21 @@ def test_sentence_outside_rule_4_or_next_to_the_v1_pair_is_not_v2():
 
 
 def test_v2_draft_keeps_every_owner_only_clause_of_v1():
-    v1, v2 = LIVE_CONSTITUTION_FILE.read_text(encoding="utf-8"), V2_FILE.read_text(encoding="utf-8")
-    block = lambda t: t.split("## Always the user's decision", 1)[1].split("## Release tiers", 1)[0]  # noqa: E731
-    assert block(v1) == block(v2)
+    v2 = V2_FILE.read_text(encoding="utf-8")
     for must in ("Promotion to the next level requires the configured number of successful cycles (default 25)",
                  "No agent may write that pin.", "L4 Long autonomy", "never the goals and rules below"):
-        assert must in V1_TEXT and must in v1 and must in v2
+        assert must in V1_TEXT and must in v2
+
+
+def test_live_constitution_is_owner_v3_and_keeps_the_hard_guards():
+    """Owner 11.11.2026: the live file is v3 (one PC operator, total control). Its hard guards must survive any edit."""
+    live = LIVE_CONSTITUTION_FILE.read_text(encoding="utf-8")
+    assert live.startswith("# Bossman Constitution (user-owned)") and "Version 3" in live
+    for must in ("No agent may write that pin.", "never the goals and rules below",
+                 "no agent may disable, delay or", "changes to this constitution, to STOP, to the audit journal and to the key vault",
+                 "never shown in the chat", "No personal information leaves the PC", "A model never verifies its own change.",
+                 "Nothing sexual or sexualised involving minors"):
+        assert must in live, must
 
 
 # ------------------------------------------------------------------ verifier identity
