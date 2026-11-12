@@ -352,6 +352,11 @@ def _skill_text(sid: str, title: str, when: str, steps: str, tools: list[str], v
             f"## Шаги\n{steps.strip()}\n")
 
 
+class _Named:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
 def _held(agent: dict, tool: str) -> bool:
     import fnmatch
     from ..tools import _agent_tool_names
@@ -370,7 +375,10 @@ async def _t_skill_save(args: dict, ctx: ToolContext) -> ToolResult:
         tools = [t for t in re.split(r"[\s,]+", tools) if t]
     if not isinstance(tools, list) or not all(isinstance(t, str) for t in tools):
         return ToolResult(content="skill.save: required_tools — список имён инструментов", error=True)
-    tools = sorted(set(tools))
+    # Live 12.11 (task 2992): qwen3-coder passed API names (`terminal_run`, `pc_system_info`) and the save was parked
+    # as a «widening». API names map to canonical ones; an unknown name stays as written (fail-closed: not held →
+    # approval), because a tool can be registered later (MCP) and must not slip in unapproved.
+    tools = sorted({(REGISTRY.get(t) or REGISTRY.by_api_name(t) or _Named(t)).name for t in tools})
     if not title or not when or not steps:
         return ToolResult(content="skill.save: нужны title, when_to_use и steps", error=True)
     if len(steps.encode("utf-8")) > MAX_STEPS:
@@ -410,9 +418,44 @@ async def _t_skill_save(args: dict, ctx: ToolContext) -> ToolResult:
                                source="skill.save")
     except Exception:  # noqa: BLE001 - the file is the skill; the version row is bookkeeping
         pass
-    return ToolResult(content=f"навык «{sk.id}» сохранён, версия {con.version}. В следующий раз: skill.find → skill.read.",
+    return ToolResult(content=f"навык «{sk.id}» сохранён, версия {con.version}.",
                       one_line=f"skill.save: {sk.id} v{con.version}",
-                      data={"id": sk.id, "version": con.version, "fingerprint": sk.fingerprint[:16]})
+                      data={"id": sk.id, "version": con.version, "fingerprint": sk.fingerprint[:16],
+                            "required_tools": con.required_tools})
+
+
+#: Harness A/B 03.11 (engine): rules attached to the task text move a local model, a system block does not; live 12.11
+#: qwen3-coder never called skill.find by itself. So the operator's OWN matching skills/tools are attached to the task.
+HINT_MAX_STEPS_CHARS = 1500
+
+
+async def operator_task_hint(svc, agent: dict, prompt: str) -> str:
+    """Text appended to a pc-operator task: its own matching skills (top one with steps) and custom tools. "" if none."""
+    from ..tools import _agent_tool_names
+    if not isinstance(agent, dict) or agent.get("role") != OWNER_TAG or "skill.find" not in _agent_tool_names(agent):
+        return ""
+    lib = _lib(svc)
+
+    def collect() -> tuple[list[dict], str, list[dict]]:
+        hits = [h for h in find_skills(lib, prompt, limit=3) if h["own"]]
+        top = lib.by_id().get(hits[0]["id"]) if hits else None
+        words = set(_words(prompt))
+        tools = [t for t in _list_tools() if words & set(_words(f"{t['name']} {t['description']}"))]
+        return hits, (top.body if top else ""), tools[:5]
+
+    hits, steps, tools = await asyncio.to_thread(collect)
+    parts = []
+    if hits:
+        parts.append(f"[Твой сохранённый навык «{hits[0]['id']}» подходит к задаче — выполни по нему:]\n"
+                     + steps.strip()[:HINT_MAX_STEPS_CHARS])
+        if len(hits) > 1:
+            parts.append("[Другие твои навыки: " + ", ".join(h["id"] for h in hits[1:]) + " — skill.read]")
+    if tools:
+        parts.append("[Твои инструменты: " + "; ".join(f"{t['name']} — {t['description'][:120]}" for t in tools)
+                     + " — вызывай tool.run_custom]")
+    if not parts:
+        parts.append("[Сохранённого навыка нет. Решишь в несколько шагов и проверишь — сохрани skill.save.]")
+    return "\n\n" + "\n".join(parts)
 
 
 SPECS = [

@@ -10,6 +10,7 @@ import dataclasses
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import time
 from datetime import timedelta
@@ -1034,7 +1035,15 @@ class TaskEngine:
                 messages.append({"role": "system", "content": recalled})
             # Harness A/B 03.11: the same recalled rules as a system DATA block moved nothing (0/9 on 3 lessons), the
             # rules attached to the task itself did. Rule-only items; provider_governance cuts this span for cloud.
-            messages.append({"role": "user", "content": task["prompt"] + (("\n\n" + checklist) if checklist else "")})
+            skill_hint = ""
+            if agent.get("role") == "pc-operator":
+                try:     # owner 11.11 night: the PC operator reuses its own saved skills/tools (features/tools_selfext)
+                    from .features.tools_selfext import operator_task_hint
+                    skill_hint = await operator_task_hint(self.services, agent, str(task.get("prompt") or ""))
+                except Exception as exc:  # noqa: BLE001 - a hint is never a reason to fail the run
+                    logging.getLogger(__name__).warning("operator skill hint skipped: %s", type(exc).__name__)
+            messages.append({"role": "user", "content": task["prompt"] + (("\n\n" + checklist) if checklist else "")
+                             + skill_hint})
         step = int(checkpoint.get("step") or 0)
         # owner 29.10: «убрать лимиты» — max_steps <= 0 means no step cap; STOP, approvals and $ budget still end a run
         _ms = agent.get("max_steps")

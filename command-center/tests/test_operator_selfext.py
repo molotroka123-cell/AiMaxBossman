@@ -186,3 +186,38 @@ async def test_run_custom_is_not_auto_for_agents_without_operator_total_control(
     assert decide_effect(spec, {"name": "probe"}, {"role": "worker", "permissions": {}})[0] == "ask"
     create = REGISTRY.get("tool.create")
     assert decide_effect(create, {"name": "probe"}, {"role": "worker", "permissions": {}})[0] == "ask"
+
+
+async def test_skill_save_accepts_api_names_but_unheld_tools_still_need_approval(env, iso):
+    """Live 12.11 task 2992: `terminal_run` (API name) was parked as a widening. Negative control: unknown/unheld still are."""
+    agent, stack = await _operator(env)
+    ctx = _ctx(env, agent, stack["task"])
+    base = {"title": "t", "when_to_use": "w", "steps": "s"}
+    ok = await _call("skill.save", {**base, "id": "api-names", "required_tools": ["terminal_run", "skill_find"]}, ctx)
+    assert not ok.error, ok.content
+    assert ok.data["required_tools"] == ["skill.find", "terminal.run"]
+    for unheld in (["no_such_tool"], ["computer.observe"]):
+        bad = await _call("skill.save", {**base, "id": "api-unheld", "required_tools": unheld}, ctx)
+        assert bad.error and bad.data["approval_id"], unheld
+    assert not (iso / "api-unheld").exists()
+
+
+async def test_operator_task_gets_its_own_matching_skill_attached_others_do_not(env, iso):
+    agent, stack = await _operator(env)
+    ctx = _ctx(env, agent, stack["task"])
+    await _call("skill.save", {"id": "disk-free-space", "title": "Свободное место на дисках",
+                               "when_to_use": "свободное место на дисках", "steps": "1. Get-PSDrive -PSProvider FileSystem"},
+                ctx)
+    await _call("tool.create", {"name": "disk_free", "description": "свободное место на дисках в ГБ",
+                                "language": "python", "code": "print(1)\n"}, ctx)
+    hint = await se.operator_task_hint(env.svc, agent, "Сколько свободного места на дисках?")
+    assert "disk-free-space" in hint and "Get-PSDrive" in hint and "disk_free" in hint
+    # negative controls: unrelated task gets no skill; a non-operator agent gets nothing at all
+    other = await se.operator_task_hint(env.svc, agent, "Открой блокнот")
+    assert "disk-free-space" not in other and "skill.save" in other
+    assert await se.operator_task_hint(env.svc, {**agent, "role": "worker"}, "свободное место на дисках") == ""
+    # a foreign (repo) skill is never pushed into the operator's task
+    (iso / "shipped-disk").mkdir()
+    (iso / "shipped-disk" / "SKILL.md").write_text("---\nname: shipped-disk\ndescription: свободное место дисках\n---\nx\n",
+                                                   encoding="utf-8")
+    assert "shipped-disk" not in await se.operator_task_hint(env.svc, agent, "свободное место на дисках")
