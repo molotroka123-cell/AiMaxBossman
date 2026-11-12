@@ -6884,7 +6884,7 @@ def _register_pc_read_tools() -> None:
         ),
         ToolSpec(
             name="pc.system_info",
-            description="Безопасное чтение состояния ПК Windows (T0, без подтверждения): возвращает свободную и общую ОЗУ (ГБ), загрузку CPU%, свободное место на диске, GPU и загруженные модели Ollama.",
+            description="Безопасное чтение состояния ПК Windows (T0, без подтверждения): возвращает свободную и общую ОЗУ (ГБ), загрузку CPU%, свободное место ТОЛЬКО на системном диске C:, GPU и загруженные модели Ollama. Для D:, E: и других дисков не годится — tool.run_custom disk_free.",
             category="read",
             permission="computer.observe",
             source="computer",

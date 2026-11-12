@@ -44,6 +44,20 @@ SELFEXT_RULE = (f"{SELFEXT_MARK} Перед задачей вызови skill.fi
                 "Решил задачу в несколько шагов и проверил результат — сохрани skill.save (точные шаги). "
                 "Повторяешь одну и ту же команду/скрипт — tool.create, дальше tool.run_custom.")
 
+#: owner 12.11 «тренировка на управление компом»: measured on tools/pc_operator_bench.py — the model took the
+#: system-disk tool for D:, and PowerShell `$_` broke inside terminal.run's `sh -lc`. Executable lessons = the seed
+#: custom tools (tools/pc_operator_seed_tools, installed into the operator tool store) named here once.
+RECIPES_MARK = "[ПК-рецепты v1]"
+RECIPES_RULE = (f"{RECIPES_MARK} Факты о ПК бери из инструмента, не по памяти, и сверяй ответ с выводом. Готовые "
+                "инструменты (tool.run_custom name=<имя> args={...}): disk_free {drive} — место на ЛЮБОМ диске "
+                "(pc.system_info видит только C:; нет диска — так и скажи); find_files {root, ext или name}; "
+                "json_get {path, key}; count_lines {path, contains?, skip_header?}; proc_count {name}; "
+                "port_check {port}; git_info {repo}; active_window; list_windows {query?}; open_in_notepad {path}; "
+                "notepad_write {path, text}; close_window {title} — закрывает только окна с этой частью заголовка "
+                "(никогда Stop-Process -Name). Файлы меняй только в папке из задачи: один файл через "
+                "Set-Content / Rename-Item / Remove-Item -LiteralPath. Оболочка terminal.run — sh: PowerShell "
+                "пиши как powershell -NoProfile -Command '...' (одинарные кавычки). Страница в браузере: "
+                "browser.open url, заголовок — из снимка.")
 
 #: owner 11.11 «доступ ко всем файлам, read-only, чаты не читаем»: tool filesystem.read_any (features/tools_fs_read),
 #: DENY list in features/fs_read_policy. Default ON for the operator; PUT read_everything toggles it for the operator
@@ -115,7 +129,10 @@ async def _with_selfext(s, agent: dict) -> dict:
     if missing:
         values["tools"] = tools + missing
     if SELFEXT_MARK not in prompt:
-        values["system_prompt"] = (prompt.rstrip() + "\n\n" + SELFEXT_RULE).strip()
+        prompt = (prompt.rstrip() + "\n\n" + SELFEXT_RULE).strip()
+        values["system_prompt"] = prompt
+    if RECIPES_MARK not in prompt:
+        values["system_prompt"] = (prompt.rstrip() + "\n\n" + RECIPES_RULE).strip()
     if not values:
         return agent
     await s.execute(sa.update(agents_t).where(agents_t.c.id == agent["id"]).values(**values))

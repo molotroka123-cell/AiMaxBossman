@@ -90,3 +90,15 @@ async def test_warm_reports_an_error_instead_of_hanging(env):
     await make_stack(env.client)     # provider 127.0.0.1:8080 is not running in tests
     r = (await env.client.post("/api/operator/warm")).json()
     assert r["ok"] is False and r["loaded"] is False and r["error"]
+
+
+async def test_pc_recipes_rule_added_once_and_names_the_disk_tool(env):
+    """12.11 bench: the operator got D: free space from the system-disk tool; the recipe names disk_free once."""
+    await make_stack(env.client)
+    await env.client.get("/api/operator")
+    await env.client.get("/api/operator")
+    async with env.svc.db.session() as s:
+        row = (await s.execute(sa.select(agents_t).where(agents_t.c.role == po.ROLE))).fetchall()[0]._mapping
+    prompt = row["system_prompt"]
+    assert prompt.count(po.RECIPES_MARK) == 1 and prompt.count(po.SELFEXT_MARK) == 1
+    assert "disk_free" in prompt and "pc.system_info видит только C:" in prompt
