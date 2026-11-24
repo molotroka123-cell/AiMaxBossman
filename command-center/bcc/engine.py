@@ -19,6 +19,7 @@ import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 
 from . import run_provenance
+from .owner_stop import owner_stop_for as _owner_stop_for
 from .paid_money import ceil_micro as _ceil_micro
 from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, models as models_t,
@@ -158,6 +159,8 @@ class TaskEngine:
         # approvals/vault/менеджерам браузера и терминала (V2.1).
         self.services: Any = None
         self.executors: dict[str, Any] = {}
+        # Owner STOP (bcc.owner_stop): non-empty while claim() holds the queue; shown in health/status.
+        self.held_by_owner_stop: str = ""
 
     def register_executor(self, kind: str, handler: Any) -> None:
         """Host code only: deterministic jobs share admission, fencing and finalization."""
@@ -695,8 +698,24 @@ class TaskEngine:
                              f"{'да' if logged else 'нет'})"))
         return done
 
+    def owner_stop_reason(self) -> str:
+        """The owner's GLOBAL STOP (bcc.owner_stop, fail closed). '' = the engine may work."""
+        return _owner_stop_for(self.services).reason
+
     async def claim(self) -> int | None:
-        """Взять run с наименьшим priority/id и поставить аренду на lease_seconds."""
+        """Взять run с наименьшим priority/id и поставить аренду на lease_seconds.
+
+        Owner STOP (24.11, class-1): while the global STOP is set nothing is claimed — queued runs WAIT in the queue
+        (no model call, no tool, no cost) and start only after the owner clears STOP where it was set."""
+        held = self.owner_stop_reason()
+        if held:
+            if self.held_by_owner_stop != held:
+                self.held_by_owner_stop = held
+                await self.bus.emit("engine.held_by_owner_stop", reason=held)
+            return None
+        if self.held_by_owner_stop:
+            self.held_by_owner_stop = ""
+            await self.bus.emit("engine.resumed_after_owner_stop")
         now = utcnow()
         async with self.db.session() as s:
             res = await s.execute(
@@ -2808,7 +2827,19 @@ class TaskEngine:
 
     async def _check_interrupt(self, run_id: int, task_id: int, messages: list[dict],
                                step: int) -> bool:
-        """Stop/Pause проверяются между шагами — по актуальному статусу задачи в БД."""
+        """Stop/Pause проверяются между шагами — по актуальному статусу задачи в БД.
+
+        Owner STOP (24.11): the global STOP set while this run is between steps ends it exactly like the owner's Stop
+        (task «stopped», checkpoint kept) — no further model call, no further tool. Same outcome as `stop --all`."""
+        held = self.owner_stop_reason()
+        if held:
+            await self._set_task_status(task_id, "stopped")
+            await self._log(run_id, "warn", "run.stopped", f"остановлено: {held}")
+            await self._finish(run_id, task_id, "stopped",
+                               checkpoint={"messages": messages, "step": step, "note": "owner_stop"},
+                               sync_task=False)
+            await self.bus.emit("task.stopped", task_id=task_id, reason="owner_stop")
+            return True
         status = await self._task_status(task_id)
         if status == "stopped":
             await self._log(run_id, "warn", "run.stopped", "задача остановлена оператором")

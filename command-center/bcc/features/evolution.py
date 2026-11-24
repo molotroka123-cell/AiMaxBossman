@@ -109,7 +109,8 @@ def _view(svc) -> dict:
 def _owner_stop_active(svc) -> bool:
     """The owner's global STOP (`<data>/computer/STOP`): the loop halts on it, so a campaign must not be (re)started
     while it is set. Cleared where it was set (Computer Use resume)."""
-    return (Path(svc.settings.data_dir) / "computer" / "STOP").exists()
+    from ..owner_stop import owner_stop_for
+    return owner_stop_for(svc).active
 
 
 def _refuse_while_owner_stop(svc) -> None:

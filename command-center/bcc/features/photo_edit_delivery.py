@@ -120,8 +120,8 @@ async def register(svc: Any, job_id: str, *, task_id: int | None, thread_id: str
 
 
 def stop_active(svc: Any) -> bool:
-    data = Path(svc.settings.data_dir)
-    return (data / "computer" / "STOP").exists() or (data / "autonomy" / "STOP").exists()
+    from ..owner_stop import owner_stop_for
+    return owner_stop_for(svc, include_autonomy=True).active   # scope unchanged: global + autonomy, now fail closed
 
 
 def _job_reason(job: dict) -> str:

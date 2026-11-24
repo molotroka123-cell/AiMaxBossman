@@ -319,11 +319,9 @@ class DirectGenService:
             return False
 
     def _stop_active(self) -> bool:
-        try:
-            data_dir = Path(self.svc.settings.data_dir)
-        except Exception:  # noqa: BLE001
-            return False
-        return (data_dir / "computer" / "STOP").exists() or (data_dir / "autonomy" / "STOP").exists()
+        # bcc.owner_stop: same scope (global + autonomy STOP); an unreadable state now counts as STOP (was: False).
+        from ..owner_stop import owner_stop_for
+        return owner_stop_for(getattr(self, "svc", None), include_autonomy=True).active
 
     def _recover(self) -> None:
         try:

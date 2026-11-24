@@ -564,6 +564,14 @@ async def execute_tool(spec: ToolSpec, args: dict, ctx: ToolContext) -> ToolResu
     if malformed:
         return ToolResult(content=f"вызов {spec.name} отклонён: {malformed}",
                           one_line=f"{spec.name}: аргументы отклонены", error=True)
+    # Owner STOP (24.11, class-1): the last gate before ANY tool effect. Every agent tool call goes through here
+    # (engine._execute_tool_calls), so no tool can forget to check STOP. Fail closed (bcc.owner_stop).
+    from .owner_stop import owner_stop_for
+    held = owner_stop_for(getattr(ctx, "svc", None))
+    if held:
+        return ToolResult(content=f"вызов {spec.name} не выполнен: активен STOP владельца ({held.reason}). "
+                                  "Снимает STOP только владелец там, где его поставил.",
+                          one_line=f"{spec.name}: STOP владельца", error=True)
     denied = await context_denial(spec, args, ctx)
     if denied:
         return ToolResult(content=denied, one_line=f"{spec.name}: context denied", error=True)

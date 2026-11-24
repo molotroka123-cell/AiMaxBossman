@@ -366,13 +366,8 @@ class TerminalManager:
             if rp.name == "scratch":
                 candidates.append(rp.parent)
         candidates.append(cwd)
-        for base in candidates:
-            try:
-                if (base / "computer" / "STOP").exists():
-                    return True
-            except OSError:
-                continue
-        return False
+        from ..owner_stop import owner_stop
+        return any(owner_stop(base).active for base in candidates)   # fail closed per candidate (bcc.owner_stop)
 
     async def start(self, cmd: str, cwd: Path, policy: TerminalPolicy,
                     *, approved: bool = False, network: bool = False,
