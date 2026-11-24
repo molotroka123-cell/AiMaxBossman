@@ -38,7 +38,24 @@ URL → проверка id → [SponsorBlock k-анонимно (4 символ
 
 CLI: `python tools/youtube_learning_fetch.py URL [URL …] --out D:\Bossman\learning\yt [--lang ru] [--no-signals]`
 
-## Доказательства (это окружение: Linux-песочница, не ПК владельца)
+## Ступень 2 (24.11, вечер): обучение доступно агенту через пульт/чат
+
+- Оркестрация перенесена из `tools/` в продукт: `command-center/bcc/learning_video/ingest.py` — одна для агента и CLI
+  (одно дерево, без второго конвейера). URL канонизируется (`watch?v=ID`, трекинг-параметры отброшены), дубли схлопываются;
+  поддержаны `shorts/`, `live/`, `embed/`.
+- Новые инструменты агента (`command-center/bcc/features/tools_learning_video.py`, автообнаружение фич):
+  - `learning.youtube` — право `browser.read`: выдано агенту → AUTO, иначе ASK (подтверждение владельцем); глобальный STOP
+    проверяется fail-closed до любого запуска; ≤10 ссылок; результат помечен как внешние данные; 0 субтитров = ошибка, не успех.
+  - `learning.youtube_status` — только чтение: число claims по видео, состояние предохранителя.
+- Тесты через настоящее приложение (`env`): `command-center/tests/test_tools_learning_video.py` (7) — регистрация,
+  политика ASK/AUTO, сквозной прогон с вырезкой рекламы, бот-стена = ошибка, STOP блокирует до запуска, мусорный ввод без
+  побочных эффектов, нет yt-dlp = BLOCKED.
+- Живой прогон через инструмент приложения с настоящим yt-dlp: `загрузка NETWORK · приоритет INSUFFICIENT_EVIDENCE`,
+  результат помечен ошибкой. Субтитров YouTube в песочнице нет — живой PASS только на ПК владельца.
+- Широкий прогон тестов каталога инструментов/прав: 599 passed; 18 красных — `telegram_calls/test_api_calls.py`
+  (нет процесса звонков в песочнице, 503) — **те же 18 красные на базе** без этой ветки.
+
+## Доказательства ступени 1 (это окружение: Linux-песочница, не ПК владельца)
 
 - Новые тесты: `command-center/tests/test_learning_video_stream_signals.py` (36), `tests/test_youtube_learning_fetch.py` (4) — PASS.
   Позитивный контроль: без SponsorBlock рекламная фраза **попадает** в claims, с ним — нет.
@@ -62,6 +79,12 @@ CLI: `python tools/youtube_learning_fetch.py URL [URL …] --out D:\Bossman\lear
   `test_telegram_settings.py::test_persona_learning_profiles_and_export`.
 
 ## Как проверить на ПК владельца
+
+Через пульт/чат (это и есть приёмка по правилу 23.10): написать агенту
+«выучи урок https://youtu.be/<видео с рекламной вставкой>» → подтвердить ASK → ждать вердикт `OK`, `реклама STRIPPED`;
+затем «статус обучения YouTube» (`learning.youtube_status`). Квитанцию (id задачи, вердикты, без текста) — сюда.
+
+Через CLI:
 
 ```powershell
 python tools\youtube_learning_fetch.py https://youtu.be/<урок_с_рекламной_вставкой> --out D:\Bossman\learning\yt-proof
