@@ -54,7 +54,11 @@ claim → вызов модели → инструмент ВЫПОЛНЕН → 
 - `test_owner_stop_engine_gate.py` — 10 PASS: модуль (нет/есть/нечитаемый/битые настройки/зона autonomy), шлюз
   инструментов с негативным контролем, задача ждёт под STOP и выполняется после снятия, STOP посреди работы — второй
   эффект и второй вызов модели не происходят, негативный контроль без STOP, autonomy-STOP не морозит задачи владельца.
-- Широкий прогон — см. раздел ниже.
+- Широкий прогон command-center (`-k stop/engine/tool/terminal/coding/direct_gen/evolution/photo/call/computer/
+  control_plane/owner/autonomy/v21/approval`): **3546 passed, 17 failed**. Те же 16 красные на базе `75f7b76`
+  (sidecar coding, approval replay, telegram store, motion UI, perf import и др.) — не от этой правки. 17-й,
+  `test_owner_safe_runtime_drill_end_to_end` (включая его шаг STOP), падал только из-за грязного дерева
+  (`build_sha=None`) и проходит на закоммиченном SHA. **Новых красных: 0.**
 
 ## Не сделано / не проверено
 
