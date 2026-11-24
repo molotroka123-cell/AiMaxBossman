@@ -254,11 +254,14 @@ def global_stop_active(svc: Any, *, fail_closed: bool = False) -> bool:
     ``fail_closed=True`` (the dial path): when the state cannot be read the answer is «STOP is active», so nothing dials. The
     watcher and the status keep the default (False): an unreadable state must not hang up calls every five seconds."""
     try:
-        from . import tools_computer
         state = getattr(svc, "_computer_state", None)
         if state is not None and state.stopped():
             return True
-        return (Path(svc.settings.data_dir) / "computer" / tools_computer.STOP_FILE).is_file()
+        from ..owner_stop import owner_stop
+        st = owner_stop(svc.settings.data_dir)
+        if st.active and not fail_closed and all(s.endswith(":unreadable") for s in st.sources):
+            return False        # watcher/status: an unreadable state must not hang up calls every five seconds
+        return st.active
     except Exception:  # noqa: BLE001
         return bool(fail_closed)
 

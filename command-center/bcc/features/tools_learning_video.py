@@ -30,11 +30,8 @@ def store_dir(svc) -> Path:
 
 
 def _stop_active(svc) -> bool:
-    try:
-        from .telegram_calls import global_stop_active
-        return global_stop_active(svc, fail_closed=True)
-    except Exception:  # noqa: BLE001 - unreadable STOP state = STOP (fail closed)
-        return True
+    from ..owner_stop import owner_stop_for
+    return owner_stop_for(svc).active
 
 
 def _summary(rep: dict) -> str:

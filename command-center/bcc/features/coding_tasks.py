@@ -772,13 +772,8 @@ def _stop_active(data_dir: str | os.PathLike | None = None, repo: Path | None = 
         candidates.append(Path(repo))
         if Path(repo).parent.name == "qwen-operator":
             candidates.append(Path(repo).parent.parent)
-    for base in candidates:
-        try:
-            if (base / "computer" / "STOP").exists():
-                return True
-        except OSError:
-            continue
-    return False
+    from ..owner_stop import owner_stop
+    return any(owner_stop(base).active for base in candidates)   # fail closed per candidate (bcc.owner_stop)
 
 
 def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None,
