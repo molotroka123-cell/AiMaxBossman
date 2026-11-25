@@ -2,7 +2,7 @@
 
 Cicada reads macOS system audio; on the owner's Windows PC the same thing is WASAPI loopback of the default
 output device (whatever Zoom/Telegram/Meet/YouTube plays). Optional dependency `PyAudioWPatch`
-(pip install PyAudioWPatch). Missing -> a precise BLOCKED status, never a crash. Nothing is written to disk.
+(extra: bossman-command-center[live-interp], i.e. PyAudioWPatch). Missing -> a precise BLOCKED status, never a crash. Nothing is written to disk.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def capture_status() -> dict:
     try:
         import pyaudiowpatch  # noqa: F401
     except ImportError:
-        return {"status": "BLOCKED", "reason": "pip install PyAudioWPatch (system-audio capture is not installed)"}
+        return {"status": "BLOCKED", "reason": "pip install bossman-command-center[live-interp] (PyAudioWPatch: system-audio capture is not installed)"}
     return {"status": "READY", "backend": "wasapi-loopback"}
 
 
