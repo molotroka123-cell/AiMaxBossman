@@ -241,3 +241,162 @@ async def test_bad_input_refused(env):
     assert (await env.client.post("/api/live-interp/feed", content=b"\x00")).status_code == 400
     assert (await env.client.post("/api/live-interp/feed", content=bytes(feat.MAX_FEED_BYTES + 2))).status_code == 400
     assert (await env.client.get("/api/live-interp/export?fmt=exe")).status_code == 400
+
+
+# ---------------------------------------------------------------- stage 2: owner's voice into the call
+
+from bcc.live_interp.speak import SpeakError, Speaker  # noqa: E402
+
+
+def _speaker(asr, **kw):
+    spoken = []
+    kw.setdefault("tts", lambda text, lang, stopped: (b"\x01\x00" * 1600, 16000))
+    kw.setdefault("play", lambda pcm, rate, stopped: spoken.append((len(pcm), rate)) or "CABLE Input (VB-Audio)")
+    kw.setdefault("guard", lambda text: True)
+    return Speaker(target=kw.pop("target", "en"), asr=asr, router=Router([Upper()]), **kw), spoken
+
+
+def test_speak_ru_to_en_uses_whisper_translate_and_plays_into_virtual_mic():
+    asr = ScriptedASR([{"text": "привет команда", "language": "ru"}], english=["hello team"])
+    sp, spoken = _speaker(asr)
+    sp.begin()
+    sp.feed(tone(1200))
+    r = sp.finish()
+    assert r["spoken"] and r["translation"] == "hello team" and r["quality"] == "direct"
+    assert r["device"].startswith("CABLE") and spoken == [(3200, 16000)] and asr.calls == ["transcribe", "translate"]
+
+
+def test_speak_en_to_ru_uses_marian_router():
+    sp, _ = _speaker(ScriptedASR([{"text": "hello", "language": "en"}]), target="ru")
+    sp.begin()
+    sp.feed(tone(800))
+    assert sp.finish()["translation"] == "RU:hello"
+
+
+def test_speak_refusals_never_put_audio_into_the_call():
+    cases = [
+        (dict(guard=lambda t: False), "EGRESS_GUARD"),                    # a secret said aloud stays out of the call
+        (dict(play=None), "NO_OUTPUT_DEVICE"),
+        (dict(tts=lambda *a: (_ for _ in ()).throw(RuntimeError("VOICE_NOT_INSTALLED_EN"))), "TTS_FAILED:VOICE_NOT_INSTALLED_EN"),
+    ]
+    for kw, reason in cases:
+        sp, spoken = _speaker(ScriptedASR([{"text": "привет", "language": "ru"}], english=["hi"]), **kw)
+        sp.begin()
+        sp.feed(tone(800))
+        r = sp.finish()
+        assert not r["spoken"] and r["reason"] == reason and spoken == []
+
+
+def test_speak_unsupported_pair_is_not_invented():
+    sp, spoken = _speaker(ScriptedASR([{"text": "hola", "language": "es"}]), target="ru")
+    sp.router = Router([])
+    sp.begin()
+    sp.feed(tone(800))
+    r = sp.finish()
+    assert r["reason"] == "UNSUPPORTED_PAIR" and spoken == []
+
+
+def test_speak_stop_short_and_cap():
+    flag = {"stop": True}
+    sp, _ = _speaker(ScriptedASR([]), stop_check=lambda: flag["stop"])
+    with pytest.raises(SpeakError, match="OWNER_STOP"):
+        sp.begin()
+    flag["stop"] = False
+    sp.begin()
+    sp.feed(tone(100))
+    assert sp.finish()["reason"] == "TOO_SHORT"
+    sp.begin()
+    assert sp.feed(tone(29000)) is True and sp.feed(tone(2000)) is False and not sp.recording   # 30 s cap
+    with pytest.raises(SpeakError, match="UNSUPPORTED_TARGET"):
+        _speaker(ScriptedASR([]), target="de")[0].begin()
+
+
+def test_speak_stop_pressed_during_playback_is_reported():
+    flag = {"stop": False}
+
+    def play(pcm, rate, stopped):
+        flag["stop"] = True
+        return "CABLE Input"
+    sp, _ = _speaker(ScriptedASR([{"text": "привет", "language": "ru"}], english=["hi"]), play=play,
+                     stop_check=lambda: flag["stop"])
+    sp.begin()
+    sp.feed(tone(800))
+    r = sp.finish()
+    assert r["spoken"] is False and r["reason"] == "OWNER_STOP"
+
+
+def test_piper_english_voice_only_when_explicitly_allowed(tmp_path, monkeypatch):
+    import json as _json
+    import wave as _wave
+    from bcc.oss import piper
+    exe, model = tmp_path / "piper.exe", tmp_path / "en_US-x.onnx"
+    exe.write_bytes(b"x")
+    model.write_bytes(b"x")
+    (tmp_path / "en_US-x.onnx.json").write_text(_json.dumps({"language": {"code": "en_US"}}), encoding="utf-8")
+
+    def run(argv, *, stdin, stopped, timeout):
+        out = argv[argv.index("--output_file") + 1]
+        with _wave.open(out, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(22050)
+            w.writeframes(b"\x00\x00" * 2205)
+    monkeypatch.setattr(piper, "_run", run)
+    with pytest.raises(piper.PiperError, match="VOICE_LANGUAGE_UNSUPPORTED"):     # default unchanged: Russian only
+        piper.synthesize_pcm("Hello", piper_executable=exe, model_path=model)
+    pcm, rate = piper.synthesize_pcm("Hello", piper_executable=exe, model_path=model, allowed_languages=("en_US",))
+    assert rate == 22050 and len(pcm) == 4410
+
+
+async def test_speak_routes_end_to_end(env):
+    played = []
+    env.svc._live_interp_asr = ScriptedASR([{"text": "привет", "language": "ru"}], english=["hello"])
+    env.svc._live_interp_speak = {"tts": lambda t, l, s: (b"\x00\x00" * 160, 16000), "guard": lambda t: True,
+                                  "play": lambda pcm, rate, s: played.append(rate) or "CABLE Input"}
+    assert (await env.client.post("/api/live-interp/speak/stop")).status_code == 404
+    r = await env.client.post("/api/live-interp/speak/start", json={"target": "en", "capture": False})
+    assert r.status_code == 200, r.text
+    assert (await env.client.post("/api/live-interp/speak/start", json={"capture": False})).status_code == 409
+    assert (await env.client.post("/api/live-interp/speak/feed", content=tone(1000))).json() == {"recording": True}
+    res = (await env.client.post("/api/live-interp/speak/stop")).json()
+    assert res["spoken"] and res["translation"] == "hello" and played == [16000]
+    st = (await env.client.get("/api/live-interp/status")).json()
+    assert st["speak"]["last"]["heard_chars"] == 6 and "heard" not in st["speak"]["last"]
+    ev = (await env.client.get("/api/live-interp/events")).json()["events"]
+    assert ev[-1]["type"] == "spoken" and "text" not in ev[-1]          # bus/events carry no words of the owner
+    assert (await env.client.post("/api/live-interp/speak/start", json={"target": "xx", "capture": False})).status_code == 400
+
+
+async def test_speak_refused_under_owner_stop(env):
+    env.svc._live_interp_asr = ScriptedASR([])
+    stop = global_stop_path(env.svc.settings.data_dir)
+    stop.parent.mkdir(parents=True, exist_ok=True)
+    stop.write_text("x")
+    try:
+        assert (await env.client.post("/api/live-interp/speak/start", json={"capture": False})).status_code == 409
+    finally:
+        stop.unlink()
+
+
+def test_ui_pure_functions_in_node(tmp_path):
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    ui = Path(__file__).resolve().parents[1] / "ui" / "pages" / "live_interp.js"
+    script = tmp_path / "t.mjs"
+    script.write_text(f"""
+import * as m from {str(ui.as_uri())!r};
+const ok = (c, msg) => {{ if (!c) {{ console.error(msg); process.exit(1); }} }};
+let s = m.subtitleLine({{text:'hello', translation:'привет', language:'en', quality:'direct'}});
+ok(s.main === 'привет' && s.orig === '[en] hello' && s.note === '', 'direct');
+s = m.subtitleLine({{text:'hola', translation:'hola', language:'es', quality:'unsupported'}});
+ok(s.main === 'hola' && s.orig === '' && s.note.includes('оригинал'), 'unsupported never invents');
+ok(m.speakWords({{spoken:false, reason:'EGRESS_GUARD'}}).includes('секрет'), 'guard words');
+ok(m.speakWords({{spoken:true, translation:'Hi', latency_ms:900}}) === 'Озвучено: «Hi» · 900 мс', 'spoken');
+ok(m.readinessWords({{capture:{{status:'BLOCKED', reason:'x'}}, speak:{{output:{{status:'READY', output_device:'CABLE Input'}}}}}})[2].includes('CABLE'), 'ready');
+console.log('NODE_OK');
+""", encoding="utf-8")
+    r = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0 and "NODE_OK" in r.stdout, r.stderr
