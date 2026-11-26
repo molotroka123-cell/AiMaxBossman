@@ -103,11 +103,16 @@ def _recogniser(model_path: Path):
 
 
 def transcribe_wav(audio: bytes, *, language: str = "ru",
-                   stopped: Callable[[], bool] = lambda: False, beam_size: int = 5) -> dict:
-    """PCM16 WAV -> {text, confidence, needs_confirm, ...}. Raises SpeechError."""
+                   stopped: Callable[[], bool] = lambda: False, beam_size: int = 5,
+                   task: str = "transcribe") -> dict:
+    """PCM16 WAV -> {text, confidence, needs_confirm, ...}. Raises SpeechError.
+
+    task="translate" is Whisper's own any-language -> English (used by bcc.live_interp)."""
+    if task not in ("transcribe", "translate"):
+        raise SpeechError("VOICE_BAD_TASK")
     started = time.perf_counter()
     try:
-        result = _transcribe_wav(audio, language=language, stopped=stopped, beam_size=beam_size)
+        result = _transcribe_wav(audio, language=language, stopped=stopped, beam_size=beam_size, task=task)
     except SpeechError as exc:
         # A deliberate STOP or a busy engine says nothing about how fast STT is.
         if str(exc) not in {"VOICE_STOPPED", "VOICE_BUSY", "VOICE_NO_SPEECH"}:
@@ -118,7 +123,8 @@ def transcribe_wav(audio: bytes, *, language: str = "ru",
 
 
 def _transcribe_wav(audio: bytes, *, language: str = "ru",
-                    stopped: Callable[[], bool] = lambda: False, beam_size: int = 5) -> dict:
+                    stopped: Callable[[], bool] = lambda: False, beam_size: int = 5,
+                    task: str = "transcribe") -> dict:
     try:
         clean, duration = whisper._validated_wav(audio)
         model_path = whisper._model_directory()
@@ -142,7 +148,7 @@ def _transcribe_wav(audio: bytes, *, language: str = "ru",
     try:
         segments, info = model.transcribe(
             io.BytesIO(clean), language=voice_language.whisper_language(language), beam_size=beam_size, vad_filter=True,
-            condition_on_previous_text=False)
+            condition_on_previous_text=False, task=task)
         rows = []
         for segment in segments:
             if stopped():

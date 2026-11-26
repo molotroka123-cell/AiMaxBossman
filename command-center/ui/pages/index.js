@@ -138,6 +138,8 @@ export const FEATURE_PAGES = [
     () => import('./autonomy.js'), (m) => m.default),
   lazyPage({ id: 'telegram_calls', title: 'Telegram-звонки', icon: 'activity', nav: 'more', section: 'apps' },
     () => import('./telegram_calls.js'), (m) => m.default),
+  lazyPage({ id: 'live-interp', title: 'Переводчик звонков', icon: 'activity', nav: 'more', section: 'apps' },
+    () => import('./live_interp.js'), (m) => m.default),
 ];
 
 /* Предзагрузка остальных страниц в простое: по одной, чтобы не отбирать сеть и

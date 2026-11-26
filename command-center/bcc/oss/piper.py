@@ -136,7 +136,7 @@ def synthesize_ogg(
 
 def synthesize_pcm(
     text: str, *, piper_executable: str | Path, model_path: str | Path,
-    stopped: Callable[[], bool] = lambda: False,
+    stopped: Callable[[], bool] = lambda: False, allowed_languages: tuple[str, ...] = ("ru_RU",),
 ) -> tuple[bytes, int]:
     """Verified mono PCM16 and its sample rate for one short utterance (no ffmpeg, no Opus): the live-call sibling of
     ``synthesize_ogg``. Same local-only checks, the same STOP-polling runner, nothing is written outside a temp dir.
@@ -150,7 +150,9 @@ def synthesize_pcm(
     try:
         details = json.loads(config.read_text(encoding="utf-8"))
         language = details.get("language", {})
-        if not isinstance(language, dict) or language.get("code") != "ru_RU":
+        # Default unchanged: Russian only. A caller that deliberately speaks another language (the live interpreter's
+        # English voice) names it explicitly; a model whose config says something else is still refused.
+        if not isinstance(language, dict) or language.get("code") not in allowed_languages:
             raise PiperError("VOICE_LANGUAGE_UNSUPPORTED")
     except (OSError, UnicodeError, json.JSONDecodeError, AttributeError) as exc:
         raise PiperError("VOICE_MODEL_INVALID") from exc
